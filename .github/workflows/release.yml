@@ -1,0 +1,154 @@
+# Release: type check, unit tests and VSIX build, then create a tag for the version in package.json (e.g. v0.3.0)
+# and a GitHub release with the VSIX attached (release notes are generated).
+# Run it by hand from the Actions tab (Run workflow) or the API. Bump "version" in package.json first.
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Branch or commit to release
+        default: main
+        required: true
+      prerelease:
+        description: Mark as a pre-release
+        type: boolean
+        default: true
+      publish:
+        description: Also publish to the VS Code Marketplace and Open VSX (see CONTRIBUTING.md for the credentials)
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      sha: ${{ steps.version.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Version and tag
+        id: version
+        run: |
+          version=$(node -p "require('./package.json').version")
+          tag="v$version"
+          if git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null; then
+            echo "::error::Tag $tag already exists. Bump the version in package.json and run again."
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - run: npm ci
+
+      - run: npm run typecheck
+
+      # Unit tests use the askpass / editor helpers in dist/, so build first
+      - run: npm run build
+
+      - run: npm test
+
+      - name: Build the VSIX
+        run: npm run package
+
+      - name: Create the tag and release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+          SHA: ${{ steps.version.outputs.sha }}
+          VSIX: twigline-${{ steps.version.outputs.version }}.vsix
+          PRERELEASE: ${{ inputs.prerelease }}
+        run: |
+          flags=()
+          if [ "$PRERELEASE" = "true" ]; then flags+=(--prerelease); fi
+          gh release create "$TAG" "$VSIX" --target "$SHA" --title "$TAG" --generate-notes "${flags[@]}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vsix
+          path: twigline-${{ steps.version.outputs.version }}.vsix
+          if-no-files-found: error
+
+  # Publishing uses Microsoft Entra ID instead of a personal access token (Azure DevOps retires global PATs on 2026-12-01).
+  # The federated credential of the Entra ID identity is bound to the GitHub environment "marketplace". See CONTRIBUTING.md.
+  publish-marketplace:
+    if: ${{ inputs.publish }}
+    needs: release
+    runs-on: ubuntu-latest
+    environment: marketplace
+    permissions:
+      contents: read
+      id-token: write # lets azure/login exchange the GitHub OIDC token for an Entra ID token
+    env:
+      VSIX: twigline-${{ needs.release.outputs.version }}.vsix
+      PRERELEASE: ${{ inputs.prerelease }}
+    steps:
+      # Only for the vsce pinned in package-lock.json. The VSIX comes from the artifact built in the release job.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release.outputs.sha }}
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # This job can publish to the Marketplace, so dependency lifecycle scripts are not run (vsce needs none)
+      - run: npm ci --ignore-scripts
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: vsix
+
+      - name: Log in to Azure
+        uses: azure/login@v3
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          # The Marketplace token is tenant-scoped, so there is no subscription to sign in to
+          allow-no-subscriptions: true
+
+      - name: Publish to the Marketplace
+        run: |
+          flags=()
+          if [ "$PRERELEASE" = "true" ]; then flags+=(--pre-release); fi
+          npx vsce publish --azure-credential --packagePath "$VSIX" "${flags[@]}"
+
+  # Open VSX is the registry Cursor installs from. The namespace must match "publisher" in package.json.
+  publish-openvsx:
+    if: ${{ inputs.publish }}
+    needs: release
+    runs-on: ubuntu-latest
+    env:
+      OVSX_PAT: ${{ secrets.OVSX_PAT }}
+      VSIX: twigline-${{ needs.release.outputs.version }}.vsix
+      PRERELEASE: ${{ inputs.prerelease }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: vsix
+
+      - name: Publish to Open VSX
+        run: |
+          flags=()
+          if [ "$PRERELEASE" = "true" ]; then flags+=(--pre-release); fi
+          npx ovsx publish "$VSIX" --pat "$OVSX_PAT" "${flags[@]}"

@@ -1,0 +1,1878 @@
+/* Colors follow VS Code's theme variables (--vscode-*) */
+:root {
+  --twigline-bg: var(--vscode-editor-background, #1e1e1e);
+  --twigline-fg: var(--vscode-foreground, #cccccc);
+  --twigline-muted: var(--vscode-descriptionForeground, #9d9d9d);
+  --twigline-border: var(--vscode-panel-border, var(--vscode-widget-border, rgba(128, 128, 128, 0.35)));
+  --twigline-side-bg: var(--vscode-sideBar-background, var(--twigline-bg));
+  --twigline-toolbar-bg: var(--vscode-editorGroupHeader-tabsBackground, var(--twigline-side-bg));
+  --twigline-sel: var(--vscode-list-activeSelectionBackground, #04395e);
+  --twigline-sel-fg: var(--vscode-list-activeSelectionForeground, inherit);
+  --twigline-sel-inactive: var(--vscode-list-inactiveSelectionBackground, rgba(128, 128, 128, 0.25));
+  --twigline-hover: var(--vscode-list-hoverBackground, rgba(128, 128, 128, 0.12));
+  --twigline-focus: var(--vscode-focusBorder, #007fd4);
+  --twigline-add-bg: var(--vscode-diffEditor-insertedLineBackground, rgba(155, 185, 85, 0.2));
+  --twigline-del-bg: var(--vscode-diffEditor-removedLineBackground, rgba(255, 0, 0, 0.2));
+  --twigline-add-word: var(--vscode-diffEditor-insertedTextBackground, rgba(155, 185, 85, 0.35));
+  --twigline-del-word: var(--vscode-diffEditor-removedTextBackground, rgba(255, 0, 0, 0.35));
+  --twigline-add-fg: var(--vscode-gitDecoration-addedResourceForeground, #81b88b);
+  --twigline-mod-fg: var(--vscode-gitDecoration-modifiedResourceForeground, #e2c08d);
+  --twigline-del-fg: var(--vscode-gitDecoration-deletedResourceForeground, #c74e39);
+  --twigline-untracked-fg: var(--vscode-gitDecoration-untrackedResourceForeground, #73c991);
+  --twigline-conflict-fg: var(--vscode-gitDecoration-conflictingResourceForeground, #e4676b);
+  --twigline-renamed-fg: var(--vscode-gitDecoration-renamedResourceForeground, #73c991);
+  --twigline-badge-bg: var(--vscode-badge-background, #4d4d4d);
+  --twigline-badge-fg: var(--vscode-badge-foreground, #ffffff);
+  --twigline-btn-bg: var(--vscode-button-background, #0e639c);
+  --twigline-btn-fg: var(--vscode-button-foreground, #ffffff);
+  --twigline-btn-hover: var(--vscode-button-hoverBackground, #1177bb);
+  --twigline-btn2-bg: var(--vscode-button-secondaryBackground, #3a3d41);
+  --twigline-btn2-fg: var(--vscode-button-secondaryForeground, #ffffff);
+  --twigline-btn2-hover: var(--vscode-button-secondaryHoverBackground, #45494e);
+  --twigline-input-bg: var(--vscode-input-background, #3c3c3c);
+  --twigline-input-fg: var(--vscode-input-foreground, #cccccc);
+  --twigline-input-border: var(--vscode-input-border, transparent);
+  --twigline-error: var(--vscode-errorForeground, #f48771);
+  --twigline-warn-bg: var(--vscode-inputValidation-warningBackground, #352a05);
+  --twigline-warn-border: var(--vscode-inputValidation-warningBorder, #b89500);
+  --twigline-danger-bg: var(--vscode-inputValidation-errorBackground, #5a1d1d);
+  --twigline-danger-border: var(--vscode-inputValidation-errorBorder, #be1100);
+  --twigline-tag: var(--vscode-charts-yellow, #cca700);
+  --twigline-local: var(--vscode-charts-blue, #3794ff);
+  --twigline-remote: var(--vscode-charts-purple, #b180d7);
+  --twigline-stash: var(--vscode-charts-orange, #d18616);
+  /* Pull request states (as on GitHub: green for under review, gray for draft, purple for merged, red for closed) */
+  --twigline-pr-open: var(--vscode-charts-green, #388a34);
+  --twigline-pr-draft: var(--vscode-descriptionForeground, #9d9d9d);
+  --twigline-pr-merged: var(--vscode-charts-purple, #b180d7);
+  --twigline-pr-closed: var(--vscode-charts-red, #f14c4c);
+  --twigline-mono: var(--vscode-editor-font-family, 'SF Mono', Monaco, Menlo, Consolas, 'Courier New', monospace);
+  --twigline-mono-size: var(--vscode-editor-font-size, 12px);
+  --twigline-shadow: var(--vscode-widget-shadow, rgba(0, 0, 0, 0.36));
+}
+
+* {
+  box-sizing: border-box;
+}
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+body {
+  background: var(--twigline-bg);
+  color: var(--twigline-fg);
+  font-family: var(--vscode-font-family, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Yu Gothic UI', Meiryo, sans-serif);
+  font-size: var(--vscode-font-size, 13px);
+  line-height: 1.4;
+}
+body.resizing-row,
+body.resizing-row * {
+  cursor: col-resize !important;
+  user-select: none !important;
+}
+body.resizing-column,
+body.resizing-column * {
+  cursor: row-resize !important;
+  user-select: none !important;
+}
+.mono {
+  font-family: var(--twigline-mono);
+  font-size: var(--twigline-mono-size);
+}
+.dim {
+  color: var(--twigline-muted);
+}
+.pre {
+  white-space: pre-wrap;
+}
+.block {
+  display: block;
+}
+.spacer {
+  flex: 1;
+}
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.row.wrap {
+  flex-wrap: wrap;
+}
+.ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+:focus-visible {
+  outline: 1px solid var(--twigline-focus);
+  outline-offset: -1px;
+}
+
+/* ---------------------------------------------------------------- Components */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid var(--vscode-button-border, transparent);
+  background: var(--twigline-btn2-bg);
+  color: var(--twigline-btn2-fg);
+  padding: 4px 11px;
+  border-radius: 2px;
+  font: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.btn:hover:not(:disabled) {
+  background: var(--twigline-btn2-hover);
+}
+.btn.primary {
+  background: var(--twigline-btn-bg);
+  color: var(--twigline-btn-fg);
+}
+.btn.primary:hover:not(:disabled) {
+  background: var(--twigline-btn-hover);
+}
+.btn.danger {
+  background: var(--vscode-statusBarItem-errorBackground, #c72e0f);
+  color: var(--vscode-statusBarItem-errorForeground, #fff);
+}
+.btn.small {
+  padding: 1px 7px;
+  font-size: 12px;
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.btn .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--twigline-btn-bg);
+  display: inline-block;
+}
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  padding: 0;
+}
+.icon-btn:hover {
+  background: var(--vscode-toolbar-hoverBackground, rgba(90, 93, 94, 0.31));
+}
+.icon-btn.on {
+  background: var(--vscode-inputOption-activeBackground, rgba(0, 127, 212, 0.4));
+}
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.check.disabled {
+  opacity: 0.5;
+}
+.check input,
+.radio input {
+  margin: 0;
+  accent-color: var(--twigline-btn-bg);
+}
+.radio {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  cursor: pointer;
+  padding: 2px 0;
+}
+.radio.block {
+  padding: 4px 0;
+}
+.radios {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.select,
+.input {
+  background: var(--twigline-input-bg);
+  color: var(--twigline-input-fg);
+  border: 1px solid var(--twigline-input-border);
+  border-radius: 2px;
+  padding: 3px 6px;
+  font: inherit;
+  min-width: 0;
+}
+.select {
+  background: var(--vscode-dropdown-background, var(--twigline-input-bg));
+  color: var(--vscode-dropdown-foreground, var(--twigline-input-fg));
+  border-color: var(--vscode-dropdown-border, var(--twigline-input-border));
+}
+.input:focus,
+.select:focus {
+  outline: 1px solid var(--twigline-focus);
+  outline-offset: -1px;
+}
+.input::placeholder {
+  color: var(--vscode-input-placeholderForeground, #8b8b8b);
+}
+.textarea {
+  width: 100%;
+  resize: vertical;
+  font-family: var(--twigline-mono);
+  font-size: var(--twigline-mono-size);
+}
+.textarea.tall {
+  min-height: 220px;
+}
+.splitter {
+  background: transparent;
+  position: relative;
+  z-index: 2;
+}
+.splitter.row {
+  cursor: col-resize;
+  width: 4px;
+}
+.splitter.column {
+  cursor: row-resize;
+  height: 4px;
+}
+.splitter:hover,
+.splitter:active {
+  background: var(--vscode-sash-hoverBorder, var(--twigline-focus));
+}
+.spinner.small {
+  font-size: 12px;
+}
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 100%;
+  color: var(--twigline-muted);
+  text-align: center;
+  padding: 16px;
+}
+.empty .codicon {
+  font-size: 28px;
+  opacity: 0.6;
+}
+.list-empty {
+  padding: 16px;
+  color: var(--twigline-muted);
+}
+.list-empty.small {
+  padding: 6px 12px;
+  font-size: 12px;
+}
+.link {
+  color: var(--vscode-textLink-foreground, #3794ff);
+  cursor: pointer;
+}
+.link:hover {
+  text-decoration: underline;
+}
+.link-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--vscode-textLink-foreground, #3794ff);
+  cursor: pointer;
+  font: inherit;
+}
+.pill {
+  border: 1px solid var(--twigline-border);
+  background: transparent;
+  color: var(--twigline-muted);
+  border-radius: 10px;
+  padding: 0 7px;
+  margin-left: 4px;
+  font-size: 11px;
+  cursor: pointer;
+}
+.pill.on {
+  background: var(--twigline-sel);
+  color: var(--twigline-sel-fg);
+}
+
+/* ---------------------------------------------------------------- Overall */
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+.app.loading {
+  align-items: center;
+  justify-content: center;
+}
+.app-main {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Top of the panel (full width): the "Uncommitted Changes | History" tabs, search, running operation, current branch */
+.header {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  min-height: 34px;
+  padding: 0 8px 0 4px;
+  background: var(--twigline-toolbar-bg);
+  border-bottom: 1px solid var(--twigline-border);
+}
+.header .tabs {
+  display: flex;
+  align-self: stretch;
+  /* To the right of the tabs are search and other contents of the tab. A divider shows the difference in level */
+  padding-right: 8px;
+  margin-right: 4px;
+  border-right: 1px solid var(--twigline-border);
+}
+.header .tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 12px 0;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--vscode-panelTitle-inactiveForeground, var(--twigline-muted));
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.header .tab .codicon {
+  font-size: 16px;
+}
+.header .tab:not(.on):hover {
+  color: var(--vscode-panelTitle-activeForeground, var(--twigline-fg));
+  background: var(--twigline-hover);
+}
+/* A selected tab looks like a VS Code panel tab: no background, text and icon in the panelTitle foreground,
+   the accent color only as an underline. The panelTitle colors are designed to be readable on the panel background,
+   so combining them with another family of colors (such as the editor tab background) can make them hard to see depending on the theme */
+.header .tab.on {
+  color: var(--vscode-panelTitle-activeForeground, var(--twigline-fg));
+  border-bottom-color: var(--vscode-panelTitle-activeBorder, var(--twigline-focus));
+}
+.header .tab .count {
+  background: var(--twigline-badge-bg);
+  color: var(--twigline-badge-fg);
+  border-radius: 8px;
+  padding: 0 6px;
+  font-size: 10px;
+  font-weight: normal;
+  line-height: 16px;
+}
+.search-box {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 1 360px;
+  min-width: 160px;
+  height: 24px;
+  padding: 0 2px 0 6px;
+  background: var(--twigline-input-bg);
+  color: var(--twigline-input-fg);
+  border: 1px solid var(--twigline-input-border);
+  border-radius: 2px;
+}
+.search-box:focus-within {
+  outline: 1px solid var(--twigline-focus);
+  outline-offset: -1px;
+}
+.search-box.active {
+  border-color: var(--vscode-inputOption-activeBorder, var(--twigline-focus));
+}
+.search-box > .codicon {
+  color: var(--twigline-muted);
+}
+.search-box .search {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+.search-box .search::placeholder {
+  color: var(--vscode-input-placeholderForeground, #8b8b8b);
+}
+.menu-btn {
+  position: relative;
+  width: auto;
+  min-width: 22px;
+  gap: 4px;
+  padding: 0 3px;
+}
+.menu-btn-label {
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+}
+.menu-btn .dot {
+  position: absolute;
+  top: 2px;
+  right: 1px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--twigline-btn-bg);
+}
+.busy {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 360px;
+  min-width: 0;
+  color: var(--twigline-muted);
+  font-size: 12px;
+}
+.busy-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.head-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  white-space: nowrap;
+}
+.head-status .menu-anchor {
+  min-width: 0;
+}
+.head-status .menu-btn {
+  max-width: 100%;
+}
+.head-status .menu-btn-label {
+  max-width: 220px;
+  font-size: inherit;
+}
+.head-status .sync {
+  border: none;
+  border-radius: 8px;
+  padding: 0 6px;
+  background: var(--twigline-badge-bg);
+  color: var(--twigline-badge-fg);
+  font-family: var(--twigline-mono);
+  font-size: 11px;
+  line-height: 16px;
+  cursor: pointer;
+}
+.head-status .sync:hover {
+  background: var(--twigline-btn-bg);
+  color: var(--twigline-btn-fg);
+}
+
+/* Sidebar */
+.sidebar {
+  background: var(--twigline-side-bg);
+  border-right: 1px solid var(--twigline-border);
+  overflow: auto;
+  padding: 4px 0 16px;
+  user-select: none;
+}
+/* Filter: normally only a magnifier on the heading; appears when the mouse is over the sidebar */
+.side-filter-btn {
+  width: 18px;
+  height: 18px;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+.sidebar:hover .side-filter-btn,
+.side-filter-btn:focus-visible {
+  opacity: 0.7;
+}
+.sidebar .side-filter-btn:hover {
+  opacity: 1;
+}
+.side-sec-action {
+  margin-left: auto;
+  display: inline-flex;
+}
+.side-filter {
+  position: sticky;
+  top: -4px;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: -4px 0 2px;
+  padding: 3px 4px 3px 8px;
+  background: var(--twigline-side-bg);
+  border-bottom: 1px solid var(--twigline-border);
+}
+.side-filter > .codicon {
+  color: var(--twigline-muted);
+}
+.side-filter input {
+  flex: 1;
+  min-width: 0;
+  height: 20px;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+.side-filter input::placeholder {
+  color: var(--vscode-input-placeholderForeground, #8b8b8b);
+}
+.side-filter:focus-within {
+  border-bottom-color: var(--twigline-focus);
+}
+.side-empty {
+  padding: 8px 12px;
+  color: var(--twigline-muted);
+}
+.side-sec-title {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 8px 2px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--vscode-sideBarSectionHeader-foreground, var(--twigline-muted));
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.side-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  height: 22px;
+  padding: 0 8px 0 calc(18px + var(--depth, 0) * 12px);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.side-item:hover {
+  background: var(--twigline-hover);
+}
+.side-item.on {
+  background: var(--twigline-sel);
+  color: var(--twigline-sel-fg);
+}
+.side-item .label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.side-item .label.head {
+  font-weight: 700;
+}
+.side-item .head-mark {
+  color: var(--twigline-local);
+}
+.side-item.on .head-mark {
+  color: inherit;
+}
+.side-item.folder {
+  color: var(--twigline-muted);
+}
+.side-item .side-trail {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  padding-left: 4px;
+}
+.side-item .track {
+  font-size: 11px;
+  color: var(--twigline-muted);
+  font-family: var(--twigline-mono);
+}
+.side-item .track.gone {
+  color: var(--twigline-error);
+}
+.side-item .warn-mark {
+  margin-left: auto;
+  color: var(--vscode-editorWarning-foreground, #cca700);
+}
+.indent .side-item {
+  padding-left: calc(30px + var(--depth, 0) * 12px);
+}
+.side-item.side-note {
+  color: var(--twigline-muted);
+}
+.side-item.side-note:hover {
+  color: var(--twigline-fg);
+}
+
+/* Banner for an operation in progress */
+.banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  background: var(--twigline-warn-bg);
+  border-bottom: 1px solid var(--twigline-warn-border);
+}
+.conflict-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--twigline-border);
+  color: var(--twigline-conflict-fg);
+  flex-wrap: wrap;
+}
+
+/* ---------------------------------------------------------------- History */
+/* Lists of branches and so on on the left, the graph and details on the right */
+.history-view {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  flex: 1;
+  min-height: 0;
+}
+.history {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 1px 4px 1px 8px;
+  border-radius: 12px;
+  background: var(--twigline-sel-inactive);
+  max-width: 100%;
+  min-width: 0;
+}
+.history-list-wrap {
+  flex: 1;
+  min-height: 60px;
+  position: relative;
+}
+.commit-list {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+}
+.commit-header {
+  display: grid;
+  border-bottom: 1px solid var(--twigline-border);
+  font-size: 11px;
+  color: var(--twigline-muted);
+  user-select: none;
+}
+.commit-header .h {
+  position: relative;
+  padding: 3px 8px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.col-resize {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 6px;
+  height: 100%;
+  cursor: col-resize;
+}
+.col-resize:hover {
+  background: var(--vscode-sash-hoverBorder, var(--twigline-focus));
+}
+.commit-scroll {
+  flex: 1;
+  overflow: auto;
+  outline: none;
+}
+.commit-row {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 22px;
+  display: grid;
+  align-items: center;
+  cursor: default;
+  white-space: nowrap;
+}
+.commit-row:hover {
+  background: var(--twigline-hover);
+}
+.commit-row.selected {
+  background: var(--twigline-sel-inactive);
+}
+.commit-scroll:focus-within .commit-row.selected {
+  background: var(--twigline-sel);
+  color: var(--twigline-sel-fg);
+}
+.commit-row.focused:focus {
+  outline: 1px solid var(--twigline-focus);
+  outline-offset: -1px;
+}
+.commit-row .c {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 0 8px;
+  min-width: 0;
+}
+.commit-row .c.graph {
+  padding: 0;
+  height: 22px;
+  overflow: hidden;
+}
+.commit-row .c.desc {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.commit-row .subject {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.commit-row.head .subject {
+  font-weight: 700;
+}
+.commit-row.virtual .subject {
+  font-style: italic;
+}
+.commit-row .date,
+.commit-row .sha {
+  color: var(--twigline-muted);
+}
+.commit-row.selected .date,
+.commit-row.selected .sha {
+  color: inherit;
+}
+.graph-cell {
+  display: block;
+}
+.list-loading {
+  position: absolute;
+  bottom: 6px;
+  right: 12px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: var(--vscode-editorWidget-background, var(--twigline-side-bg));
+  box-shadow: 0 0 6px var(--twigline-shadow);
+  font-size: 12px;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+/* Ref badges (local filled, remote outlined, tag yellow) */
+.refs {
+  display: inline-flex;
+  gap: 3px;
+  flex-shrink: 0;
+}
+.ref {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 17px;
+  padding: 0 5px;
+  border-radius: 3px;
+  font-size: 11px;
+  line-height: 15px;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+.ref .codicon {
+  font-size: 11px;
+}
+.ref.local {
+  background: var(--twigline-local);
+  color: #fff;
+}
+.ref.local.is-head {
+  font-weight: 700;
+  box-shadow: 0 0 0 1px var(--twigline-fg) inset;
+}
+.ref.remote {
+  border-color: var(--twigline-remote);
+  color: var(--twigline-remote);
+}
+.ref.tag {
+  background: var(--twigline-tag);
+  color: #1e1e1e;
+}
+.ref.stash {
+  border-color: var(--twigline-stash);
+  color: var(--twigline-stash);
+}
+.ref.head-detached {
+  background: var(--twigline-conflict-fg);
+  color: #fff;
+}
+.commit-row.selected .ref.remote,
+.commit-row.selected .ref.stash {
+  color: inherit;
+  border-color: currentColor;
+}
+
+/* Pull request mark. The state is told apart by both color and icon. Pressing it opens the PR in the browser */
+.pr-chip {
+  --pr: var(--twigline-pr-open);
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 17px;
+  margin: 0;
+  padding: 0 5px 0 3px;
+  border: 1px solid color-mix(in srgb, var(--pr) 60%, transparent);
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--pr) 16%, transparent);
+  color: var(--pr);
+  font: inherit;
+  font-size: 11px;
+  line-height: 15px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.pr-chip.draft {
+  --pr: var(--twigline-pr-draft);
+}
+.pr-chip.merged {
+  --pr: var(--twigline-pr-merged);
+}
+.pr-chip.closed {
+  --pr: var(--twigline-pr-closed);
+}
+.pr-chip:hover {
+  background: color-mix(in srgb, var(--pr) 32%, transparent);
+}
+.pr-chip:focus-visible {
+  outline: 1px solid var(--twigline-focus);
+  outline-offset: 1px;
+}
+.pr-chip .codicon {
+  font-size: 12px;
+}
+/* In history and details, attach it to the right of the ref badge so it looks like one badge */
+.ref-group {
+  display: inline-flex;
+}
+.ref-group > .ref {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+.ref-group > .pr-chip {
+  border-left: none;
+  border-radius: 0 3px 3px 0;
+}
+.commit-row.selected .pr-chip {
+  color: inherit;
+  border-color: currentColor;
+  background: transparent;
+}
+/* Branches whose PR is merged or closed (fine to clean up) have a dimmed name */
+.side-item .label.pr-done,
+.check .pr-done,
+.ref.pr-done {
+  opacity: 0.6;
+}
+
+/* Detail pane */
+.history-detail {
+  border-top: 1px solid var(--twigline-border);
+  min-height: 0;
+  flex-shrink: 0;
+}
+.detail {
+  display: grid;
+  height: 100%;
+  min-height: 0;
+}
+.detail-meta,
+.detail-diff {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+.detail-meta {
+  border-right: 1px solid var(--twigline-border);
+}
+.meta {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+.meta-head {
+  padding: 8px 10px 6px;
+  border-bottom: 1px solid var(--twigline-border);
+  max-height: 55%;
+  overflow: auto;
+}
+.meta-head .msg {
+  font-weight: 700;
+  margin-bottom: 4px;
+  word-break: break-word;
+}
+.msg-body {
+  margin: 0 0 6px;
+  white-space: pre-wrap;
+  font-family: inherit;
+  color: var(--twigline-muted);
+}
+.meta dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 1px 10px;
+  margin: 0;
+  font-size: 12px;
+}
+.meta dt {
+  color: var(--twigline-muted);
+}
+.meta dd {
+  margin: 0;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+.parent {
+  margin-right: 6px;
+}
+.meta-files {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.files-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 3px 8px;
+  font-size: 11px;
+  color: var(--twigline-muted);
+}
+.toggle {
+  display: inline-flex;
+}
+
+/* File list */
+.file-list {
+  flex: 1;
+  overflow: auto;
+  min-height: 0;
+  outline: none;
+}
+.file-list.dropping {
+  outline: 1px dashed var(--twigline-focus);
+  outline-offset: -3px;
+}
+.file-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 22px;
+  padding-right: 8px;
+  white-space: nowrap;
+  cursor: default;
+}
+.file-row:hover {
+  background: var(--twigline-hover);
+}
+.file-row.selected {
+  background: var(--twigline-sel-inactive);
+}
+.file-list:focus-within .file-row.selected {
+  background: var(--twigline-sel);
+  color: var(--twigline-sel-fg);
+}
+.file-row .row-action {
+  margin-left: auto;
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  opacity: 0;
+}
+.file-row:hover .row-action,
+.file-row.selected .row-action,
+.file-row .row-action:focus-visible {
+  opacity: 1;
+}
+.file-row.folder {
+  color: var(--twigline-muted);
+  cursor: pointer;
+}
+.file-row .name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex-shrink: 0;
+  max-width: 70%;
+}
+.file-row .path {
+  color: var(--twigline-muted);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.file-row .num {
+  margin-left: auto;
+  font-family: var(--twigline-mono);
+  font-size: 11px;
+  display: inline-flex;
+  gap: 4px;
+  color: var(--twigline-muted);
+}
+.num .add {
+  color: var(--twigline-add-fg);
+}
+.num .del {
+  color: var(--twigline-del-fg);
+}
+.st {
+  display: inline-block;
+  width: 14px;
+  text-align: center;
+  font-family: var(--twigline-mono);
+  font-size: 11px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.st-a {
+  color: var(--twigline-add-fg);
+}
+.st-m,
+.st-t {
+  color: var(--twigline-mod-fg);
+}
+.st-d {
+  color: var(--twigline-del-fg);
+}
+.st-r,
+.st-c {
+  color: var(--twigline-renamed-fg);
+}
+.st-u {
+  color: var(--twigline-untracked-fg);
+}
+.file-row .st-u:first-letter {
+  color: var(--twigline-untracked-fg);
+}
+.cb {
+  width: 14px;
+  height: 14px;
+  border: 1px solid var(--vscode-checkbox-border, var(--twigline-border));
+  background: var(--vscode-checkbox-background, var(--twigline-input-bg));
+  border-radius: 3px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+.cb .codicon {
+  font-size: 12px;
+}
+.cb.on,
+.cb.mixed {
+  background: var(--twigline-btn-bg);
+  color: var(--twigline-btn-fg);
+  border-color: var(--twigline-btn-bg);
+}
+
+/* ---------------------------------------------------------------- Diff */
+.diff {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  position: relative;
+}
+.diff-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 8px;
+  border-bottom: 1px solid var(--twigline-border);
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.diff-head .path {
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.diff-head .select {
+  padding: 1px 4px;
+  font-size: 12px;
+}
+.diff-head .enc {
+  font-family: var(--twigline-mono);
+  font-size: 11px;
+}
+.diff-scroll {
+  flex: 1;
+  overflow: auto;
+  font-family: var(--twigline-mono);
+  font-size: var(--twigline-mono-size);
+  outline: none;
+}
+.hk {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 8px;
+  background: var(--vscode-editorGroupHeader-tabsBackground, rgba(128, 128, 128, 0.12));
+  color: var(--twigline-muted);
+  white-space: pre;
+}
+.hk-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.hunk-btns {
+  display: inline-flex;
+  gap: 4px;
+  font-family: var(--vscode-font-family);
+  position: sticky;
+  right: 8px;
+  margin-left: auto;
+}
+.hunk-btns .btn.small {
+  padding: 0 6px;
+  font-size: 11px;
+  line-height: 16px;
+}
+.dl {
+  position: absolute;
+  top: 0;
+  left: 0;
+  min-width: 100%;
+  height: 20px;
+  line-height: 20px;
+  display: grid;
+  grid-template-columns: 44px 44px 16px 1fr;
+  white-space: pre;
+  tab-size: 4;
+}
+.dl.add {
+  background: var(--twigline-add-bg);
+}
+.dl.del {
+  background: var(--twigline-del-bg);
+}
+.dl .ln {
+  text-align: right;
+  padding-right: 6px;
+  color: var(--vscode-editorLineNumber-foreground, #858585);
+  user-select: none;
+}
+.diff-scroll.interactive .dl.add .ln,
+.diff-scroll.interactive .dl.del .ln {
+  cursor: pointer;
+}
+.diff-scroll.interactive .dl.add .ln:hover,
+.diff-scroll.interactive .dl.del .ln:hover {
+  background: var(--twigline-hover);
+}
+.dl.pick .ln {
+  background: var(--twigline-sel);
+  color: var(--twigline-sel-fg);
+}
+.dl.pick {
+  box-shadow: inset 3px 0 0 var(--twigline-focus);
+}
+.dl .sign {
+  color: var(--twigline-muted);
+  user-select: none;
+  text-align: center;
+}
+.dl.add .sign {
+  color: var(--twigline-add-fg);
+}
+.dl.del .sign {
+  color: var(--twigline-del-fg);
+}
+.dl .code {
+  padding-right: 24px;
+}
+.dl.add mark {
+  background: var(--twigline-add-word);
+  color: inherit;
+  border-radius: 2px;
+}
+.dl.del mark {
+  background: var(--twigline-del-word);
+  color: inherit;
+  border-radius: 2px;
+}
+.dl .eol {
+  color: var(--vscode-editorWhitespace-foreground, rgba(128, 128, 128, 0.5));
+  margin-left: 2px;
+}
+.dl .noeol {
+  color: var(--twigline-del-fg);
+  margin-left: 4px;
+}
+.dl .noeol .codicon {
+  font-size: 11px;
+}
+.diff-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border-top: 1px solid var(--twigline-border);
+  font-size: 12px;
+}
+.selbar {
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px 5px 12px;
+  background: var(--vscode-editorWidget-background, #252526);
+  border: 1px solid var(--vscode-editorWidget-border, var(--twigline-border));
+  border-radius: 6px;
+  box-shadow: 0 2px 8px var(--twigline-shadow);
+  z-index: 5;
+  white-space: nowrap;
+}
+.diff-image {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  padding: 12px;
+  overflow: auto;
+}
+.diff-image figure {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.diff-image img {
+  max-width: 100%;
+  background: repeating-conic-gradient(rgba(128, 128, 128, 0.25) 0% 25%, transparent 0% 50%) 50% / 16px 16px;
+  border: 1px solid var(--twigline-border);
+}
+
+/* ---------------------------------------------------------------- File status */
+.file-status {
+  display: grid;
+  flex: 1;
+  min-height: 0;
+}
+.fs-left,
+.fs-right {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+.fs-left {
+  border-right: 1px solid var(--twigline-border);
+}
+.fs-right {
+  display: flex;
+  flex-direction: column;
+}
+.fs-right > .diff,
+.fs-right > .empty {
+  flex: 1;
+  min-height: 0;
+}
+.fs-split-h {
+  grid-column: 1 / -1;
+}
+.fs-commit {
+  grid-column: 1 / -1;
+  border-top: 1px solid var(--twigline-border);
+  min-height: 0;
+}
+.fs-groups {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+.fs-group {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 60px;
+  border-bottom: 1px solid var(--twigline-border);
+}
+.fs-group:last-child {
+  border-bottom: none;
+}
+.fs-group.conflicted {
+  flex: 0 1 auto;
+  max-height: 35%;
+}
+.fs-group.conflicted .title {
+  color: var(--twigline-conflict-fg);
+}
+.fs-gh {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 6px 3px 8px;
+  font-size: 12px;
+  font-weight: 700;
+  background: var(--vscode-sideBarSectionHeader-background, rgba(128, 128, 128, 0.08));
+}
+.fs-gh .actions {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-weight: 400;
+}
+
+/* Commit box */
+.commitbox {
+  display: grid;
+  grid-template-rows: 1fr auto;
+  gap: 6px 10px;
+  height: 100%;
+  padding: 8px 10px;
+}
+.cm-main {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.cm-text-wrap {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+.cm-text {
+  flex: 1;
+  resize: none;
+  background: var(--twigline-input-bg);
+  color: var(--twigline-input-fg);
+  border: 1px solid var(--twigline-input-border);
+  border-radius: 2px;
+  padding: 4px 6px;
+  font-family: var(--twigline-mono);
+  font-size: var(--twigline-mono-size);
+  background-image: linear-gradient(to right, transparent calc(50ch + 6px), rgba(128, 128, 128, 0.25) calc(50ch + 6px), rgba(128, 128, 128, 0.25) calc(50ch + 7px), transparent calc(50ch + 7px));
+  background-size: 100% 1.4em;
+  background-repeat: no-repeat;
+  background-position: 0 4px;
+}
+.cm-text:focus {
+  outline: 1px solid var(--twigline-focus);
+  outline-offset: -1px;
+}
+.cm-count {
+  font-size: 11px;
+  color: var(--twigline-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.cm-count.warn,
+.cm-count .warn {
+  color: var(--vscode-editorWarning-foreground, #cca700);
+}
+.cm-author {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  max-width: 240px;
+  font-size: 12px;
+  color: var(--twigline-muted);
+}
+.cm-author .name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cm-author.warn {
+  color: var(--vscode-editorWarning-foreground, #cca700);
+}
+.cm-opts {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+/* Collapsed commit box: input and actions in one row; if the width is not enough, the actions wrap below the input */
+.commitbox.collapsed {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  height: auto;
+  padding: 6px 10px;
+}
+.commitbox.collapsed .cm-main {
+  flex: 1 1 200px;
+  min-width: 0;
+}
+.commitbox.collapsed .cm-opts {
+  margin-left: auto;
+}
+.commitbox.collapsed .cm-text {
+  overflow: hidden;
+}
+.menu-anchor {
+  position: relative;
+}
+.popup {
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 0;
+  min-width: 240px;
+  max-width: 480px;
+  max-height: 300px;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 8px;
+  background: var(--vscode-menu-background, var(--vscode-editorWidget-background, #252526));
+  color: var(--vscode-menu-foreground, inherit);
+  border: 1px solid var(--vscode-menu-border, var(--twigline-border));
+  border-radius: 4px;
+  box-shadow: 0 2px 8px var(--twigline-shadow);
+  z-index: 20;
+}
+.popup-item {
+  flex-shrink: 0;
+  padding: 3px 6px;
+  border-radius: 3px;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.popup-item:hover {
+  background: var(--vscode-menu-selectionBackground, var(--twigline-sel));
+  color: var(--vscode-menu-selectionForeground, inherit);
+}
+.popup.right {
+  left: auto;
+  right: 0;
+}
+.popup.down {
+  bottom: auto;
+  top: calc(100% + 4px);
+}
+.popup-sep {
+  height: 1px;
+  margin: 2px -8px;
+  flex-shrink: 0;
+  background: var(--vscode-menu-separatorBackground, var(--twigline-border));
+}
+.popup-heading {
+  font-size: 11px;
+  color: var(--twigline-muted);
+}
+.popup-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.popup.menu {
+  gap: 0;
+  min-width: 200px;
+  max-height: none;
+  padding: 4px;
+}
+.popup.menu .popup-sep {
+  margin: 4px -4px;
+}
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  width: 100%;
+  padding: 4px 10px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+.menu-item:disabled {
+  opacity: 0.5;
+  cursor: default;
+  background: transparent;
+  color: inherit;
+}
+.menu-item:focus-visible {
+  outline: none;
+  background: var(--vscode-menu-selectionBackground, var(--twigline-sel));
+  color: var(--vscode-menu-selectionForeground, inherit);
+}
+.menu-hint {
+  margin-left: auto;
+  color: var(--twigline-muted);
+  font-size: 11px;
+}
+
+/* ---------------------------------------------------------------- Dialogs */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 8vh;
+  z-index: 100;
+}
+.dialog {
+  width: min(520px, calc(100vw - 32px));
+  max-height: 84vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--vscode-editorWidget-background, #252526);
+  color: var(--vscode-editorWidget-foreground, inherit);
+  border: 1px solid var(--vscode-editorWidget-border, var(--twigline-border));
+  border-radius: 6px;
+  box-shadow: 0 4px 24px var(--twigline-shadow);
+}
+.dialog.wide {
+  width: min(760px, calc(100vw - 32px));
+}
+.dialog-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px 8px 14px;
+  font-weight: 700;
+  border-bottom: 1px solid var(--twigline-border);
+}
+.dialog-body {
+  padding: 12px 14px;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.dialog-body p {
+  margin: 0;
+}
+.dialog-body h4 {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--twigline-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.dialog-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px 12px;
+}
+.field {
+  display: grid;
+  grid-template-columns: 130px 1fr;
+  align-items: center;
+  gap: 8px;
+}
+.field-label {
+  color: var(--twigline-muted);
+}
+.field-control {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.field-control > .input,
+.field-control > .select {
+  width: 100%;
+}
+.field-hint {
+  font-size: 11px;
+  color: var(--twigline-muted);
+}
+.field-error {
+  font-size: 11px;
+  color: var(--twigline-error);
+}
+.readonly {
+  font-family: var(--twigline-mono);
+}
+.warning {
+  padding: 6px 10px;
+  border: 1px solid var(--twigline-warn-border);
+  background: var(--twigline-warn-bg);
+  border-radius: 3px;
+}
+.warning.danger {
+  border-color: var(--twigline-danger-border);
+  background: var(--twigline-danger-bg);
+}
+.cmd-preview {
+  margin: 0 14px;
+  border: 1px solid var(--twigline-border);
+  border-radius: 3px;
+  background: var(--vscode-textCodeBlock-background, rgba(128, 128, 128, 0.1));
+}
+.cmd-label {
+  font-size: 11px;
+  color: var(--twigline-muted);
+  padding: 3px 8px 0;
+}
+.cmd-preview pre {
+  margin: 0;
+  padding: 3px 8px 6px;
+  font-family: var(--twigline-mono);
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+.cmd-error {
+  padding: 3px 8px 6px;
+  color: var(--twigline-error);
+  font-size: 12px;
+}
+/* Tabs inside a dialog (Branch: New | Delete) */
+.dialog .tabs {
+  display: flex;
+  gap: 2px;
+  border-bottom: 1px solid var(--twigline-border);
+  margin-bottom: 4px;
+}
+.dialog .tab {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--twigline-muted);
+  padding: 4px 10px;
+  cursor: pointer;
+  font: inherit;
+}
+.dialog .tab:not(.on):hover {
+  color: inherit;
+  background: var(--twigline-hover);
+}
+.dialog .tab.on {
+  color: inherit;
+  border-bottom-color: var(--twigline-focus);
+}
+.check-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  max-height: 220px;
+  overflow: auto;
+  padding: 4px;
+  border: 1px solid var(--twigline-border);
+  border-radius: 3px;
+}
+.check-list .pr-chip {
+  margin: 0 2px 0 6px;
+  vertical-align: middle;
+}
+.check-list.tall {
+  max-height: 320px;
+}
+.table {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.tr {
+  display: grid;
+  align-items: center;
+  gap: 8px;
+}
+.push-table .tr {
+  grid-template-columns: 20px 1fr 1fr 48px;
+}
+.push-table .tr.th {
+  font-size: 11px;
+  color: var(--twigline-muted);
+}
+.remotes-table .tr {
+  grid-template-columns: 120px 1fr auto;
+}
+.inline-form {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.inline-form .grow {
+  flex: 1;
+}
+.error-msg {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  color: var(--twigline-error);
+}
+.detail-pre {
+  margin: 0;
+  max-height: 220px;
+  overflow: auto;
+  padding: 6px 8px;
+  font-family: var(--twigline-mono);
+  font-size: 12px;
+  white-space: pre-wrap;
+  background: var(--vscode-textCodeBlock-background, rgba(128, 128, 128, 0.1));
+  border-radius: 3px;
+}
+.file-bullets {
+  margin: 0;
+  padding-left: 20px;
+  max-height: 160px;
+  overflow: auto;
+}
+
+/* Interactive rebase */
+.irebase-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 46vh;
+  overflow: auto;
+}
+.irebase-row {
+  border: 1px solid var(--twigline-border);
+  border-radius: 3px;
+  background: var(--twigline-bg);
+}
+.irebase-row.dragging {
+  opacity: 0.8;
+  box-shadow: 0 2px 8px var(--twigline-shadow);
+  z-index: 2;
+  position: relative;
+}
+.irebase-row.dropped .subject {
+  text-decoration: line-through;
+  opacity: 0.6;
+}
+.irebase-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 6px;
+}
+.irebase-main .subject {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.irebase-row .textarea {
+  display: block;
+  margin: 0 6px 6px;
+  width: calc(100% - 12px);
+}
+.drag-handle {
+  cursor: grab;
+  color: var(--twigline-muted);
+  user-select: none;
+  padding: 0 2px;
+}
+
+/* Toast */
+.toasts {
+  position: fixed;
+  right: 12px;
+  bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  z-index: 200;
+  max-width: min(480px, calc(100vw - 24px));
+}
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 6px 6px 10px;
+  background: var(--vscode-notifications-background, var(--vscode-editorWidget-background, #252526));
+  color: var(--vscode-notifications-foreground, inherit);
+  border: 1px solid var(--vscode-notifications-border, var(--twigline-border));
+  border-radius: 4px;
+  box-shadow: 0 2px 8px var(--twigline-shadow);
+}
+.toast .msg {
+  flex: 1;
+  white-space: pre-wrap;
+}
+.toast.error > .codicon {
+  color: var(--vscode-notificationsErrorIcon-foreground, #f14c4c);
+}
+.toast.warning > .codicon {
+  color: var(--vscode-notificationsWarningIcon-foreground, #cca700);
+}
+.toast.info > .codicon {
+  color: var(--vscode-notificationsInfoIcon-foreground, #3794ff);
+}
+
+/* Right-click menu in the development browser */
+.dev-menu {
+  position: fixed;
+  min-width: 220px;
+  padding: 4px 0;
+  background: var(--vscode-menu-background, #252526);
+  color: var(--vscode-menu-foreground, #ccc);
+  border: 1px solid var(--vscode-menu-border, #454545);
+  border-radius: 5px;
+  box-shadow: 0 2px 8px var(--twigline-shadow);
+  z-index: 300;
+}
+.dev-menu-item {
+  padding: 3px 16px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.dev-menu-item:hover {
+  background: var(--vscode-menu-selectionBackground, #04395e);
+  color: var(--vscode-menu-selectionForeground, #fff);
+}
+.dev-menu-sep {
+  height: 1px;
+  margin: 4px 0;
+  background: var(--vscode-menu-separatorBackground, #454545);
+}
+
+/* High contrast */
+body.vscode-high-contrast .commit-row.selected,
+body.vscode-high-contrast .file-row.selected,
+body.vscode-high-contrast .side-item.on {
+  outline: 1px dashed var(--vscode-contrastActiveBorder, #f38518);
+  outline-offset: -1px;
+}

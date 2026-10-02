@@ -1,0 +1,17 @@
+**
+!package.json
+!package.nls.json
+!package.nls.ja.json
+!l10n/**
+!media/**
+!dist/extension.js
+!dist/core.js
+!dist/askpass-main.js
+!dist/editor-main.js
+!dist/askpass.sh
+!dist/webview/**
+!dist/syntax/worker.js
+!README.md
+!LICENSE
+!CHANGELOG.md
+dist/webview/*.map

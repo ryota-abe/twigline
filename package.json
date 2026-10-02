@@ -1,0 +1,1332 @@
+{
+  "name": "twigline",
+  "displayName": "%displayName%",
+  "description": "%description%",
+  "version": "0.4.0",
+  "publisher": "ryota-abe",
+  "license": "MIT",
+  "icon": "media/icon.png",
+  "galleryBanner": {
+    "color": "#0B2621",
+    "theme": "dark"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ryota-abe/twigline.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ryota-abe/twigline/issues"
+  },
+  "homepage": "https://github.com/ryota-abe/twigline#readme",
+  "keywords": [
+    "git",
+    "scm",
+    "graph",
+    "git graph",
+    "history",
+    "commit",
+    "branch",
+    "diff",
+    "stage",
+    "merge",
+    "rebase",
+    "stash",
+    "pull request",
+    "japanese"
+  ],
+  "private": true,
+  "engines": {
+    "vscode": "^1.95.0"
+  },
+  "categories": [
+    "SCM Providers",
+    "Other"
+  ],
+  "main": "./dist/extension.js",
+  "l10n": "./l10n",
+  "extensionKind": [
+    "workspace"
+  ],
+  "extensionDependencies": [
+    "vscode.git"
+  ],
+  "activationEvents": [
+    "onWebviewPanel:twigline.repository",
+    "onStartupFinished"
+  ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": false
+    },
+    "virtualWorkspaces": false
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "build:host": "node scripts/build.mjs --host",
+    "build:webview": "vite build --config webview/vite.config.mts",
+    "watch": "node scripts/build.mjs --watch",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p webview/tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:perf": "vitest run --config vitest.perf.config.mts",
+    "test:integration": "node scripts/build.mjs && vscode-test",
+    "test:all": "npm run typecheck && npm test && npm run test:integration",
+    "dev:web": "node scripts/build.mjs && node dist/dev/devServer.js",
+    "package": "node scripts/build.mjs --production && vsce package --no-dependencies"
+  },
+  "contributes": {
+    "commands": [
+      {
+        "command": "twigline.open",
+        "title": "%cmd.open%",
+        "category": "Twigline",
+        "icon": "$(git-merge)"
+      },
+      {
+        "command": "twigline.fetch",
+        "title": "%cmd.fetch%",
+        "category": "Twigline"
+      },
+      {
+        "command": "twigline.pull",
+        "title": "%cmd.pull%",
+        "category": "Twigline"
+      },
+      {
+        "command": "twigline.push",
+        "title": "%cmd.push%",
+        "category": "Twigline"
+      },
+      {
+        "command": "twigline.fileHistory",
+        "title": "%cmd.fileHistory%",
+        "category": "Twigline",
+        "icon": "$(history)"
+      },
+      {
+        "command": "twigline.refresh",
+        "title": "%cmd.refresh%",
+        "category": "Twigline",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "twigline.view.fileStatus",
+        "title": "%cmd.view.fileStatus%",
+        "category": "Twigline"
+      },
+      {
+        "command": "twigline.view.history",
+        "title": "%cmd.view.history%",
+        "category": "Twigline"
+      },
+      {
+        "command": "twigline.view.search",
+        "title": "%cmd.view.search%",
+        "category": "Twigline"
+      },
+      {
+        "command": "twigline.optimize",
+        "title": "%cmd.optimize%",
+        "category": "Twigline"
+      },
+      {
+        "command": "twigline.showOutput",
+        "title": "%cmd.showOutput%",
+        "category": "Twigline"
+      },
+      {
+        "command": "twigline.bitbucket.signOut",
+        "title": "%cmd.bitbucket.signOut%",
+        "category": "Twigline"
+      },
+      {
+        "command": "twigline.panel.pull",
+        "title": "%cmd.panel.pull%",
+        "category": "Twigline"
+      },
+      {
+        "command": "twigline.panel.push",
+        "title": "%cmd.panel.push%",
+        "category": "Twigline"
+      },
+      {
+        "command": "twigline.panel.fetch",
+        "title": "%cmd.panel.fetch%",
+        "category": "Twigline"
+      },
+      {
+        "command": "twigline.panel.branch",
+        "title": "%cmd.panel.branch%",
+        "category": "Twigline"
+      },
+      {
+        "command": "twigline.panel.pushBranches",
+        "title": "%cmd.panel.pushBranches%",
+        "category": "Twigline"
+      },
+      {
+        "command": "twigline.panel.merge",
+        "title": "%cmd.panel.merge%",
+        "category": "Twigline"
+      },
+      {
+        "command": "twigline.panel.rebase",
+        "title": "%cmd.panel.rebase%",
+        "category": "Twigline"
+      },
+      {
+        "command": "twigline.panel.tag",
+        "title": "%cmd.panel.tag%",
+        "category": "Twigline"
+      },
+      {
+        "command": "twigline.panel.stash",
+        "title": "%cmd.panel.stash%",
+        "category": "Twigline"
+      },
+      {
+        "command": "twigline.panel.discard",
+        "title": "%cmd.panel.discard%",
+        "category": "Twigline"
+      },
+      {
+        "command": "twigline.panel.settings",
+        "title": "%cmd.panel.settings%",
+        "category": "Twigline"
+      },
+      {
+        "command": "twigline.commit.checkout",
+        "title": "%cmd.commit.checkout%"
+      },
+      {
+        "command": "twigline.commit.createBranch",
+        "title": "%cmd.commit.createBranch%"
+      },
+      {
+        "command": "twigline.commit.createTag",
+        "title": "%cmd.commit.createTag%"
+      },
+      {
+        "command": "twigline.commit.merge",
+        "title": "%cmd.commit.merge%"
+      },
+      {
+        "command": "twigline.commit.rebase",
+        "title": "%cmd.commit.rebase%"
+      },
+      {
+        "command": "twigline.commit.cherryPick",
+        "title": "%cmd.commit.cherryPick%"
+      },
+      {
+        "command": "twigline.commit.revert",
+        "title": "%cmd.commit.revert%"
+      },
+      {
+        "command": "twigline.commit.reset",
+        "title": "%cmd.commit.reset%"
+      },
+      {
+        "command": "twigline.commit.interactiveRebase",
+        "title": "%cmd.commit.interactiveRebase%"
+      },
+      {
+        "command": "twigline.commit.copySha",
+        "title": "%cmd.commit.copySha%"
+      },
+      {
+        "command": "twigline.commit.copyMessage",
+        "title": "%cmd.commit.copyMessage%"
+      },
+      {
+        "command": "twigline.commit.createPatch",
+        "title": "%cmd.commit.createPatch%"
+      },
+      {
+        "command": "twigline.commit.customAction",
+        "title": "%cmd.commit.customAction%"
+      },
+      {
+        "command": "twigline.branch.checkout",
+        "title": "%cmd.branch.checkout%"
+      },
+      {
+        "command": "twigline.branch.createBranch",
+        "title": "%cmd.branch.createBranch%"
+      },
+      {
+        "command": "twigline.branch.merge",
+        "title": "%cmd.branch.merge%"
+      },
+      {
+        "command": "twigline.branch.rebase",
+        "title": "%cmd.branch.rebase%"
+      },
+      {
+        "command": "twigline.branch.pull",
+        "title": "%cmd.branch.pull%"
+      },
+      {
+        "command": "twigline.branch.push",
+        "title": "%cmd.branch.push%"
+      },
+      {
+        "command": "twigline.branch.setUpstream",
+        "title": "%cmd.branch.setUpstream%"
+      },
+      {
+        "command": "twigline.branch.compare",
+        "title": "%cmd.branch.compare%"
+      },
+      {
+        "command": "twigline.branch.rename",
+        "title": "%cmd.branch.rename%"
+      },
+      {
+        "command": "twigline.branch.delete",
+        "title": "%cmd.branch.delete%"
+      },
+      {
+        "command": "twigline.branch.createPullRequest",
+        "title": "%cmd.branch.createPullRequest%"
+      },
+      {
+        "command": "twigline.branch.openPullRequest",
+        "title": "%cmd.branch.openPullRequest%"
+      },
+      {
+        "command": "twigline.remoteBranch.checkout",
+        "title": "%cmd.remoteBranch.checkout%"
+      },
+      {
+        "command": "twigline.remoteBranch.createBranch",
+        "title": "%cmd.remoteBranch.createBranch%"
+      },
+      {
+        "command": "twigline.remoteBranch.merge",
+        "title": "%cmd.remoteBranch.merge%"
+      },
+      {
+        "command": "twigline.remoteBranch.compare",
+        "title": "%cmd.remoteBranch.compare%"
+      },
+      {
+        "command": "twigline.remoteBranch.delete",
+        "title": "%cmd.remoteBranch.delete%"
+      },
+      {
+        "command": "twigline.remoteBranch.openPullRequest",
+        "title": "%cmd.remoteBranch.openPullRequest%"
+      },
+      {
+        "command": "twigline.tag.checkout",
+        "title": "%cmd.tag.checkout%"
+      },
+      {
+        "command": "twigline.tag.createBranch",
+        "title": "%cmd.tag.createBranch%"
+      },
+      {
+        "command": "twigline.tag.showDetails",
+        "title": "%cmd.tag.showDetails%"
+      },
+      {
+        "command": "twigline.tag.push",
+        "title": "%cmd.tag.push%"
+      },
+      {
+        "command": "twigline.tag.delete",
+        "title": "%cmd.tag.delete%"
+      },
+      {
+        "command": "twigline.stash.apply",
+        "title": "%cmd.stash.apply%"
+      },
+      {
+        "command": "twigline.stash.pop",
+        "title": "%cmd.stash.pop%"
+      },
+      {
+        "command": "twigline.stash.showDiff",
+        "title": "%cmd.stash.showDiff%"
+      },
+      {
+        "command": "twigline.stash.createBranch",
+        "title": "%cmd.stash.createBranch%"
+      },
+      {
+        "command": "twigline.stash.drop",
+        "title": "%cmd.stash.drop%"
+      },
+      {
+        "command": "twigline.file.stage",
+        "title": "%cmd.file.stage%"
+      },
+      {
+        "command": "twigline.file.unstage",
+        "title": "%cmd.file.unstage%"
+      },
+      {
+        "command": "twigline.file.discard",
+        "title": "%cmd.file.discard%"
+      },
+      {
+        "command": "twigline.file.ignore",
+        "title": "%cmd.file.ignore%"
+      },
+      {
+        "command": "twigline.file.resolveCurrent",
+        "title": "%cmd.file.resolveCurrent%"
+      },
+      {
+        "command": "twigline.file.resolveIncoming",
+        "title": "%cmd.file.resolveIncoming%"
+      },
+      {
+        "command": "twigline.file.openMergeEditor",
+        "title": "%cmd.file.openMergeEditor%"
+      },
+      {
+        "command": "twigline.file.markResolved",
+        "title": "%cmd.file.markResolved%"
+      },
+      {
+        "command": "twigline.file.markUnresolved",
+        "title": "%cmd.file.markUnresolved%"
+      },
+      {
+        "command": "twigline.file.openDiff",
+        "title": "%cmd.file.openDiff%"
+      },
+      {
+        "command": "twigline.file.open",
+        "title": "%cmd.file.open%"
+      },
+      {
+        "command": "twigline.commitFile.openRevision",
+        "title": "%cmd.commitFile.openRevision%"
+      },
+      {
+        "command": "twigline.commitFile.compareWorktree",
+        "title": "%cmd.commitFile.compareWorktree%"
+      },
+      {
+        "command": "twigline.file.history",
+        "title": "%cmd.file.history%"
+      },
+      {
+        "command": "twigline.commitFile.restore",
+        "title": "%cmd.commitFile.restore%"
+      },
+      {
+        "command": "twigline.file.reveal",
+        "title": "%cmd.file.reveal%"
+      },
+      {
+        "command": "twigline.file.copyPath",
+        "title": "%cmd.file.copyPath%"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "twigline",
+          "title": "Twigline",
+          "icon": "media/twigline.svg"
+        }
+      ]
+    },
+    "views": {
+      "twigline": [
+        {
+          "id": "twigline.repositories",
+          "name": "%view.repositories%",
+          "icon": "media/twigline.svg"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "twigline.repositories",
+        "contents": "%view.repositories.welcome%"
+      }
+    ],
+    "menus": {
+      "scm/title": [
+        {
+          "command": "twigline.open",
+          "when": "scmProvider == git",
+          "group": "navigation"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "twigline.fileHistory",
+          "when": "resourceScheme == file",
+          "group": "7_twigline"
+        }
+      ],
+      "editor/title/context": [
+        {
+          "command": "twigline.fileHistory",
+          "when": "resourceScheme == file",
+          "group": "7_twigline"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "twigline.open",
+          "when": "view == twigline.repositories && viewItem == twigline.repository",
+          "group": "inline"
+        }
+      ],
+      "webview/context": [
+        {
+          "command": "twigline.commit.checkout",
+          "when": "webviewId == 'twigline.repository' && webviewSection == 'commit'",
+          "group": "1_checkout@1"
+        },
+        {
+          "command": "twigline.commit.createBranch",
+          "when": "webviewId == 'twigline.repository' && webviewSection == 'commit'",
+          "group": "1_checkout@2"
+        },
+        {
+          "command": "twigline.commit.createTag",
+          "when": "webviewId == 'twigline.repository' && webviewSection == 'commit'",
+          "group": "1_checkout@3"
+        },
+        {
+          "command": "twigline.commit.merge",
+          "when": "webviewId == 'twigline.repository' && webviewSection == 'commit' && !twiglineIsHead",
+          "group": "2_integrate@1"
+        },
+        {
+          "command": "twigline.commit.rebase",
+          "when": "webviewId == 'twigline.repository' && webviewSection == 'commit' && !twiglineIsHead",
+          "group": "2_integrate@2"
+        },
+        {
+          "command": "twigline.commit.cherryPick",
+          "when": "webviewId == 'twigline.repository' && webviewSection == 'commit' && !twiglineIsHead",
+          "group": "2_integrate@3"
+        },
+        {
+          "command": "twigline.commit.revert",
+          "when": "webviewId == 'twigline.repository' && webviewSection == 'commit'",
+          "group": "2_integrate@4"
+        },
+        {
+          "command": "twigline.commit.reset",
+          "when": "webviewId == 'twigline.repository' && webviewSection == 'commit' && !twiglineIsHead",
+          "group": "3_rewrite@1"
+        },
+        {
+          "command": "twigline.commit.interactiveRebase",
+          "when": "webviewId == 'twigline.repository' && webviewSection == 'commit' && !twiglineIsHead",
+          "group": "3_rewrite@2"
+        },
+        {
+          "command": "twigline.commit.copySha",
+          "when": "webviewId == 'twigline.repository' && webviewSection == 'commit'",
+          "group": "4_copy@1"
+        },
+        {
+          "command": "twigline.commit.copyMessage",
+          "when": "webviewId == 'twigline.repository' && webviewSection == 'commit'",
+          "group": "4_copy@2"
+        },
+        {
+          "command": "twigline.commit.createPatch",
+          "when": "webviewId == 'twigline.repository' && webviewSection == 'commit'",
+          "group": "4_copy@3"
+        },
+        {
+          "command": "twigline.commit.customAction",
+          "when": "webviewId == 'twigline.repository' && webviewSection == 'commit'",
+          "group": "4_copy@4"
+        },
+        {
+          "command": "twigline.branch.checkout",
+          "when": "webviewId == 'twigline.repository' && webviewSection == 'branch.local' && !twiglineIsHead",
+          "group": "1_checkout@1"
+        },
+        {
+          "command": "twigline.branch.createBranch",
+          "when": "webviewId == 'twigline.repository' && webviewSection == 'branch.local'",
+          "group": "1_checkout@2"
+        },
+        {
+          "command": "twigline.branch.merge",
+          "when": "webviewId == 'twigline.repository' && webviewSection == 'branch.local' && !twiglineIsHead",
+          "group": "2_integrate@1"
+        },
+        {
+          "command": "twigline.branch.rebase",
+          "when": "webviewId == 'twigline.repository' && webviewSection == 'branch.local' && !twiglineIsHead",
+          "group": "2_integrate@2"
+        },
+        {
+          "command": "twigline.branch.pull",
+          "when": "webviewId == 'twigline.repository' && webviewSection == 'branch.local'",
+          "group": "3_remote@1"
+        },
+        {
+          "command": "twigline.branch.push",
+          "when": "webviewId == 'twigline.repository' && webviewSection == 'branch.local'",
+          "group": "3_remote@2"
+        },
+        {
+          "command": "twigline.branch.setUpstream",
+          "when": "webviewId == 'twigline.repository' && webviewSection == 'branch.local'",
+          "group": "3_remote@3"
+        },
+        {
+          "command": "twigline.branch.compare",
+          "when": "webviewId == 'twigline.repository' && webviewSection == 'branch.local' && !twiglineIsHead",
+          "group": "4_manage@1"
+        },
+        {
+          "command": "twigline.branch.rename",
+          "when": "webviewId == 'twigline.repository' && webviewSection == 'branch.local'",
+          "group": "4_manage@2"
+        },
+        {
+          "command": "twigline.branch.delete",
+          "when": "webviewId == 'twigline.repository' && webviewSection == 'branch.local' && !twiglineIsHead",
+          "group": "4_manage@3"
+        },
+        {
+          "command": "twigline.branch.openPullRequest",
+          "when": "webviewId == 'twigline.repository' && webviewSection == 'branch.local' && twiglinePr",
+          "group": "5_pr@1"
+        },
+        {
+          "command": "twigline.branch.createPullRequest",
+          "when": "webviewId == 'twigline.repository' && webviewSection == 'branch.local' && !twiglinePrOpen",
+          "group": "5_pr@2"
+        },
+        {
+          "command": "twigline.remoteBranch.checkout",
+          "when": "webviewId == 'twigline.repository' && webviewSection == 'branch.remote'",
+          "group": "1_checkout@1"
+        },
+        {
+          "command": "twigline.remoteBranch.createBranch",
+          "when": "webviewId == 'twigline.repository' && webviewSection == 'branch.remote'",
+          "group": "1_checkout@2"
+        },
+        {
+          "command": "twigline.remoteBranch.merge",
+          "when": "webviewId == 'twigline.repository' && webviewSection == 'branch.remote'",
+          "group": "2_integrate@1"
+        },
+        {
+          "command": "twigline.remoteBranch.compare",
+          "when": "webviewId == 'twigline.repository' && webviewSection == 'branch.remote'",
+          "group": "2_integrate@2"
+        },
+        {
+          "command": "twigline.remoteBranch.delete",
+          "when": "webviewId == 'twigline.repository' && webviewSection == 'branch.remote'",
+          "group": "3_manage@1"
+        },
+        {
+          "command": "twigline.remoteBranch.openPullRequest",
+          "when": "webviewId == 'twigline.repository' && webviewSection == 'branch.remote' && twiglinePr",
+          "group": "4_pr@1"
+        },
+        {
+          "command": "twigline.tag.checkout",
+          "when": "webviewId == 'twigline.repository' && webviewSection == 'tag'",
+          "group": "1_checkout@1"
+        },
+        {
+          "command": "twigline.tag.createBranch",
+          "when": "webviewId == 'twigline.repository' && webviewSection == 'tag'",
+          "group": "1_checkout@2"
+        },
+        {
+          "command": "twigline.tag.showDetails",
+          "when": "webviewId == 'twigline.repository' && webviewSection == 'tag'",
+          "group": "1_checkout@3"
+        },
+        {
+          "command": "twigline.tag.push",
+          "when": "webviewId == 'twigline.repository' && webviewSection == 'tag'",
+          "group": "2_manage@1"
+        },
+        {
+          "command": "twigline.tag.delete",
+          "when": "webviewId == 'twigline.repository' && webviewSection == 'tag'",
+          "group": "2_manage@2"
+        },
+        {
+          "command": "twigline.stash.apply",
+          "when": "webviewId == 'twigline.repository' && webviewSection == 'stash'",
+          "group": "1_apply@1"
+        },
+        {
+          "command": "twigline.stash.pop",
+          "when": "webviewId == 'twigline.repository' && webviewSection == 'stash'",
+          "group": "1_apply@2"
+        },
+        {
+          "command": "twigline.stash.showDiff",
+          "when": "webviewId == 'twigline.repository' && webviewSection == 'stash'",
+          "group": "1_apply@3"
+        },
+        {
+          "command": "twigline.stash.createBranch",
+          "when": "webviewId == 'twigline.repository' && webviewSection == 'stash'",
+          "group": "2_branch@1"
+        },
+        {
+          "command": "twigline.stash.drop",
+          "when": "webviewId == 'twigline.repository' && webviewSection == 'stash'",
+          "group": "3_manage@1"
+        },
+        {
+          "command": "twigline.file.stage",
+          "when": "webviewId == 'twigline.repository' && webviewSection == 'file.unstaged'",
+          "group": "1_stage@1"
+        },
+        {
+          "command": "twigline.file.unstage",
+          "when": "webviewId == 'twigline.repository' && webviewSection == 'file.staged'",
+          "group": "1_stage@1"
+        },
+        {
+          "command": "twigline.file.discard",
+          "when": "webviewId == 'twigline.repository' && webviewSection == 'file.unstaged'",
+          "group": "1_stage@2"
+        },
+        {
+          "command": "twigline.file.ignore",
+          "when": "webviewId == 'twigline.repository' && webviewSection == 'file.unstaged'",
+          "group": "2_ignore@1"
+        },
+        {
+          "command": "twigline.file.resolveCurrent",
+          "when": "webviewId == 'twigline.repository' && webviewSection == 'file.conflicted'",
+          "group": "1_resolve@1"
+        },
+        {
+          "command": "twigline.file.resolveIncoming",
+          "when": "webviewId == 'twigline.repository' && webviewSection == 'file.conflicted'",
+          "group": "1_resolve@2"
+        },
+        {
+          "command": "twigline.file.openMergeEditor",
+          "when": "webviewId == 'twigline.repository' && webviewSection == 'file.conflicted'",
+          "group": "2_merge@1"
+        },
+        {
+          "command": "twigline.file.markResolved",
+          "when": "webviewId == 'twigline.repository' && webviewSection == 'file.conflicted'",
+          "group": "3_mark@1"
+        },
+        {
+          "command": "twigline.file.markUnresolved",
+          "when": "webviewId == 'twigline.repository' && webviewSection == 'file.conflicted'",
+          "group": "3_mark@2"
+        },
+        {
+          "command": "twigline.file.openDiff",
+          "when": "webviewId == 'twigline.repository' && webviewSection =~ /^file\\.(unstaged|staged|commit)$/",
+          "group": "3_open@1"
+        },
+        {
+          "command": "twigline.file.open",
+          "when": "webviewId == 'twigline.repository' && webviewSection =~ /^file\\.(unstaged|staged)$/",
+          "group": "3_open@2"
+        },
+        {
+          "command": "twigline.commitFile.openRevision",
+          "when": "webviewId == 'twigline.repository' && webviewSection == 'file.commit'",
+          "group": "3_open@2"
+        },
+        {
+          "command": "twigline.commitFile.compareWorktree",
+          "when": "webviewId == 'twigline.repository' && webviewSection == 'file.commit'",
+          "group": "3_open@3"
+        },
+        {
+          "command": "twigline.file.history",
+          "when": "webviewId == 'twigline.repository' && webviewSection =~ /^file\\.(unstaged|staged|commit)$/",
+          "group": "3_open@4"
+        },
+        {
+          "command": "twigline.commitFile.restore",
+          "when": "webviewId == 'twigline.repository' && webviewSection == 'file.commit'",
+          "group": "4_restore@1"
+        },
+        {
+          "command": "twigline.file.reveal",
+          "when": "webviewId == 'twigline.repository' && webviewSection == 'file.unstaged'",
+          "group": "4_reveal@1"
+        },
+        {
+          "command": "twigline.file.copyPath",
+          "when": "webviewId == 'twigline.repository' && webviewSection =~ /^file\\.(unstaged|staged|commit)$/",
+          "group": "4_reveal@2"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "twigline.commit.checkout",
+          "when": "false"
+        },
+        {
+          "command": "twigline.commit.createBranch",
+          "when": "false"
+        },
+        {
+          "command": "twigline.commit.createTag",
+          "when": "false"
+        },
+        {
+          "command": "twigline.commit.merge",
+          "when": "false"
+        },
+        {
+          "command": "twigline.commit.rebase",
+          "when": "false"
+        },
+        {
+          "command": "twigline.commit.cherryPick",
+          "when": "false"
+        },
+        {
+          "command": "twigline.commit.revert",
+          "when": "false"
+        },
+        {
+          "command": "twigline.commit.reset",
+          "when": "false"
+        },
+        {
+          "command": "twigline.commit.interactiveRebase",
+          "when": "false"
+        },
+        {
+          "command": "twigline.commit.copySha",
+          "when": "false"
+        },
+        {
+          "command": "twigline.commit.copyMessage",
+          "when": "false"
+        },
+        {
+          "command": "twigline.commit.createPatch",
+          "when": "false"
+        },
+        {
+          "command": "twigline.commit.customAction",
+          "when": "false"
+        },
+        {
+          "command": "twigline.branch.checkout",
+          "when": "false"
+        },
+        {
+          "command": "twigline.branch.createBranch",
+          "when": "false"
+        },
+        {
+          "command": "twigline.branch.merge",
+          "when": "false"
+        },
+        {
+          "command": "twigline.branch.rebase",
+          "when": "false"
+        },
+        {
+          "command": "twigline.branch.pull",
+          "when": "false"
+        },
+        {
+          "command": "twigline.branch.push",
+          "when": "false"
+        },
+        {
+          "command": "twigline.branch.setUpstream",
+          "when": "false"
+        },
+        {
+          "command": "twigline.branch.compare",
+          "when": "false"
+        },
+        {
+          "command": "twigline.branch.rename",
+          "when": "false"
+        },
+        {
+          "command": "twigline.branch.delete",
+          "when": "false"
+        },
+        {
+          "command": "twigline.branch.createPullRequest",
+          "when": "false"
+        },
+        {
+          "command": "twigline.branch.openPullRequest",
+          "when": "false"
+        },
+        {
+          "command": "twigline.remoteBranch.checkout",
+          "when": "false"
+        },
+        {
+          "command": "twigline.remoteBranch.createBranch",
+          "when": "false"
+        },
+        {
+          "command": "twigline.remoteBranch.merge",
+          "when": "false"
+        },
+        {
+          "command": "twigline.remoteBranch.compare",
+          "when": "false"
+        },
+        {
+          "command": "twigline.remoteBranch.delete",
+          "when": "false"
+        },
+        {
+          "command": "twigline.remoteBranch.openPullRequest",
+          "when": "false"
+        },
+        {
+          "command": "twigline.tag.checkout",
+          "when": "false"
+        },
+        {
+          "command": "twigline.tag.createBranch",
+          "when": "false"
+        },
+        {
+          "command": "twigline.tag.showDetails",
+          "when": "false"
+        },
+        {
+          "command": "twigline.tag.push",
+          "when": "false"
+        },
+        {
+          "command": "twigline.tag.delete",
+          "when": "false"
+        },
+        {
+          "command": "twigline.stash.apply",
+          "when": "false"
+        },
+        {
+          "command": "twigline.stash.pop",
+          "when": "false"
+        },
+        {
+          "command": "twigline.stash.showDiff",
+          "when": "false"
+        },
+        {
+          "command": "twigline.stash.createBranch",
+          "when": "false"
+        },
+        {
+          "command": "twigline.stash.drop",
+          "when": "false"
+        },
+        {
+          "command": "twigline.file.stage",
+          "when": "false"
+        },
+        {
+          "command": "twigline.file.unstage",
+          "when": "false"
+        },
+        {
+          "command": "twigline.file.discard",
+          "when": "false"
+        },
+        {
+          "command": "twigline.file.ignore",
+          "when": "false"
+        },
+        {
+          "command": "twigline.file.resolveCurrent",
+          "when": "false"
+        },
+        {
+          "command": "twigline.file.resolveIncoming",
+          "when": "false"
+        },
+        {
+          "command": "twigline.file.openMergeEditor",
+          "when": "false"
+        },
+        {
+          "command": "twigline.file.markResolved",
+          "when": "false"
+        },
+        {
+          "command": "twigline.file.markUnresolved",
+          "when": "false"
+        },
+        {
+          "command": "twigline.file.openDiff",
+          "when": "false"
+        },
+        {
+          "command": "twigline.file.open",
+          "when": "false"
+        },
+        {
+          "command": "twigline.commitFile.openRevision",
+          "when": "false"
+        },
+        {
+          "command": "twigline.commitFile.compareWorktree",
+          "when": "false"
+        },
+        {
+          "command": "twigline.file.history",
+          "when": "false"
+        },
+        {
+          "command": "twigline.commitFile.restore",
+          "when": "false"
+        },
+        {
+          "command": "twigline.file.reveal",
+          "when": "false"
+        },
+        {
+          "command": "twigline.file.copyPath",
+          "when": "false"
+        },
+        {
+          "command": "twigline.fileHistory",
+          "when": "resourceScheme == file"
+        },
+        {
+          "command": "twigline.refresh",
+          "when": "activeWebviewPanelId == 'twigline.repository'"
+        },
+        {
+          "command": "twigline.view.fileStatus",
+          "when": "activeWebviewPanelId == 'twigline.repository'"
+        },
+        {
+          "command": "twigline.view.history",
+          "when": "activeWebviewPanelId == 'twigline.repository'"
+        },
+        {
+          "command": "twigline.view.search",
+          "when": "activeWebviewPanelId == 'twigline.repository'"
+        },
+        {
+          "command": "twigline.panel.pull",
+          "when": "false"
+        },
+        {
+          "command": "twigline.panel.push",
+          "when": "false"
+        },
+        {
+          "command": "twigline.panel.fetch",
+          "when": "false"
+        },
+        {
+          "command": "twigline.panel.branch",
+          "when": "activeWebviewPanelId == 'twigline.repository'"
+        },
+        {
+          "command": "twigline.panel.pushBranches",
+          "when": "activeWebviewPanelId == 'twigline.repository'"
+        },
+        {
+          "command": "twigline.panel.merge",
+          "when": "activeWebviewPanelId == 'twigline.repository'"
+        },
+        {
+          "command": "twigline.panel.rebase",
+          "when": "activeWebviewPanelId == 'twigline.repository'"
+        },
+        {
+          "command": "twigline.panel.tag",
+          "when": "activeWebviewPanelId == 'twigline.repository'"
+        },
+        {
+          "command": "twigline.panel.stash",
+          "when": "activeWebviewPanelId == 'twigline.repository'"
+        },
+        {
+          "command": "twigline.panel.discard",
+          "when": "activeWebviewPanelId == 'twigline.repository'"
+        },
+        {
+          "command": "twigline.panel.settings",
+          "when": "activeWebviewPanelId == 'twigline.repository'"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "twigline.view.fileStatus",
+        "key": "ctrl+shift+1",
+        "mac": "cmd+shift+1",
+        "when": "activeWebviewPanelId == 'twigline.repository'"
+      },
+      {
+        "command": "twigline.view.history",
+        "key": "ctrl+shift+2",
+        "mac": "cmd+shift+2",
+        "when": "activeWebviewPanelId == 'twigline.repository'"
+      },
+      {
+        "command": "twigline.view.search",
+        "key": "ctrl+f",
+        "mac": "cmd+f",
+        "when": "activeWebviewPanelId == 'twigline.repository'"
+      },
+      {
+        "command": "twigline.refresh",
+        "key": "ctrl+shift+r",
+        "mac": "cmd+shift+r",
+        "when": "activeWebviewPanelId == 'twigline.repository'"
+      }
+    ],
+    "configuration": {
+      "title": "Twigline",
+      "properties": {
+        "twigline.gitPath": {
+          "type": "string",
+          "default": "",
+          "scope": "machine",
+          "markdownDescription": "%config.gitPath%"
+        },
+        "twigline.history.order": {
+          "type": "string",
+          "default": "date",
+          "scope": "resource",
+          "markdownDescription": "%config.history.order%",
+          "enum": [
+            "date",
+            "topo"
+          ],
+          "enumDescriptions": [
+            "%config.history.order.date%",
+            "%config.history.order.topo%"
+          ]
+        },
+        "twigline.history.branches": {
+          "type": "string",
+          "default": "all",
+          "scope": "resource",
+          "markdownDescription": "%config.history.branches%",
+          "enum": [
+            "all",
+            "current"
+          ]
+        },
+        "twigline.history.showRemoteBranches": {
+          "type": "boolean",
+          "default": true,
+          "scope": "resource",
+          "markdownDescription": "%config.history.showRemoteBranches%"
+        },
+        "twigline.history.showStashes": {
+          "type": "boolean",
+          "default": false,
+          "scope": "resource",
+          "markdownDescription": "%config.history.showStashes%"
+        },
+        "twigline.history.pageSize": {
+          "type": "number",
+          "default": 500,
+          "scope": "window",
+          "markdownDescription": "%config.history.pageSize%",
+          "minimum": 50,
+          "maximum": 10000
+        },
+        "twigline.history.dateFormat": {
+          "type": "string",
+          "default": "absolute",
+          "scope": "window",
+          "markdownDescription": "%config.history.dateFormat%"
+        },
+        "twigline.graph.colors": {
+          "type": "array",
+          "default": [
+            "#2f6bd8",
+            "#c0397f",
+            "#c98410",
+            "#2c9a58",
+            "#7a4fd0",
+            "#d0503a",
+            "#1a93a8",
+            "#8a8f1f"
+          ],
+          "scope": "window",
+          "markdownDescription": "%config.graph.colors%",
+          "items": {
+            "type": "string"
+          }
+        },
+        "twigline.fileStatus.layout": {
+          "type": "string",
+          "default": "split",
+          "scope": "window",
+          "markdownDescription": "%config.fileStatus.layout%",
+          "enum": [
+            "split",
+            "single"
+          ]
+        },
+        "twigline.fileStatus.view": {
+          "type": "string",
+          "default": "list",
+          "scope": "window",
+          "markdownDescription": "%config.fileStatus.view%",
+          "enum": [
+            "list",
+            "tree"
+          ]
+        },
+        "twigline.diff.contextLines": {
+          "type": "number",
+          "default": 3,
+          "scope": "window",
+          "markdownDescription": "%config.diff.contextLines%",
+          "minimum": 0,
+          "maximum": 25
+        },
+        "twigline.diff.ignoreWhitespace": {
+          "type": "boolean",
+          "default": false,
+          "scope": "window",
+          "markdownDescription": "%config.diff.ignoreWhitespace%"
+        },
+        "twigline.diff.maxLines": {
+          "type": "number",
+          "default": 5000,
+          "scope": "window",
+          "markdownDescription": "%config.diff.maxLines%",
+          "minimum": 100
+        },
+        "twigline.diff.syntaxHighlight": {
+          "type": "boolean",
+          "default": true,
+          "scope": "window",
+          "markdownDescription": "%config.diff.syntaxHighlight%"
+        },
+        "twigline.autoRefresh": {
+          "type": "boolean",
+          "default": true,
+          "scope": "resource",
+          "markdownDescription": "%config.autoRefresh%"
+        },
+        "twigline.autoFetch.intervalMinutes": {
+          "type": "number",
+          "default": 10,
+          "scope": "resource",
+          "markdownDescription": "%config.autoFetch.intervalMinutes%",
+          "minimum": 0
+        },
+        "twigline.push.forceMode": {
+          "type": "string",
+          "default": "withLease",
+          "scope": "resource",
+          "markdownDescription": "%config.push.forceMode%",
+          "enum": [
+            "withLease",
+            "force"
+          ]
+        },
+        "twigline.commit.rememberPushAfter": {
+          "type": "boolean",
+          "default": true,
+          "scope": "resource",
+          "markdownDescription": "%config.commit.rememberPushAfter%"
+        },
+        "twigline.pullRequests.enabled": {
+          "type": "boolean",
+          "default": true,
+          "scope": "window",
+          "markdownDescription": "%config.pullRequests.enabled%"
+        },
+        "twigline.avatars.enabled": {
+          "type": "boolean",
+          "default": false,
+          "scope": "application",
+          "markdownDescription": "%config.avatars.enabled%"
+        },
+        "twigline.customActions": {
+          "type": "array",
+          "default": [],
+          "scope": "application",
+          "markdownDescription": "%config.customActions%",
+          "items": {
+            "type": "object",
+            "required": [
+              "name",
+              "command"
+            ],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "command": {
+                "type": "string"
+              },
+              "args": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "terminal": {
+                "type": "boolean",
+                "default": false
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
+    "@shikijs/core": "^4.4.3",
+    "@shikijs/engine-javascript": "^4.4.3",
+    "@tanstack/react-virtual": "^3.14.13",
+    "@vscode/codicons": "^0.0.46-24",
+    "diff": "^9.0.0",
+    "iconv-lite": "^0.7.3",
+    "jschardet": "^3.1.4",
+    "jsonc-parser": "^3.3.1",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "zod": "^4.6.5",
+    "zustand": "^5.0.15"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^22.20.4",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@types/vscode": "~1.95.0",
+    "@vitejs/plugin-react": "^6.1.1",
+    "@vscode/test-cli": "^0.0.15",
+    "@vscode/test-electron": "^3.1.0",
+    "@vscode/vsce": "^4.0.0",
+    "esbuild": "^0.28.2",
+    "fast-check": "^4.10.2",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.1",
+    "vitest": "^5.0.2"
+  }
+}
