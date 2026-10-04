@@ -8,7 +8,7 @@ A Git client inside VS Code: branches, the commit graph, file status with line-l
 - Actions sit where they apply: pull, push, merge and rebase for the current branch on the branch name in the tab row (clicking the ahead / behind counts also pushes / pulls); stash and discard inside the "Uncommitted Changes" tab; fetch, push branches, branch, tag and settings under "…" at the right end of the tab row
 - Stage / unstage / discard by file, hunk or line in the "Uncommitted Changes" tab
 - Right-click opens VS Code's own context menu
-- Actions with options open a dialog that previews the git command to be run
+- Actions with options open a dialog that previews the git command to be run; push, pull, merge, rebase, reset and branch deletion also show what the operation would do (ahead / behind, conflicts, force push, commits that would be lost) before it runs
 - English and Japanese UI; Japanese file names and Shift_JIS / EUC-JP files
 - Syntax highlighting in diffs, using the grammars installed in VS Code and the colors of the current color theme
 
