@@ -67,6 +67,18 @@ export class CompareService {
     return out;
   }
 
+  /**
+   * Commits reachable from `from` but not from `to` that no branch, tag or remote branch other than `branch` has:
+   * those that only the reflog keeps once `branch` is moved from `from` to `to` (reset). null when a side does not resolve
+   */
+  async exclusive(from: string, to: string, branch: string | undefined, signal?: AbortSignal): Promise<number | null> {
+    const [a, b] = await Promise.all([this.resolve(from, signal), this.resolve(to, signal)]);
+    if (!a || !b) return null;
+    // --exclude takes the name without refs/heads/ for --branches (a branch name has no glob characters)
+    const res = await this.repo.runner.run(['rev-list', '--count', a, `^${b}`, '--not', ...(branch ? [`--exclude=${branch}`] : []), '--branches', '--tags', '--remotes'], { signal });
+    return Number(res.stdout.toString('utf8').trim()) || 0;
+  }
+
   private async resolve(rev: string, signal?: AbortSignal): Promise<Sha | null> {
     const res = await this.repo.runner.run(['rev-parse', '-q', '--verify', '--end-of-options', `${rev}^{commit}`], { signal, noThrow: true });
     return res.exitCode === 0 ? res.stdout.toString('utf8').trim() : null;

@@ -1,16 +1,18 @@
 import { useMemo, useState } from 'react';
 import type { Operation, RefInfo } from '../../../../shared/protocol';
 import { t } from '../../i18n';
-import { closeDialog, confirm, runOp } from '../../store/actions';
-import { useStore } from '../../store/store';
+import { closeDialog, confirm, getRpc, runOp } from '../../store/actions';
+import { get, useStore } from '../../store/store';
 import { deleteInfo, safeToDelete, type DeleteInfo } from '../../util/branchDelete';
 import { cx, shortSha } from '../../util/format';
 import { integrateStatus, mergeRequirement, rebaseRequirement, type MergeMode } from '../../util/integrate';
+import { resetStatus, type ResetMode } from '../../util/resetStatus';
 import { PrChip, prDone, prOf } from '../PullRequest';
 import { Button, Checkbox, Select } from '../ui';
-import { Advanced, DialogShell, Field, Requirement, RequirementActions, Warning, useAheadBehind, useRefCompare, useRefNameValidation } from './Dialog';
+import { Advanced, DialogShell, Field, Requirement, RequirementActions, Warning, useAheadBehind, useRefCompare, useRefNameValidation, useRequest } from './Dialog';
 import { AutostashCheckbox, StashRequirement } from './IntegrateParts';
 import { MergeStatusCard, RebaseStatusCard } from './MergeRebaseCards';
+import { ResetStatusCard } from './ResetStatusCard';
 import { SummaryHint } from './SummaryCard';
 
 // Branch, checkout, merge, rebase, reset
@@ -508,39 +510,70 @@ export function RebaseDialog({ onto: initial }: { onto?: string }) {
 export function ResetDialog({ sha }: { sha: string }) {
   const snapshot = useStore((s) => s.snapshot)!;
   const status = useStore((s) => s.status);
-  const [mode, setMode] = useState<'soft' | 'mixed' | 'hard'>('mixed');
-  const lost = new Set([...(status?.staged ?? []), ...(status?.unstaged ?? []).filter((f) => f.status !== '?')].map((f) => f.path)).size;
+  const prs = useStore((s) => s.pullRequests);
+  const [mode, setMode] = useState<ResetMode>('mixed');
+
+  const head = snapshot.head.sha ?? undefined;
+  const branch = snapshot.head.branch ?? undefined;
+  const local = snapshot.refs.find((r) => r.kind === 'head' && r.isHead);
+  const upstream = local?.upstream && !local.gone ? snapshot.refs.find((r) => r.kind === 'remote' && r.name === local.upstream) : undefined;
+  const cmp = useRefCompare(head, sha);
+  const toUpstream = useRefCompare(sha, upstream?.sha);
+  const orphaned = useRequest(head ? JSON.stringify([head, sha, branch]) : '', (signal) =>
+    getRpc().request('ref/exclusive', { repo: get().boot.repo, from: head!, to: sha, branch }, signal),
+  );
+  const rs = resetStatus({ local, cmp: head ? cmp : null, toUpstream: upstream ? toUpstream : undefined, orphaned, mode, status });
+  const pr = local ? prOf(prs, local) : undefined;
+
   const op: Operation = { kind: 'reset', sha, mode };
-  const modes: { value: typeof mode; label: string; desc: string }[] = [
+  const modes: { value: ResetMode; label: string; desc: string }[] = [
     { value: 'soft', label: t('reset.soft'), desc: t('reset.softDesc') },
     { value: 'mixed', label: t('reset.mixed'), desc: t('reset.mixedDesc') },
     { value: 'hard', label: t('reset.hard'), desc: t('reset.hardDesc') },
   ];
+  const orphanedCount = rs.orphaned ?? 0;
   return (
     <DialogShell
-      title={t('reset.title', snapshot.head.branch ?? 'HEAD', shortSha(sha))}
+      title={t('reset.title', branch ?? 'HEAD', shortSha(sha))}
       okLabel={t('reset.ok')}
       danger={mode === 'hard'}
+      okDisabled={rs.nothing}
       preview={op}
       onOk={async () => {
-        if (mode === 'hard' && lost > 0) {
-          const ok = await confirm({ title: t('reset.hardConfirmTitle'), message: t('reset.hardConfirm', String(lost)), okLabel: t('reset.ok'), danger: true });
+        // A hard reset discards what cannot be recovered (uncommitted changes) and drops commits from every ref: confirm both
+        if (mode === 'hard' && (rs.discarded > 0 || orphanedCount > 0)) {
+          const message = [
+            rs.discarded > 0 ? t('reset.hardConfirm', String(rs.discarded)) : '',
+            orphanedCount > 0 ? t('reset.orphaned', String(orphanedCount)) : '',
+          ]
+            .filter(Boolean)
+            .join('\n');
+          const ok = await confirm({ title: t('reset.hardConfirmTitle'), message, okLabel: t('reset.ok'), danger: true });
           if (!ok) return;
         }
         closeDialog();
         await runOp(op);
       }}
     >
-      {modes.map((m) => (
-        <label key={m.value} className="radio block">
-          <input type="radio" checked={mode === m.value} onChange={() => setMode(m.value)} />
-          <span>
-            <b>{m.label}</b>
-            <span className="dim block">{m.desc}</span>
-          </span>
-        </label>
-      ))}
-      {mode === 'hard' && <Warning danger>{lost > 0 ? t('reset.hardWarning', String(lost)) : t('reset.hardWarningNone')}</Warning>}
+      <ResetStatusCard
+        from={branch ?? t('detachedHead')}
+        to={`${t('commitWord')} ${shortSha(sha)}`}
+        status={rs}
+        mode={mode}
+        found={pr && local ? { pr, ref: local.fullName } : undefined}
+      />
+      <div role="radiogroup" aria-label={t('reset.mode')}>
+        {modes.map((m) => (
+          <label key={m.value} className="radio block">
+            <input type="radio" checked={mode === m.value} onChange={() => setMode(m.value)} />
+            <span>
+              <b>{m.label}</b>
+              <span className="dim block">{m.desc}</span>
+            </span>
+          </label>
+        ))}
+      </div>
+      {mode === 'hard' && rs.discarded > 0 && <Warning danger>{t('reset.hardWarning', String(rs.discarded))}</Warning>}
     </DialogShell>
   );
 }

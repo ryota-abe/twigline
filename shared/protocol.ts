@@ -517,6 +517,8 @@ export interface RpcMethods {
   /** null when either side does not resolve to a commit */
   'ref/compare': (p: { repo: RepoId; ours: string; theirs: string; files?: boolean; conflicts?: boolean }) => RefComparison | null;
   /** ahead / behind of each ref (full names) against base; ahead counts the commits only the ref has. null when base does not resolve */
+  /** Commits from..to (reachable from from, not from to) that no ref other than branch has: what a reset of branch leaves only in the reflog */
+  'ref/exclusive': (p: { repo: RepoId; from: string; to: string; branch?: string }) => number | null;
   'ref/aheadBehind': (p: { repo: RepoId; base: string; refs: string[] }) => Record<string, { ahead: number; behind: number }> | null;
   'log/page': (p: { repo: RepoId; query: LogQuery; cursor?: string; offset: number; limit: number }) => LogPage;
   'commit/detail': (p: { repo: RepoId; sha: Sha; compareTo?: Sha; parent?: number }) => CommitDetail;

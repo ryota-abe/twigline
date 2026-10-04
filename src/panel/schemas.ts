@@ -126,6 +126,7 @@ export const methodParams = {
   'repo/resolve': z.object({ repo, rev: ref }),
   'ref/validate': z.object({ repo, name: z.string().max(1024) }),
   'ref/compare': z.object({ repo, ours: ref, theirs: ref, files: z.boolean().optional(), conflicts: z.boolean().optional() }),
+  'ref/exclusive': z.object({ repo, from: ref, to: ref, branch: ref.optional() }),
   'ref/aheadBehind': z.object({ repo, base: ref, refs: z.array(ref.refine((s) => s.startsWith('refs/'), 'not a full ref name')).max(10_000) }),
   'log/page': z.object({
     repo,

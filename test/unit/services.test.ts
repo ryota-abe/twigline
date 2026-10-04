@@ -419,6 +419,24 @@ describe('CompareService', () => {
     expect(await m.compare.compare('main', 'no-such-branch')).toBeNull();
   });
 
+  it('counts the commits a reset would leave only in the reflog', async () => {
+    const r = repo();
+    const base = r.commit('base');
+    r.commit('c1');
+    r.git(['branch', 'keep']);
+    r.commit('c2');
+    r.commit('c3');
+    r.git(['tag', 't3']);
+    r.commit('c4');
+    const m = await model(r);
+    // c1 stays on keep, c2 and c3 on the tag: only c4 is left behind
+    expect(await m.compare.exclusive('main', base, 'main')).toBe(1);
+    // Without leaving out the moved branch itself, it still has every commit
+    expect(await m.compare.exclusive('main', base, undefined)).toBe(0);
+    expect(await m.compare.exclusive('main', 'main', 'main')).toBe(0);
+    expect(await m.compare.exclusive('main', 'no-such', 'main')).toBeNull();
+  });
+
   it('counts ahead / behind of many refs against one base', async () => {
     const r = repo();
     r.commit('base', { 'f.txt': '1\n' });

@@ -238,22 +238,20 @@ export function useRefCompare(ours: string | undefined, theirs: string | undefin
 }
 
 /**
- * ahead / behind of local refs against one base commit, in one request (ahead: commits only the ref has), keyed by full ref name.
- * Asked again when the base or a ref moves. undefined while loading, null when it could not be counted
+ * The result of a request made while a dialog is open, asked again when key changes (debounced; a request in flight is cancelled).
+ * An empty key asks for nothing. undefined while loading, null when it failed
  */
-export function useAheadBehind(base: string | undefined, refs: readonly RefInfo[]): Record<string, { ahead: number; behind: number }> | null | undefined {
-  const [state, setState] = useState<{ key: string; value: Record<string, { ahead: number; behind: number }> | null } | null>(null);
-  const key = base && refs.length > 0 ? JSON.stringify([base, refs.map((r) => [r.fullName, r.sha])]) : '';
+export function useRequest<T>(key: string, run: (signal: AbortSignal) => Promise<T>): T | null | undefined {
+  const [state, setState] = useState<{ key: string; value: T | null } | null>(null);
   useEffect(() => {
     if (!key) return;
     const ctrl = new AbortController();
     const timer = setTimeout(() => {
-      getRpc()
-        .request('ref/aheadBehind', { repo: get().boot.repo, base: base!, refs: refs.map((r) => r.fullName) }, ctrl.signal)
-        .then(
-          (value) => setState({ key, value }),
-          (e) => !(e instanceof RpcError && e.category === 'cancelled') && setState({ key, value: null }),
-        );
+      run(ctrl.signal).then(
+        (value) => setState({ key, value }),
+        // Treated like "not known": the dialog still works without it
+        (e) => !(e instanceof RpcError && e.category === 'cancelled') && setState({ key, value: null }),
+      );
     }, 100);
     return () => {
       clearTimeout(timer);
@@ -261,8 +259,17 @@ export function useAheadBehind(base: string | undefined, refs: readonly RefInfo[
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
-  if (!key) return refs.length === 0 ? {} : undefined;
   return state && state.key === key ? state.value : undefined;
+}
+
+/**
+ * ahead / behind of local refs against one base commit, in one request (ahead: commits only the ref has), keyed by full ref name.
+ * Asked again when the base or a ref moves. undefined while loading, null when it could not be counted
+ */
+export function useAheadBehind(base: string | undefined, refs: readonly RefInfo[]): Record<string, { ahead: number; behind: number }> | null | undefined {
+  const key = base && refs.length > 0 ? JSON.stringify([base, refs.map((r) => [r.fullName, r.sha])]) : '';
+  const value = useRequest(key, (signal) => getRpc().request('ref/aheadBehind', { repo: get().boot.repo, base: base!, refs: refs.map((r) => r.fullName) }, signal));
+  return key ? value : refs.length === 0 ? {} : undefined;
 }
 
 /** Validate with git check-ref-format while typing */
