@@ -3,10 +3,13 @@ import type { Operation } from '../../../../shared/protocol';
 import { t } from '../../i18n';
 import { closeDialog, confirm, openDialog, runOp } from '../../store/actions';
 import { useStore } from '../../store/store';
-import { pushStatus } from '../../util/pushStatus';
+import { pullRequirement, pullStatus, type PullMode } from '../../util/pullStatus';
+import { pullRequestFor, pushStatus } from '../../util/pushStatus';
 import { Button, Checkbox, Empty, Select } from '../ui';
-import { DialogShell, Field, Warning } from './Dialog';
+import { Advanced, DialogShell, Field, Requirement, RequirementActions, Warning, useRefCompare } from './Dialog';
+import { PullStatusCard } from './PullStatusCard';
 import { PushStatusCard } from './PushStatusCard';
+import { SummaryFiles, SummaryHint } from './SummaryCard';
 
 // Pull, push, fetch
 
@@ -26,6 +29,8 @@ function useRemotes() {
 
 export function PullDialog({ remote: initialRemote, branch: initialBranch, into }: { remote?: string; branch?: string; into?: string }) {
   const { snapshot, upstream, upstreamRemote } = useRemotes();
+  const status = useStore((s) => s.status);
+  const prs = useStore((s) => s.pullRequests);
   // A branch that is not checked out cannot use the working tree, so only fast-forward
   const intoOther = !!into && into !== snapshot.head.branch;
   const [remote, setRemote] = useState(initialRemote ?? upstreamRemote ?? snapshot.remotes[0]?.name ?? '');
@@ -36,8 +41,24 @@ export function PullDialog({ remote: initialRemote, branch: initialBranch, into 
   );
   const preferred = initialBranch ?? (upstream?.startsWith(remote + '/') ? upstream.slice(remote.length + 1) : (snapshot.head.branch ?? ''));
   const [branch, setBranch] = useState(branches.includes(preferred) ? preferred : (branches[0] ?? preferred));
-  const [rebase, setRebase] = useState(false);
-  const [ffOnly, setFfOnly] = useState(false);
+  const [mode, setMode] = useState<PullMode>('merge');
+  const [autostash, setAutostash] = useState(false);
+
+  const intoName = intoOther ? into : (snapshot.head.branch ?? undefined);
+  const local = intoName ? snapshot.refs.find((r) => r.kind === 'head' && r.name === intoName) : undefined;
+  const name = branch.trim();
+  const target = `${remote}/${name}`;
+  const remoteRef = name ? snapshot.refs.find((r) => r.kind === 'remote' && r.name === target) : undefined;
+  const ours = intoOther ? local?.sha : (snapshot.head.sha ?? undefined);
+  const cmp = useRefCompare(ours, remoteRef?.sha, { files: !intoOther, conflicts: !intoOther });
+  // Nothing to compare with when there is no commit to pull into yet (unborn branch)
+  const ps = pullStatus({ local, target, remoteRef, cmp: ours ? cmp : null, status: intoOther ? null : status });
+  const effectiveMode: PullMode = intoOther ? 'ffOnly' : mode;
+  const requirement = pullRequirement(ps, effectiveMode);
+  // Merging with autostash needs git 2.27; a rebase has had it longer
+  const canAutostash = !intoOther && (effectiveMode === 'rebase' || snapshot.features.pullAutostash);
+  const stash = autostash && canAutostash && ps.dirty.length > 0;
+  const blocked = requirement === 'ff' || requirement === 'unrelated' || (requirement === 'stash' && !stash);
 
   if (snapshot.remotes.length === 0) {
     return (
@@ -46,12 +67,27 @@ export function PullDialog({ remote: initialRemote, branch: initialBranch, into 
       </DialogShell>
     );
   }
-  const op: Operation | null = !remote || !branch ? null : intoOther ? { kind: 'pull', remote, branch, rebase: false, ffOnly: true, into } : { kind: 'pull', remote, branch, rebase, ffOnly };
+  const op: Operation | null =
+    !remote || !name
+      ? null
+      : intoOther
+        ? { kind: 'pull', remote, branch: name, rebase: false, ffOnly: true, into }
+        : { kind: 'pull', remote, branch: name, rebase: mode === 'rebase', ffOnly: mode === 'ffOnly', ...(stash ? { autostash: true } : {}) };
+  const remoteFull = `refs/remotes/${target}`;
+  const remotePr = prs?.byRef[remoteFull];
+  const found = local ? pullRequestFor(prs, local, remote, name) : remotePr ? { pr: remotePr, ref: remoteFull } : undefined;
+  const modes: { value: PullMode; label: string; desc: string }[] = [
+    { value: 'merge', label: t('pull.mode.merge'), desc: t('pull.mode.mergeDesc') },
+    { value: 'rebase', label: t('pull.mode.rebase'), desc: t('pull.mode.rebaseDesc') },
+    { value: 'ffOnly', label: t('pull.mode.ffOnly'), desc: t('pull.mode.ffOnlyDesc') },
+  ];
+  const autostashBox = <Checkbox checked={autostash} onChange={setAutostash} label={t('pull.autostash')} />;
+
   return (
     <DialogShell
       title={t('pull.title')}
       okLabel={t('pull.ok')}
-      okDisabled={!op}
+      okDisabled={!op || blocked}
       preview={op}
       onOk={async () => {
         closeDialog();
@@ -69,15 +105,75 @@ export function PullDialog({ remote: initialRemote, branch: initialBranch, into 
           ))}
         </datalist>
       </Field>
-      <Field label={t('pull.into')} hint={intoOther ? t('pull.intoOther') : undefined}>
-        <span className="readonly">{intoOther ? into : (snapshot.head.branch ?? t('detachedHead'))}</span>
-      </Field>
-      {!intoOther && (
-        <>
-          <Checkbox checked={rebase} onChange={(v) => { setRebase(v); if (v) setFfOnly(false); }} label={t('pull.rebase')} />
-          <Checkbox checked={ffOnly} onChange={(v) => { setFfOnly(v); if (v) setRebase(false); }} label={t('pull.ffOnly')} />
-        </>
+      {name && (
+        <PullStatusCard
+          from={target}
+          into={intoName ?? t('detachedHead')}
+          remote={remote}
+          status={ps}
+          mode={effectiveMode}
+          blocked={blocked}
+          intoOther={intoOther}
+          found={found}
+          prs={prs}
+        />
       )}
+      {requirement === 'unrelated' && <Requirement danger title={t('pull.need.unrelated')} detail={t('pull.need.unrelatedDetail')} />}
+      {requirement === 'ff' &&
+        (intoOther ? (
+          <Requirement title={t('pull.need.ff')} detail={t('pull.need.ffOtherDetail', into!)}>
+            <RequirementActions>
+              <Button
+                small
+                onClick={async () => {
+                  closeDialog();
+                  if (await runOp({ kind: 'checkout', ref: into! }, { success: t('cmd.checkedOut', into!) })) openDialog('pull', { remote, branch: name });
+                }}
+              >
+                {t('pull.need.checkout', into!)}
+              </Button>
+            </RequirementActions>
+          </Requirement>
+        ) : (
+          <Requirement title={t('pull.need.ff')} detail={t('pull.need.ffDetail')}>
+            <RequirementActions>
+              <Button small onClick={() => setMode('merge')}>
+                {t('pull.need.useMerge')}
+              </Button>
+              <Button small onClick={() => setMode('rebase')}>
+                {t('pull.need.useRebase')}
+              </Button>
+            </RequirementActions>
+          </Requirement>
+        ))}
+      {requirement === 'stash' && (
+        <Requirement
+          title={t('pull.need.stash')}
+          detail={effectiveMode === 'rebase' ? t('pull.need.stashRebase', String(ps.dirty.length)) : t('pull.need.stashMerge', String(ps.overlap.length))}
+        >
+          {effectiveMode !== 'rebase' && <SummaryFiles paths={ps.overlap} />}
+          {canAutostash && autostashBox}
+          <RequirementActions>
+            <Button small onClick={() => openDialog('stash')}>
+              {t('pull.need.openStash')}
+            </Button>
+          </RequirementActions>
+        </Requirement>
+      )}
+      {!intoOther && (
+        <div role="radiogroup" aria-label={t('pull.mode')}>
+          {modes.map((m) => (
+            <label key={m.value} className="radio block">
+              <input type="radio" checked={mode === m.value} onChange={() => setMode(m.value)} />
+              <span>
+                <b>{m.label}</b>
+                <span className="dim block">{m.desc}</span>
+              </span>
+            </label>
+          ))}
+        </div>
+      )}
+      {requirement !== 'stash' && canAutostash && ps.dirty.length > 0 && <Advanced>{autostashBox}</Advanced>}
     </DialogShell>
   );
 }
@@ -139,31 +235,24 @@ export function PushDialog({ branch: initialBranch, setUpstream }: { branch?: st
       </Field>
       {local && status && <PushStatusCard local={local} remote={remote} remoteName={target} status={status} force={force} prs={prs} />}
       {forceRequired && (
-        <Warning danger>
-          <div className="push-force-needed">
-            <strong>{t('push.forceNeeded')}</strong>
-            <span>{t('push.forceNeededDetail', String(status!.behind))}</span>
-            <Checkbox checked={force} onChange={setForce} label={forceLabel} />
-            <div>
-              <Button small onClick={() => openDialog('pull')}>
-                {t('menu.pull')}
-              </Button>
-            </div>
-          </div>
-        </Warning>
+        <Requirement danger title={t('push.forceNeeded')} detail={t('push.forceNeededDetail', String(status!.behind))}>
+          <Checkbox checked={force} onChange={setForce} label={forceLabel} />
+          <RequirementActions>
+            <Button small onClick={() => openDialog('pull')}>
+              {t('menu.pull')}
+            </Button>
+          </RequirementActions>
+        </Requirement>
       )}
       <Checkbox checked={track} onChange={setTrack} label={t('push.setUpstream')} />
-      <details className="push-advanced">
-        <summary>{t('push.advanced')}</summary>
-        <div className="push-advanced-body">
-          <Field label={t('push.remoteName')}>
-            <input className="input" value={remoteName} onChange={(e) => setRemoteName(e.target.value)} />
-          </Field>
-          {!forceRequired && <Checkbox checked={force} onChange={setForce} label={forceLabel} />}
-        </div>
-      </details>
+      <Advanced>
+        <Field label={t('push.remoteName')}>
+          <input className="input" value={remoteName} onChange={(e) => setRemoteName(e.target.value)} />
+        </Field>
+        {!forceRequired && <Checkbox checked={force} onChange={setForce} label={forceLabel} />}
+      </Advanced>
       {force && !forceRequired && <Warning danger>{t('push.forceWarning')}</Warning>}
-      {force && forceRequired && forceMode === 'withLease' && <div className="push-hint">{t('push.leaseHint')}</div>}
+      {force && forceRequired && forceMode === 'withLease' && <SummaryHint>{t('push.leaseHint')}</SummaryHint>}
     </DialogShell>
   );
 }

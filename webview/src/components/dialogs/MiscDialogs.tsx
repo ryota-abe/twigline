@@ -342,6 +342,24 @@ export function ErrorDialog({ error, op }: { error: RpcErrorShape; op?: Operatio
         break;
       }
       body = <p>{t('error.rejected')}</p>;
+      if (op?.kind === 'push') {
+        // The refs are as of the last fetch, so the push dialog cannot tell what the remote has until it is fetched.
+        // After the fetch it shows how far the remote is ahead and whether a force push is needed
+        const push = op;
+        actions.push(
+          <Button
+            key="review"
+            onClick={async () => {
+              closeDialog();
+              if (!(await runOp({ kind: 'fetch', remote: push.remote, prune: false, tags: false }))) return;
+              if (push.branches.length === 1) openDialog('push', { branch: push.branches[0].local });
+              else openDialog('pushBranches');
+            }}
+          >
+            {t('error.fetchAndReview')}
+          </Button>,
+        );
+      }
       actions.push(
         <Button key="pull" primary onClick={() => openDialog('pull')}>
           {t('pull.open')}

@@ -41,6 +41,7 @@ export class RpcRouter {
         const res = await r.runner.run(['check-ref-format', '--branch', p.name], { noThrow: true });
         return { valid: res.exitCode === 0 };
       },
+      'ref/compare': (p, c) => r.compare.compare(p.ours, p.theirs, { files: p.files, conflicts: p.conflicts }, c.signal),
       'log/page': (p, c) => r.log.page(p.query, p.cursor, p.offset, p.limit, c.signal),
       'commit/detail': (p, c) => r.diff.commitDetail(p.sha, p.compareTo, p.parent, c.signal),
       'commit/info': () => r.commit.info(),

@@ -12,6 +12,7 @@ import { DiffService } from '../services/DiffService';
 import { StageService } from '../services/StageService';
 import { OpsService } from '../services/OpsService';
 import { RebaseService } from '../services/RebaseService';
+import { CompareService } from '../services/CompareService';
 import { CommitService } from '../services/CommitService';
 import { PullRequestService } from '../services/PullRequestService';
 import { RepoWatcher } from './RepoWatcher';
@@ -41,9 +42,10 @@ export class RepoModel implements Disposable {
   readonly stage: StageService;
   readonly ops: OpsService;
   readonly rebase: RebaseService;
+  readonly compare: CompareService;
   readonly commit: CommitService;
   readonly pullRequests: PullRequestService;
-  readonly features: { stashStaged: boolean; updateRefs: boolean };
+  readonly features: { stashStaged: boolean; updateRefs: boolean; pullAutostash: boolean; mergeTree: boolean };
 
   private readonly changeEmitter = new Emitter<ChangeKind[]>();
   readonly onDidChange = this.changeEmitter.event;
@@ -68,6 +70,8 @@ export class RepoModel implements Disposable {
     this.features = {
       stashStaged: versionAtLeast(git.parts, 2, 35),
       updateRefs: versionAtLeast(git.parts, 2, 38),
+      pullAutostash: versionAtLeast(git.parts, 2, 27),
+      mergeTree: versionAtLeast(git.parts, 2, 38),
     };
     this.snapshot = new SnapshotService(this);
     this.status = new StatusService(this);
@@ -76,6 +80,7 @@ export class RepoModel implements Disposable {
     this.stage = new StageService(this);
     this.ops = new OpsService(this);
     this.rebase = new RebaseService(this);
+    this.compare = new CompareService(this);
     this.commit = new CommitService(this);
     this.pullRequests = new PullRequestService(this);
   }

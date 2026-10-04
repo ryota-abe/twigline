@@ -276,6 +276,28 @@ describe('OpsService', () => {
     expect(head.commands).toEqual(['git pull --progress --no-rebase origin main']);
   });
 
+  it('pulls over local changes in the incoming files with autostash', async () => {
+    const up = repo();
+    up.commit('base', { 'f.txt': '1\n2\n3\n' });
+    const r = repo();
+    r.git(['remote', 'add', 'origin', up.dir]);
+    r.git(['fetch', '-q', 'origin']);
+    r.git(['checkout', '-q', '-B', 'main', 'origin/main']);
+    up.commit('remote', { 'f.txt': 'one\n2\n3\n' });
+    r.write('f.txt', '1\n2\nthree\n');
+    const m = await model(r);
+    const pull = { kind: 'pull', remote: 'origin', branch: 'main', rebase: false, ffOnly: false } as const;
+    await expect(m.ops.run(pull)).rejects.toBeInstanceOf(GitError);
+    expect(r.read('f.txt').toString()).toBe('1\n2\nthree\n');
+
+    const preview = await m.ops.run({ ...pull, autostash: true }, { dryRun: true });
+    expect(preview.commands).toEqual(['git pull --progress --no-rebase --autostash origin main']);
+    if (!m.features.pullAutostash) return;
+    await m.ops.run({ ...pull, autostash: true });
+    expect(r.read('f.txt').toString()).toBe('one\n2\nthree\n');
+    expect(r.git(['stash', 'list']).trim()).toBe('');
+  });
+
   it('creates, checks out and merges branches; reports conflicts and aborts', async () => {
     const r = repo();
     r.commit('base', { 'f.txt': 'base\n' });
@@ -341,6 +363,52 @@ describe('OpsService', () => {
     expect((await m.snapshot.get()).stashes[0].message).toContain('メッセージ');
     await m.ops.run({ kind: 'stash/apply', index: 0, drop: true, restoreIndex: false });
     expect(r.read('f.txt').toString()).toBe('2\n');
+  });
+});
+
+describe('CompareService', () => {
+  it('counts both sides, lists incoming files and predicts conflicts', async () => {
+    const r = repo();
+    r.commit('base', { 'f.txt': 'base\n', 'g.txt': 'g\n' });
+    r.git(['checkout', '-q', '-b', 'other']);
+    r.commit('other 1', { 'f.txt': 'other\n' });
+    r.commit('other 2', { 'new file.txt': 'n\n' });
+    r.git(['checkout', '-q', 'main']);
+    const m = await model(r);
+
+    // Fast-forward: no conflicts are predicted (nothing to merge)
+    const ff = await m.compare.compare('main', 'other', { files: true, conflicts: true });
+    expect(ff).toMatchObject({ ahead: 0, behind: 2, incomingFiles: ['f.txt', 'new file.txt'] });
+    expect(ff?.conflicts).toBeUndefined();
+
+    r.commit('main', { 'f.txt': 'main\n' });
+    const diverged = await m.compare.compare('main', 'other', { files: true, conflicts: true });
+    expect(diverged).toMatchObject({ ahead: 1, behind: 2 });
+    expect(diverged?.mergeBase).toBe(r.git(['merge-base', 'main', 'other']).trim());
+    expect(diverged?.conflicts).toEqual(m.features.mergeTree ? ['f.txt'] : null);
+    // Predicting does not touch the working tree, the index or refs
+    expect(r.git(['status', '--porcelain']).trim()).toBe('');
+    expect(r.read('f.txt').toString()).toBe('main\n');
+
+    // Without the options, only the counts
+    const plain = await m.compare.compare('other', 'main');
+    expect(plain).toMatchObject({ ahead: 2, behind: 1 });
+    expect(plain?.incomingFiles).toBeUndefined();
+    expect(plain?.conflicts).toBeUndefined();
+
+    expect(await m.compare.compare('main', 'no-such-branch')).toBeNull();
+  });
+
+  it('predicts no conflicts for changes in different files', async () => {
+    const r = repo();
+    r.commit('base', { 'f.txt': 'base\n' });
+    r.git(['checkout', '-q', '-b', 'other']);
+    r.commit('other', { 'o.txt': 'o\n' });
+    r.git(['checkout', '-q', 'main']);
+    r.commit('main', { 'm.txt': 'm\n' });
+    const m = await model(r);
+    const cmp = await m.compare.compare('main', 'other', { conflicts: true });
+    expect(cmp?.conflicts).toEqual(m.features.mergeTree ? [] : null);
   });
 });
 

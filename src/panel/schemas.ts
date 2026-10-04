@@ -65,7 +65,7 @@ export const operation = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('revert'), sha }),
   z.object({ kind: z.literal('reset'), sha, mode: z.enum(['soft', 'mixed', 'hard']) }),
   z.object({ kind: z.literal('fetch'), remote: z.union([z.literal('*'), remote]), prune: z.boolean(), tags: z.boolean() }),
-  z.object({ kind: z.literal('pull'), remote, branch: ref, rebase: z.boolean(), ffOnly: z.boolean(), into: ref.optional() }),
+  z.object({ kind: z.literal('pull'), remote, branch: ref, rebase: z.boolean(), ffOnly: z.boolean(), into: ref.optional(), autostash: z.boolean().optional() }),
   z.object({
     kind: z.literal('push'),
     remote,
@@ -125,6 +125,7 @@ export const methodParams = {
   'repo/snapshot': z.object({ repo }),
   'repo/resolve': z.object({ repo, rev: ref }),
   'ref/validate': z.object({ repo, name: z.string().max(1024) }),
+  'ref/compare': z.object({ repo, ours: ref, theirs: ref, files: z.boolean().optional(), conflicts: z.boolean().optional() }),
   'log/page': z.object({
     repo,
     query: logQuery,

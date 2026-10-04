@@ -1724,65 +1724,75 @@ body.resizing-column * {
   font-size: 11px;
   color: var(--twigline-muted);
 }
-/* Push dialog: what the push would do (route, comparison with the remote, pull request) */
-.push-card {
-  --push-tone: var(--twigline-pr-open);
+/* Dialogs: what the operation would do (route, comparison, hints, pull request) */
+.summary-card {
+  --summary-tone: var(--twigline-pr-open);
   display: flex;
   flex-direction: column;
   gap: 4px;
   padding: 8px 10px;
   border: 1px solid var(--twigline-border);
-  border-left: 3px solid var(--push-tone);
+  border-left: 3px solid var(--summary-tone);
   border-radius: 3px;
 }
-.push-card.warn {
-  --push-tone: var(--twigline-warn-border);
+.summary-card.warn {
+  --summary-tone: var(--twigline-warn-border);
   background: var(--twigline-warn-bg);
 }
-.push-card.info {
-  --push-tone: var(--twigline-muted);
+.summary-card.info {
+  --summary-tone: var(--twigline-muted);
 }
-.push-route {
+.summary-route {
   display: flex;
   align-items: center;
   gap: 6px;
   min-width: 0;
   font-weight: 600;
 }
-.push-route .mono {
+.summary-route .mono {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.push-counts {
+.summary-counts {
   margin-left: auto;
   font-weight: 400;
   color: var(--twigline-muted);
   white-space: nowrap;
 }
-.push-state {
+.summary-state {
   display: flex;
   align-items: baseline;
   gap: 6px;
 }
-.push-state .codicon {
-  color: var(--push-tone);
+.summary-state .codicon {
+  color: var(--summary-tone);
   align-self: center;
 }
-.push-hint {
+.summary-hint {
   display: flex;
   align-items: center;
   gap: 4px;
   font-size: 11px;
   color: var(--twigline-muted);
 }
-.push-hint.warn {
+.summary-hint.warn {
   color: inherit;
 }
-.push-hint.warn .codicon {
+.summary-hint.warn .codicon {
   color: var(--twigline-warn-border);
 }
-.push-pr {
+.summary-files {
+  margin: 0;
+  padding-left: 22px;
+  font-size: 11px;
+}
+.summary-files li {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.summary-pr {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -1791,32 +1801,36 @@ body.resizing-column * {
   padding-top: 6px;
   border-top: 1px solid var(--twigline-border);
 }
-.push-pr.muted {
+.summary-pr.muted {
   color: var(--twigline-muted);
 }
-.push-pr-title {
+.summary-pr-title {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.push-pr-branches {
+.summary-pr-branches {
   margin-left: auto;
   color: var(--twigline-muted);
   font-size: 11px;
   white-space: nowrap;
 }
-.push-force-needed {
+/* Something to settle before OK is enabled */
+.requirement {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: 6px;
 }
-.push-advanced > summary {
+.requirement .summary-files {
+  align-self: stretch;
+}
+.dialog-advanced > summary {
   cursor: pointer;
   color: var(--twigline-muted);
   user-select: none;
 }
-.push-advanced-body {
+.dialog-advanced-body {
   display: flex;
   flex-direction: column;
   gap: 8px;

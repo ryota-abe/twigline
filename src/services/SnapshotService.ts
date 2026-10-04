@@ -73,7 +73,7 @@ export class SnapshotService {
       sequence: this.readSequence(),
       submodules,
       user: { name: last('user.name'), email: last('user.email') },
-      features: this.repo.features,
+      features: { stashStaged: this.repo.features.stashStaged, updateRefs: this.repo.features.updateRefs, pullAutostash: this.repo.features.pullAutostash },
       gitVersion: this.repo.git.version,
       objectFormat: this.repo.objectFormat,
     };

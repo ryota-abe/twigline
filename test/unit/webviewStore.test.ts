@@ -52,7 +52,7 @@ const snapshot: RepoSnapshot = {
   sequence: null,
   submodules: [],
   user: {},
-  features: { stashStaged: true, updateRefs: true },
+  features: { stashStaged: true, updateRefs: true, pullAutostash: true },
   gitVersion: '2.47.1',
   objectFormat: 'sha1',
 };

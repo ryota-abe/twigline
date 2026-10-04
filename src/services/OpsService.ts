@@ -289,6 +289,10 @@ export class OpsService {
         }
         const args = ['pull', '--progress', op.rebase ? '--rebase' : '--no-rebase'];
         if (op.ffOnly) args.push('--ff-only');
+        if (op.autostash) {
+          if (!op.rebase && !this.repo.features.pullAutostash) throw new GitError('invalid', 'git 2.27 or later is required for --autostash without --rebase');
+          args.push('--autostash');
+        }
         args.push(remote, branch);
         return [net(args, `Pulling ${remote}/${branch}`, { alsoWrite: true })];
       }
