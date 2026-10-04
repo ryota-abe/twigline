@@ -419,6 +419,33 @@ describe('CompareService', () => {
     expect(await m.compare.compare('main', 'no-such-branch')).toBeNull();
   });
 
+  it('counts ahead / behind of many refs against one base', async () => {
+    const r = repo();
+    r.commit('base', { 'f.txt': '1\n' });
+    r.git(['branch', 'merged']);
+    r.git(['checkout', '-q', '-b', 'a']);
+    r.commit('a 1');
+    r.commit('a 2');
+    // A ref under a requested name that does not exist itself: for-each-ref would match it as a pattern
+    r.git(['branch', 'missing/sub']);
+    r.git(['checkout', '-q', 'main']);
+    r.commit('main 1');
+    const m = await model(r);
+    const refs = ['refs/heads/merged', 'refs/heads/a', 'refs/heads/missing'];
+    const expected = { 'refs/heads/merged': { ahead: 0, behind: 1 }, 'refs/heads/a': { ahead: 2, behind: 1 } };
+    expect(await m.compare.aheadBehind('main', refs)).toEqual(expected);
+    // Without for-each-ref %(ahead-behind) (git older than 2.41): one rev-list per ref, same result
+    const features = m.features as { aheadBehind: boolean };
+    const had = features.aheadBehind;
+    features.aheadBehind = false;
+    try {
+      expect(await m.compare.aheadBehind('main', refs)).toEqual(expected);
+    } finally {
+      features.aheadBehind = had;
+    }
+    expect(await m.compare.aheadBehind('no-such-branch', refs)).toBeNull();
+  });
+
   it('predicts no conflicts for changes in different files', async () => {
     const r = repo();
     r.commit('base', { 'f.txt': 'base\n' });

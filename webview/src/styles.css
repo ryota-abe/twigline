@@ -1707,6 +1707,25 @@ body.resizing-column * {
 .check-list.tall {
   max-height: 320px;
 }
+/* Merged / unmerged / unpushed after a branch name in the delete list (shaped like the PR chip) */
+.mini-badge {
+  --badge: var(--twigline-muted);
+  display: inline-flex;
+  align-items: center;
+  height: 17px;
+  margin-left: 6px;
+  padding: 0 5px;
+  border: 1px solid color-mix(in srgb, var(--badge) 60%, transparent);
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--badge) 14%, transparent);
+  color: var(--badge);
+  font-size: 11px;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+.mini-badge.warn {
+  --badge: var(--twigline-warn-border);
+}
 .table {
   display: flex;
   flex-direction: column;

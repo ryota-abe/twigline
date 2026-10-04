@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import type { Operation, RefComparison } from '../../../../shared/protocol';
+import type { Operation, RefComparison, RefInfo } from '../../../../shared/protocol';
 import { t } from '../../i18n';
 import { closeDialog, getRpc, previewOp } from '../../store/actions';
 import { get } from '../../store/store';
@@ -235,6 +235,34 @@ export function useRefCompares(pairs: readonly (readonly [string, string])[], op
 export function useRefCompare(ours: string | undefined, theirs: string | undefined, opts: CompareOpts = {}): RefComparison | null | undefined {
   const results = useRefCompares(ours && theirs ? [[ours, theirs]] : [], opts);
   return ours && theirs ? results.get(compareKey(ours, theirs)) : undefined;
+}
+
+/**
+ * ahead / behind of local refs against one base commit, in one request (ahead: commits only the ref has), keyed by full ref name.
+ * Asked again when the base or a ref moves. undefined while loading, null when it could not be counted
+ */
+export function useAheadBehind(base: string | undefined, refs: readonly RefInfo[]): Record<string, { ahead: number; behind: number }> | null | undefined {
+  const [state, setState] = useState<{ key: string; value: Record<string, { ahead: number; behind: number }> | null } | null>(null);
+  const key = base && refs.length > 0 ? JSON.stringify([base, refs.map((r) => [r.fullName, r.sha])]) : '';
+  useEffect(() => {
+    if (!key) return;
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => {
+      getRpc()
+        .request('ref/aheadBehind', { repo: get().boot.repo, base: base!, refs: refs.map((r) => r.fullName) }, ctrl.signal)
+        .then(
+          (value) => setState({ key, value }),
+          (e) => !(e instanceof RpcError && e.category === 'cancelled') && setState({ key, value: null }),
+        );
+    }, 100);
+    return () => {
+      clearTimeout(timer);
+      ctrl.abort();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+  if (!key) return refs.length === 0 ? {} : undefined;
+  return state && state.key === key ? state.value : undefined;
 }
 
 /** Validate with git check-ref-format while typing */

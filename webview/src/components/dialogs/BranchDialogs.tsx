@@ -1,15 +1,17 @@
 import { useMemo, useState } from 'react';
-import type { Operation } from '../../../../shared/protocol';
+import type { Operation, RefInfo } from '../../../../shared/protocol';
 import { t } from '../../i18n';
 import { closeDialog, confirm, runOp } from '../../store/actions';
 import { useStore } from '../../store/store';
+import { deleteInfo, safeToDelete, type DeleteInfo } from '../../util/branchDelete';
 import { cx, shortSha } from '../../util/format';
 import { integrateStatus, mergeRequirement, rebaseRequirement, type MergeMode } from '../../util/integrate';
 import { PrChip, prDone, prOf } from '../PullRequest';
-import { Checkbox, Select } from '../ui';
-import { Advanced, DialogShell, Field, Requirement, Warning, useRefCompare, useRefNameValidation } from './Dialog';
+import { Button, Checkbox, Select } from '../ui';
+import { Advanced, DialogShell, Field, Requirement, RequirementActions, Warning, useAheadBehind, useRefCompare, useRefNameValidation } from './Dialog';
 import { AutostashCheckbox, StashRequirement } from './IntegrateParts';
 import { MergeStatusCard, RebaseStatusCard } from './MergeRebaseCards';
+import { SummaryHint } from './SummaryCard';
 
 // Branch, checkout, merge, rebase, reset
 
@@ -27,6 +29,34 @@ export function startOptions(snapshot: Snapshot, headLabel: string, initial?: st
 /** Initial start point. The current branch is folded into HEAD in the choices */
 export function initialStart(snapshot: Snapshot, initial?: string): string {
   return !initial || initial === snapshot.head.branch ? 'HEAD' : initial;
+}
+
+/** Whether a branch is merged into HEAD and pushed, after its name in the delete list */
+function DeleteBadges({ info, upstream }: { info: DeleteInfo; upstream: string | undefined }) {
+  if (info.unmerged === undefined) return null;
+  return (
+    <>
+      {info.unmerged === 0 ? (
+        <span className="mini-badge ok" title={t('branch.badge.mergedTitle')}>
+          {t('branch.badge.merged')}
+        </span>
+      ) : (
+        <span className="mini-badge warn" title={t('branch.badge.unmergedTitle', String(info.unmerged))}>
+          {t('branch.badge.unmerged', String(info.unmerged))}
+        </span>
+      )}
+      {!!info.unpushed && (
+        <span className="mini-badge warn" title={t('branch.badge.unpushedTitle', String(info.unpushed), upstream ?? '')}>
+          {t('branch.badge.unpushed', String(info.unpushed))}
+        </span>
+      )}
+      {info.unpushed === undefined && info.unmerged > 0 && (
+        <span className="mini-badge warn" title={t('branch.badge.localOnlyTitle')}>
+          {t('branch.badge.localOnly')}
+        </span>
+      )}
+    </>
+  );
 }
 
 /** A branch can be created from HEAD, the right-clicked ref or a commit. Deletion chooses from all branches other than the current one */
@@ -49,41 +79,77 @@ export function BranchDialog({ tab: initialTab, start: initial, names }: { tab?:
   const [picked, setPicked] = useState<Set<string>>(new Set(names ?? []));
   const [force, setForce] = useState(false);
   const [withRemote, setWithRemote] = useState(false);
+  // How many commits of each branch HEAD lacks (asked only on the delete tab)
+  const counts = useAheadBehind(tab === 'delete' ? (snapshot.head.sha ?? undefined) : undefined, tab === 'delete' ? deletable : []);
+  const infos = new Map(deletable.map((r) => [r.name, deleteInfo(r, counts?.[r.fullName]?.ahead)]));
+  const chosen = deletable.filter((r) => picked.has(r.name));
+  const needForce = chosen.filter((r) => infos.get(r.name)!.forceRequired);
+  const atRisk = chosen.filter((r) => infos.get(r.name)!.atRisk > 0);
+  const tracked = (r: RefInfo) => !!r.upstream && !r.gone;
+  // Deleting the head branch of an open PR on the remote closes the PR
+  const closingPrs = withRemote
+    ? [
+        ...new Map(
+          chosen
+            .filter(tracked)
+            .map((r) => prs?.byRef[`refs/remotes/${r.upstream}`] ?? prOf(prs, r))
+            .filter((pr) => pr?.state === 'open' || pr?.state === 'draft')
+            .map((pr) => [pr!.number, pr!]),
+        ).values(),
+      ]
+    : [];
 
   const createOp: Operation | null =
     validation.valid && name.trim() ? { kind: 'branch/create', name: name.trim(), start, checkout } : null;
+  // A remote branch that is already deleted is left out (deleting it again would fail)
   const remoteBranches = withRemote
-    ? deletable
-        .filter((r) => picked.has(r.name) && r.upstream)
+    ? chosen
+        .filter(tracked)
         .map((r) => {
           const remote = snapshot.remotes.find((x) => r.upstream!.startsWith(x.name + '/'))?.name ?? r.upstream!.split('/')[0];
           return { remote, branch: r.upstream!.slice(remote.length + 1) };
         })
     : undefined;
-  const deleteOp: Operation | null = picked.size > 0 ? { kind: 'branch/delete', names: [...picked], force, remoteBranches } : null;
+  const deleteOp: Operation | null = chosen.length > 0 ? { kind: 'branch/delete', names: chosen.map((r) => r.name), force, remoteBranches } : null;
+  const countsOf = (list: RefInfo[], n: (i: DeleteInfo) => number) => list.map((r) => t('branch.countOf', r.name, String(n(infos.get(r.name)!)))).join(', ');
+  const setPick = (list: string[], on: boolean) => {
+    const next = new Set(picked);
+    for (const n of list) {
+      if (on) next.add(n);
+      else next.delete(n);
+    }
+    setPicked(next);
+  };
 
   return (
     <DialogShell
       title={t('branch.title')}
       okLabel={tab === 'new' ? t('branch.create') : t('branch.delete')}
       danger={tab === 'delete'}
-      okDisabled={tab === 'new' ? !createOp : !deleteOp}
+      okDisabled={tab === 'new' ? !createOp : !deleteOp || (needForce.length > 0 && !force)}
       preview={tab === 'new' ? createOp : deleteOp}
       onOk={async () => {
         if (tab === 'new' && createOp) {
           closeDialog();
           await runOp(createOp, { success: t('branch.created', name.trim()) });
         } else if (tab === 'delete' && deleteOp) {
-          const list = [...picked].join(', ');
+          const list = chosen.map((r) => r.name).join(', ');
           const ok = await confirm({
             title: t('branch.deleteConfirmTitle'),
-            message: t('branch.deleteConfirm', String(picked.size), list) + (remoteBranches?.length ? '\n' + t('branch.deleteRemoteToo', remoteBranches.map((r) => `${r.remote}/${r.branch}`).join(', ')) : ''),
+            message: [
+              t('branch.deleteConfirm', String(chosen.length), list),
+              remoteBranches?.length ? t('branch.deleteRemoteToo', remoteBranches.map((r) => `${r.remote}/${r.branch}`).join(', ')) : '',
+              force && atRisk.length > 0 ? t('branch.deleteAtRisk', countsOf(atRisk, (i) => i.atRisk)) : '',
+              closingPrs.length > 0 ? t('branch.prWillClose', closingPrs.map((pr) => `#${pr.number}`).join(', ')) : '',
+            ]
+              .filter(Boolean)
+              .join('\n'),
             okLabel: t('branch.delete'),
             danger: true,
           });
           if (!ok) return;
           closeDialog();
-          await runOp(deleteOp, { success: t('branch.deleted', String(picked.size)) });
+          await runOp(deleteOp, { success: t('branch.deleted', String(chosen.length)) });
         }
       }}
     >
@@ -110,22 +176,19 @@ export function BranchDialog({ tab: initialTab, start: initial, names }: { tab?:
           <div className="check-list">
             {deletable.length === 0 && <div className="dim">{t('branch.noneToDelete')}</div>}
             {deletable.map((r) => {
-              // As a hint for whether it is safe to delete, show the PR state (merged, etc.) after the name (placed before the upstream, which is long and may be cut off)
+              // As a hint for whether it is safe to delete, show the PR state (merged, etc.) and the merge state after the name
+              // (placed before the upstream, which is long and may be cut off)
               const pr = prOf(prs, r);
               return (
                 <Checkbox
                   key={r.name}
                   checked={picked.has(r.name)}
-                  onChange={(v) => {
-                    const next = new Set(picked);
-                    if (v) next.add(r.name);
-                    else next.delete(r.name);
-                    setPicked(next);
-                  }}
+                  onChange={(v) => setPick([r.name], v)}
                   label={
                     <>
                       <span className={cx('mono', prDone(pr) && 'pr-done')}>{r.name}</span>
                       {pr && <PrChip pr={pr} refName={r.fullName} />}
+                      <DeleteBadges info={infos.get(r.name)!} upstream={r.upstream} />
                       {r.upstream && <span className="dim"> → {r.upstream}</span>}
                     </>
                   }
@@ -133,9 +196,33 @@ export function BranchDialog({ tab: initialTab, start: initial, names }: { tab?:
               );
             })}
           </div>
-          <Checkbox checked={force} onChange={setForce} label={t('branch.force')} />
+          <span className="row">
+            <Button small disabled={!counts} onClick={() => setPick(deletable.filter((r) => safeToDelete(infos.get(r.name)!)).map((r) => r.name), true)}>
+              {t('branch.selectMerged')}
+            </Button>
+            <Button small disabled={picked.size === 0} onClick={() => setPicked(new Set())}>
+              {t('selectNone')}
+            </Button>
+          </span>
+          {needForce.length > 0 && (
+            <Requirement danger title={t('branch.forceNeeded')} detail={t('branch.forceNeededDetail', countsOf(needForce, (i) => i.unpushed ?? i.unmerged ?? 0))}>
+              <Checkbox checked={force} onChange={setForce} label={t('branch.force')} />
+              <RequirementActions>
+                <Button small onClick={() => setPick(needForce.map((r) => r.name), false)}>
+                  {t('branch.uncheckForce')}
+                </Button>
+              </RequirementActions>
+            </Requirement>
+          )}
           <Checkbox checked={withRemote} onChange={setWithRemote} label={t('branch.withRemote')} />
-          {force && <Warning danger>{t('branch.forceWarning')}</Warning>}
+          {closingPrs.length > 0 && <SummaryHint warn>{t('branch.prWillClose', closingPrs.map((pr) => `#${pr.number}`).join(', '))}</SummaryHint>}
+          {needForce.length === 0 && (
+            <Advanced>
+              <Checkbox checked={force} onChange={setForce} label={t('branch.force')} />
+            </Advanced>
+          )}
+          {force && needForce.length === 0 && <Warning danger>{t('branch.forceWarning')}</Warning>}
+          {force && atRisk.length > 0 && <Warning danger>{t('branch.deleteAtRisk', countsOf(atRisk, (i) => i.atRisk))}</Warning>}
         </>
       )}
     </DialogShell>
