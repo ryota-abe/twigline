@@ -186,24 +186,41 @@ export function Advanced({ children }: { children: ReactNode }) {
   );
 }
 
+type CompareOpts = { files?: boolean; conflicts?: boolean };
+
+/** Key of one comparison in the map useRefCompares returns */
+export function compareKey(ours: string, theirs: string): string {
+  return `${ours}..${theirs}`;
+}
+
 /**
- * Compare two commits on the host (ahead / behind, merge base, and optionally incoming files and predicted conflicts).
- * Pass SHAs so the comparison is redone when a ref moves. undefined while loading (and when a side is not given), null when a side does not resolve
+ * Compare pairs of commits on the host (ahead / behind, merge base, and optionally incoming files and predicted conflicts).
+ * Pass SHAs so a moved ref is compared again. The map (by compareKey) has no entry while loading, null when a side does not resolve.
+ * Results are kept for the life of the dialog, so a pair is asked for once (opts must therefore stay the same for that time)
  */
-export function useRefCompare(ours: string | undefined, theirs: string | undefined, opts: { files?: boolean; conflicts?: boolean } = {}): RefComparison | null | undefined {
-  const [state, setState] = useState<{ key: string; value: RefComparison | null } | null>(null);
-  const key = ours && theirs ? JSON.stringify([ours, theirs, !!opts.files, !!opts.conflicts]) : '';
+export function useRefCompares(pairs: readonly (readonly [string, string])[], opts: CompareOpts = {}): ReadonlyMap<string, RefComparison | null> {
+  const [results, setResults] = useState<ReadonlyMap<string, RefComparison | null>>(new Map());
+  const missing = [...new Set(pairs.map(([a, b]) => compareKey(a, b)))].filter((k) => !results.has(k));
+  const key = missing.length > 0 ? JSON.stringify([missing, !!opts.files, !!opts.conflicts]) : '';
   useEffect(() => {
     if (!key) return;
     const ctrl = new AbortController();
     const timer = setTimeout(() => {
-      getRpc()
-        .request('ref/compare', { repo: get().boot.repo, ours: ours!, theirs: theirs!, files: opts.files, conflicts: opts.conflicts }, ctrl.signal)
-        .then(
-          (value) => setState({ key, value }),
-          // Treated like "not known": the dialog still works without the comparison
-          (e) => !(e instanceof RpcError && e.category === 'cancelled') && setState({ key, value: null }),
-        );
+      const repo = get().boot.repo;
+      void Promise.all(
+        missing.map(async (k): Promise<[string, RefComparison | null] | undefined> => {
+          const [ours, theirs] = k.split('..');
+          try {
+            return [k, await getRpc().request('ref/compare', { repo, ours, theirs, files: opts.files, conflicts: opts.conflicts }, ctrl.signal)];
+          } catch (e) {
+            // Treated like "not known": the dialog still works without the comparison
+            return e instanceof RpcError && e.category === 'cancelled' ? undefined : [k, null];
+          }
+        }),
+      ).then((entries) => {
+        if (ctrl.signal.aborted) return;
+        setResults((prev) => new Map([...prev, ...entries.filter((e) => e !== undefined)]));
+      });
     }, 100);
     return () => {
       clearTimeout(timer);
@@ -211,7 +228,13 @@ export function useRefCompare(ours: string | undefined, theirs: string | undefin
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
-  return state && state.key === key ? state.value : undefined;
+  return results;
+}
+
+/** useRefCompares for one pair. undefined while loading (and when a side is not given), null when a side does not resolve */
+export function useRefCompare(ours: string | undefined, theirs: string | undefined, opts: CompareOpts = {}): RefComparison | null | undefined {
+  const results = useRefCompares(ours && theirs ? [[ours, theirs]] : [], opts);
+  return ours && theirs ? results.get(compareKey(ours, theirs)) : undefined;
 }
 
 /** Validate with git check-ref-format while typing */

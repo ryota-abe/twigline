@@ -4,11 +4,13 @@ import { t } from '../../i18n';
 import { closeDialog, confirm, openDialog, runOp } from '../../store/actions';
 import { useStore } from '../../store/store';
 import { pullRequirement, pullStatus, type PullMode } from '../../util/pullStatus';
-import { pullRequestFor, pushStatus } from '../../util/pushStatus';
-import { Button, Checkbox, Empty, Select } from '../ui';
-import { Advanced, DialogShell, Field, Requirement, RequirementActions, Warning, useRefCompare } from './Dialog';
+import { cx } from '../../util/format';
+import { pullRequestFor, pushComparePair, pushRowDefaults, pushStatus, type PushStatus } from '../../util/pushStatus';
+import { PrChip, prDone } from '../PullRequest';
+import { Button, Checkbox, Empty, Icon, Select } from '../ui';
+import { Advanced, DialogShell, Field, Requirement, RequirementActions, Warning, compareKey, useRefCompare, useRefCompares } from './Dialog';
 import { PullStatusCard } from './PullStatusCard';
-import { PushStatusCard } from './PushStatusCard';
+import { PushStatusCard, STATE_ICON, stateText } from './PushStatusCard';
 import { SummaryFiles, SummaryHint } from './SummaryCard';
 
 // Pull, push, fetch
@@ -205,6 +207,10 @@ export function PushDialog({ branch: initialBranch, setUpstream }: { branch?: st
   const [remoteName, setRemoteName] = useState(local?.upstream?.startsWith(remote + '/') ? local.upstream.slice(remote.length + 1) : (name ?? ''));
   const [track, setTrack] = useState(setUpstream === true || !local?.upstream);
   const [force, setForce] = useState(false);
+  const target = remoteName.trim();
+  // A remote branch that is not the upstream is compared on the host
+  const pair = local && target ? pushComparePair(local, snapshot.refs, remote, target) : undefined;
+  const cmp = useRefCompare(pair?.[0], pair?.[1]);
 
   if (snapshot.remotes.length === 0 || !name) {
     return (
@@ -213,9 +219,8 @@ export function PushDialog({ branch: initialBranch, setUpstream }: { branch?: st
       </DialogShell>
     );
   }
-  const target = remoteName.trim();
   const op: PushOp | null = remote && target ? { kind: 'push', remote, branches: [{ local: name, remote: target, setUpstream: track }], tags: false, force } : null;
-  const status = local && target ? pushStatus(local, snapshot.refs, remote, target) : undefined;
+  const status = local && target ? pushStatus(local, snapshot.refs, remote, target, cmp) : undefined;
   const forceRequired = !!status?.forceRequired;
   // Nothing to send; still allowed when the push would only set the upstream
   const nothing = status?.state === 'upToDate' && !(track && local?.upstream !== `${remote}/${target}`);
@@ -257,27 +262,57 @@ export function PushDialog({ branch: initialBranch, setUpstream }: { branch?: st
   );
 }
 
-interface PushRow {
-  local: string;
-  remote: string;
-  checked: boolean;
-  track: boolean;
+/** What the user changed in a row (the rest comes from pushRowDefaults) */
+interface RowEdit {
+  remote?: string;
+  checked?: boolean;
+  track?: boolean;
 }
 
-/** Push several branches (and tags) together. By default, selects the branches that have unpushed commits */
+/** Short state for the table, with the full sentence as the tooltip */
+function PushRowState({ status }: { status: PushStatus | undefined }) {
+  if (!status) return <span />;
+  const short =
+    status.state === 'ahead' || status.state === 'behind' || status.state === 'diverged'
+      ? [status.ahead > 0 && `↑${status.ahead}`, status.behind > 0 && `↓${status.behind}`].filter(Boolean).join(' ')
+      : t(`pushBranches.state.${status.state}`);
+  return (
+    <span className={cx('push-row-state', status.forceRequired && 'warn', status.state === 'upToDate' && 'dim')} title={stateText(status)}>
+      <Icon name={STATE_ICON[status.state]} />
+      {short}
+    </span>
+  );
+}
+
+/**
+ * Push several branches (and tags) together. By default, selects the branches that have unpushed commits and can be pushed without force.
+ * The defaults of a row depend on the remote, so they are derived from it on every render; only the user's edits are kept, per remote
+ * (switching the remote shows that remote's defaults, and switching back brings the edits back)
+ */
 export function PushBranchesDialog() {
   const { snapshot, upstreamRemote } = useRemotes();
   const forceMode = useStore((s) => s.config?.forcePushMode ?? 'withLease');
+  const prs = useStore((s) => s.pullRequests);
   const [remote, setRemote] = useState(upstreamRemote ?? snapshot.remotes[0]?.name ?? '');
-  const locals = snapshot.refs.filter((r) => r.kind === 'head');
-  const [rows, setRows] = useState<PushRow[]>(() =>
-    locals.map((r) => {
-      const up = r.upstream && r.upstream.startsWith(remote + '/') ? r.upstream.slice(remote.length + 1) : undefined;
-      return { local: r.name, remote: up ?? r.name, checked: !!up && (r.ahead ?? 0) > 0, track: !r.upstream };
-    }),
-  );
+  const [edits, setEdits] = useState<Record<string, RowEdit>>({});
   const [tags, setTags] = useState(false);
   const [force, setForce] = useState(false);
+
+  const editKey = (local: string) => JSON.stringify([remote, local]);
+  const base = snapshot.refs
+    .filter((r) => r.kind === 'head')
+    .map((ref) => {
+      const row = { ref, ...pushRowDefaults(ref, remote), ...edits[editKey(ref.name)] };
+      const target = row.remote.trim();
+      // A remote branch that is not the upstream is compared on the host
+      return { ...row, target, pair: target ? pushComparePair(ref, snapshot.refs, remote, target) : undefined };
+    });
+  const cmps = useRefCompares(base.flatMap((r) => (r.pair ? [r.pair] : [])));
+  const rows = base.map((r) => ({
+    ...r,
+    status: r.target ? pushStatus(r.ref, snapshot.refs, remote, r.target, r.pair && cmps.get(compareKey(...r.pair))) : undefined,
+    pr: r.target ? pullRequestFor(prs, r.ref, remote, r.target) : undefined,
+  }));
 
   if (snapshot.remotes.length === 0) {
     return (
@@ -288,10 +323,19 @@ export function PushBranchesDialog() {
   }
   const selected = rows.filter((r) => r.checked);
   const op: PushOp | null =
-    remote && (selected.length > 0 || tags)
-      ? { kind: 'push', remote, branches: selected.map((r) => ({ local: r.local, remote: r.remote, setUpstream: r.track })), tags, force }
+    remote && (selected.length > 0 || tags) && selected.every((r) => r.target)
+      ? { kind: 'push', remote, branches: selected.map((r) => ({ local: r.ref.name, remote: r.target, setUpstream: r.track })), tags, force }
       : null;
-  const update = (i: number, patch: Partial<PushRow>) => setRows(rows.map((r, k) => (k === i ? { ...r, ...patch } : r)));
+  const needForce = selected.filter((r) => r.status?.forceRequired);
+  const lost = needForce.reduce((n, r) => n + (r.status?.behind ?? 0), 0);
+  const commits = selected.reduce((n, r) => n + (r.status?.ahead ?? 0), 0);
+  const update = (patches: Record<string, RowEdit>) =>
+    setEdits((prev) => {
+      const next = { ...prev };
+      for (const [local, patch] of Object.entries(patches)) next[editKey(local)] = { ...prev[editKey(local)], ...patch };
+      return next;
+    });
+  const forceLabel = forceMode === 'force' ? t('push.forcePlain') : t('push.forceLease');
 
   return (
     <DialogShell
@@ -299,9 +343,9 @@ export function PushBranchesDialog() {
       wide
       okLabel={force ? t('push.forceOk') : t('push.ok')}
       danger={force}
-      okDisabled={!op}
+      okDisabled={!op || (needForce.length > 0 && !force)}
       preview={op}
-      onOk={() => (op ? runPush(op) : undefined)}
+      onOk={() => (op ? runPush(op, force ? lost : 0) : undefined)}
     >
       <Field label={t('remote.remote')}>
         <Select value={remote} onChange={setRemote} options={snapshot.remotes.map((r) => ({ value: r.name, label: `${r.name}  ${r.pushUrl ?? r.fetchUrl ?? ''}` }))} />
@@ -311,20 +355,49 @@ export function PushBranchesDialog() {
           <span />
           <span>{t('push.local')}</span>
           <span>{t('push.remoteName')}</span>
+          <span>{t('pushBranches.state')}</span>
           <span>{t('push.track')}</span>
         </div>
-        {rows.map((r, i) => (
-          <div className="tr" role="row" key={r.local}>
-            <input type="checkbox" checked={r.checked} onChange={(e) => update(i, { checked: e.target.checked })} aria-label={r.local} />
-            <span className="mono">{r.local}</span>
-            <input className="input" value={r.remote} onChange={(e) => update(i, { remote: e.target.value })} />
-            <input type="checkbox" checked={r.track} onChange={(e) => update(i, { track: e.target.checked })} aria-label={t('push.track')} />
+        {rows.map((r) => (
+          <div className={cx('tr', r.checked && r.status?.forceRequired && 'warn')} role="row" key={r.ref.name}>
+            <input type="checkbox" checked={r.checked} onChange={(e) => update({ [r.ref.name]: { checked: e.target.checked } })} aria-label={r.ref.name} />
+            <span className="push-row-local">
+              <span className={cx('mono ellipsis', prDone(r.pr?.pr) && 'pr-done')} title={r.ref.name}>
+                {r.ref.name}
+              </span>
+              {r.pr && <PrChip pr={r.pr.pr} refName={r.pr.ref} />}
+            </span>
+            <input className="input" value={r.remote} onChange={(e) => update({ [r.ref.name]: { remote: e.target.value } })} aria-label={t('push.remoteName')} />
+            <PushRowState status={r.status} />
+            <input type="checkbox" checked={r.track} onChange={(e) => update({ [r.ref.name]: { track: e.target.checked } })} aria-label={t('push.track')} />
           </div>
         ))}
       </div>
+      <SummaryHint>
+        {t('pushBranches.summary', String(selected.length), String(commits))} {t('summary.staleHint')}
+      </SummaryHint>
+      {needForce.length > 0 && (
+        <Requirement
+          danger
+          title={t('push.forceNeeded')}
+          detail={t('pushBranches.forceNeededDetail', needForce.map((r) => t('pushBranches.lostOf', r.ref.name, String(r.status!.behind))).join(', '))}
+        >
+          <Checkbox checked={force} onChange={setForce} label={forceLabel} />
+          <RequirementActions>
+            <Button small onClick={() => update(Object.fromEntries(needForce.map((r) => [r.ref.name, { checked: false }])))}>
+              {t('pushBranches.uncheckForce')}
+            </Button>
+          </RequirementActions>
+        </Requirement>
+      )}
       <Checkbox checked={tags} onChange={setTags} label={t('push.tags')} />
-      <Checkbox checked={force} onChange={setForce} label={forceMode === 'force' ? t('push.forcePlain') : t('push.forceLease')} />
-      {force && <Warning danger>{t('push.forceWarning')}</Warning>}
+      {needForce.length === 0 && (
+        <Advanced>
+          <Checkbox checked={force} onChange={setForce} label={forceLabel} />
+        </Advanced>
+      )}
+      {force && needForce.length === 0 && <Warning danger>{t('push.forceWarning')}</Warning>}
+      {force && needForce.length > 0 && forceMode === 'withLease' && <SummaryHint>{t('push.leaseHint')}</SummaryHint>}
     </DialogShell>
   );
 }

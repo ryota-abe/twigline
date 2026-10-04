@@ -1718,7 +1718,28 @@ body.resizing-column * {
   gap: 8px;
 }
 .push-table .tr {
-  grid-template-columns: 20px 1fr 1fr 48px;
+  grid-template-columns: 20px minmax(0, 1fr) minmax(0, 1fr) 96px 48px;
+  border-left: 3px solid transparent;
+  padding-left: 3px;
+}
+.push-table .tr.warn {
+  border-left-color: var(--twigline-warn-border);
+  background: var(--twigline-warn-bg);
+}
+.push-row-local {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.push-row-state {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+.push-row-state.warn .codicon {
+  color: var(--twigline-warn-border);
 }
 .push-table .tr.th {
   font-size: 11px;
