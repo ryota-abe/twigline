@@ -4,9 +4,12 @@ import { t } from '../../i18n';
 import { closeDialog, confirm, runOp } from '../../store/actions';
 import { useStore } from '../../store/store';
 import { cx, shortSha } from '../../util/format';
+import { integrateStatus, mergeRequirement, rebaseRequirement, type MergeMode } from '../../util/integrate';
 import { PrChip, prDone, prOf } from '../PullRequest';
 import { Checkbox, Select } from '../ui';
-import { DialogShell, Field, Warning, useRefNameValidation } from './Dialog';
+import { Advanced, DialogShell, Field, Requirement, Warning, useRefCompare, useRefNameValidation } from './Dialog';
+import { AutostashCheckbox, StashRequirement } from './IntegrateParts';
+import { MergeStatusCard, RebaseStatusCard } from './MergeRebaseCards';
 
 // Branch, checkout, merge, rebase, reset
 
@@ -279,19 +282,50 @@ function refOptions(snapshot: Snapshot, extra?: string) {
   return opts;
 }
 
+/** The commit a ref option points to (a SHA option is the commit itself), so a moved ref is compared again */
+function commitOf(snapshot: Snapshot, rev: string): string | undefined {
+  return snapshot.refs.find((r) => r.name === rev)?.sha ?? (/^[0-9a-f]{4,64}$/i.test(rev) ? rev : undefined);
+}
+
+/** Name of a ref option as shown in the summary card */
+function revLabel(rev: string): string {
+  return /^[0-9a-f]{7,}$/.test(rev) ? `${t('commitWord')} ${shortSha(rev)}` : rev;
+}
+
 export function MergeDialog({ ref: initial }: { ref?: string }) {
   const snapshot = useStore((s) => s.snapshot)!;
+  const status = useStore((s) => s.status);
+  const prs = useStore((s) => s.pullRequests);
   const options = refOptions(snapshot, initial);
   const [ref, setRef] = useState(initial ?? options[0]?.value ?? '');
-  const [noFf, setNoFf] = useState(false);
-  const [squash, setSquash] = useState(false);
+  const [mode, setMode] = useState<MergeMode>('auto');
   const [commitNow, setCommitNow] = useState(true);
-  const op: Operation | null = ref ? { kind: 'merge', ref, noFastForward: noFf, squash, commit: commitNow } : null;
+  const [autostash, setAutostash] = useState(false);
+
+  const local = snapshot.refs.find((r) => r.kind === 'head' && r.isHead);
+  const cmp = useRefCompare(snapshot.head.sha ?? undefined, ref ? commitOf(snapshot, ref) : undefined, { files: true, conflicts: true });
+  const ms = integrateStatus({ local, target: ref, cmp: snapshot.head.sha ? cmp : null, status });
+  const requirement = mergeRequirement(ms);
+  const canAutostash = snapshot.features.pullAutostash;
+  const stash = autostash && canAutostash && ms.dirty.length > 0;
+  const blocked = requirement === 'unrelated' || (requirement === 'stash' && !stash);
+  const source = snapshot.refs.find((r) => r.name === ref);
+  const pr = source ? prOf(prs, source) : undefined;
+
+  const op: Operation | null = ref
+    ? { kind: 'merge', ref, noFastForward: mode === 'noFf', squash: mode === 'squash', commit: commitNow, ...(stash ? { autostash: true } : {}) }
+    : null;
+  const modes: { value: MergeMode; label: string; desc: string }[] = [
+    { value: 'auto', label: t('merge.mode.auto'), desc: t('merge.mode.autoDesc') },
+    { value: 'noFf', label: t('merge.mode.noFf'), desc: t('merge.mode.noFfDesc') },
+    { value: 'squash', label: t('merge.mode.squash'), desc: t('merge.mode.squashDesc') },
+  ];
   return (
     <DialogShell
       title={t('merge.title')}
       okLabel={t('merge.ok')}
-      okDisabled={!op}
+      // Merging something already merged does nothing
+      okDisabled={!op || blocked || ms.state === 'upToDate'}
       preview={op}
       onOk={async () => {
         closeDialog();
@@ -301,26 +335,61 @@ export function MergeDialog({ ref: initial }: { ref?: string }) {
       <Field label={t('merge.source')}>
         <Select value={ref} onChange={setRef} options={options} />
       </Field>
-      <p className="dim">{t('merge.explain', options.find((o) => o.value === ref)?.label ?? ref, snapshot.head.branch ?? 'HEAD')}</p>
-      <Checkbox checked={noFf} onChange={(v) => { setNoFf(v); if (v) setSquash(false); }} label={t('merge.noFf')} />
-      <Checkbox checked={squash} onChange={(v) => { setSquash(v); if (v) setNoFf(false); }} label={t('merge.squash')} />
-      <Checkbox checked={commitNow} onChange={setCommitNow} label={t('merge.commit')} disabled={squash} />
+      {ref && (
+        <MergeStatusCard
+          source={revLabel(ref)}
+          into={snapshot.head.branch ?? t('detachedHead')}
+          status={ms}
+          mode={mode}
+          commit={commitNow}
+          blocked={blocked}
+          found={pr && source ? { pr, ref: source.fullName } : undefined}
+        />
+      )}
+      {requirement === 'unrelated' && <Requirement danger title={t('merge.need.unrelated')} detail={t('merge.need.unrelatedDetail')} />}
+      {requirement === 'stash' && <StashRequirement status={ms} rebase={false} autostash={canAutostash ? autostash : undefined} onAutostash={setAutostash} />}
+      <div role="radiogroup" aria-label={t('merge.mode')}>
+        {modes.map((m) => (
+          <label key={m.value} className="radio block">
+            <input type="radio" checked={mode === m.value} onChange={() => setMode(m.value)} />
+            <span>
+              <b>{m.label}</b>
+              <span className="dim block">{m.desc}</span>
+            </span>
+          </label>
+        ))}
+      </div>
+      <Advanced>
+        <Checkbox checked={commitNow} onChange={setCommitNow} label={t('merge.commit')} disabled={mode === 'squash'} />
+        {requirement !== 'stash' && canAutostash && ms.dirty.length > 0 && <AutostashCheckbox checked={autostash} onChange={setAutostash} />}
+      </Advanced>
     </DialogShell>
   );
 }
 
 export function RebaseDialog({ onto: initial }: { onto?: string }) {
   const snapshot = useStore((s) => s.snapshot)!;
+  const status = useStore((s) => s.status);
+  const prs = useStore((s) => s.pullRequests);
   const options = refOptions(snapshot, initial);
   const [onto, setOnto] = useState(initial ?? options[0]?.value ?? '');
   const [autostash, setAutostash] = useState(false);
   const [updateRefs, setUpdateRefs] = useState(false);
-  const op: Operation | null = onto ? { kind: 'rebase', onto, autostash, updateRefs } : null;
+
+  const local = snapshot.refs.find((r) => r.kind === 'head' && r.isHead);
+  const cmp = useRefCompare(snapshot.head.sha ?? undefined, onto ? commitOf(snapshot, onto) : undefined, { files: true, conflicts: true });
+  const rs = integrateStatus({ local, target: onto, cmp: snapshot.head.sha ? cmp : null, status });
+  const requirement = rebaseRequirement(rs);
+  const blocked = requirement === 'stash' && !autostash;
+  const pr = local ? prOf(prs, local) : undefined;
+
+  const op: Operation | null = onto ? { kind: 'rebase', onto, autostash: autostash && rs.dirty.length > 0, updateRefs } : null;
   return (
     <DialogShell
       title={t('rebase.title')}
       okLabel={t('rebase.ok')}
-      okDisabled={!op}
+      // Already on top of it: a rebase changes nothing
+      okDisabled={!op || blocked || rs.state === 'upToDate'}
       preview={op}
       onOk={async () => {
         closeDialog();
@@ -330,9 +399,21 @@ export function RebaseDialog({ onto: initial }: { onto?: string }) {
       <Field label={t('rebase.onto')}>
         <Select value={onto} onChange={setOnto} options={options} />
       </Field>
-      <p className="dim">{t('rebase.explain', snapshot.head.branch ?? 'HEAD', options.find((o) => o.value === onto)?.label ?? onto)}</p>
-      <Checkbox checked={autostash} onChange={setAutostash} label={t('rebase.autostash')} />
-      {snapshot.features.updateRefs && <Checkbox checked={updateRefs} onChange={setUpdateRefs} label={t('rebase.updateRefs')} />}
+      {onto && (
+        <RebaseStatusCard
+          branch={snapshot.head.branch ?? t('detachedHead')}
+          onto={revLabel(onto)}
+          status={rs}
+          blocked={blocked}
+          found={pr && local ? { pr, ref: local.fullName } : undefined}
+        />
+      )}
+      {requirement === 'stash' && <StashRequirement status={rs} rebase autostash={autostash} onAutostash={setAutostash} />}
+      {snapshot.features.updateRefs && (
+        <Advanced>
+          <Checkbox checked={updateRefs} onChange={setUpdateRefs} label={t('rebase.updateRefs')} />
+        </Advanced>
+      )}
     </DialogShell>
   );
 }

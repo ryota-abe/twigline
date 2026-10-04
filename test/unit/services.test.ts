@@ -298,6 +298,26 @@ describe('OpsService', () => {
     expect(r.git(['stash', 'list']).trim()).toBe('');
   });
 
+  it('merges over local changes in the incoming files with autostash', async () => {
+    const r = repo();
+    r.commit('base', { 'f.txt': '1\n2\n3\n' });
+    r.git(['checkout', '-q', '-b', 'topic']);
+    r.commit('topic', { 'f.txt': 'one\n2\n3\n' });
+    r.git(['checkout', '-q', 'main']);
+    r.write('f.txt', '1\n2\nthree\n');
+    const m = await model(r);
+    const merge = { kind: 'merge', ref: 'topic', noFastForward: false, squash: false, commit: true } as const;
+    await expect(m.ops.run(merge)).rejects.toBeInstanceOf(GitError);
+
+    const preview = await m.ops.run({ ...merge, autostash: true }, { dryRun: true });
+    expect(preview.commands).toEqual(['git merge --no-edit --autostash --end-of-options topic']);
+    if (!m.features.pullAutostash) return;
+    await m.ops.run({ ...merge, autostash: true });
+    expect(r.read('f.txt').toString()).toBe('one\n2\nthree\n');
+    expect(r.git(['rev-parse', 'main']).trim()).toBe(r.git(['rev-parse', 'topic']).trim());
+    expect(r.git(['stash', 'list']).trim()).toBe('');
+  });
+
   it('creates, checks out and merges branches; reports conflicts and aborts', async () => {
     const r = repo();
     r.commit('base', { 'f.txt': 'base\n' });

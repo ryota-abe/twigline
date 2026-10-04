@@ -9,6 +9,7 @@ import { pullRequestFor, pushComparePair, pushRowDefaults, pushStatus, type Push
 import { PrChip, prDone } from '../PullRequest';
 import { Button, Checkbox, Empty, Icon, Select } from '../ui';
 import { Advanced, DialogShell, Field, Requirement, RequirementActions, Warning, compareKey, useRefCompare, useRefCompares } from './Dialog';
+import { AutostashCheckbox, StashRequirement } from './IntegrateParts';
 import { PullStatusCard } from './PullStatusCard';
 import { PushStatusCard, STATE_ICON, stateText } from './PushStatusCard';
 import { SummaryFiles, SummaryHint } from './SummaryCard';
@@ -83,7 +84,6 @@ export function PullDialog({ remote: initialRemote, branch: initialBranch, into 
     { value: 'rebase', label: t('pull.mode.rebase'), desc: t('pull.mode.rebaseDesc') },
     { value: 'ffOnly', label: t('pull.mode.ffOnly'), desc: t('pull.mode.ffOnlyDesc') },
   ];
-  const autostashBox = <Checkbox checked={autostash} onChange={setAutostash} label={t('pull.autostash')} />;
 
   return (
     <DialogShell
@@ -149,18 +149,7 @@ export function PullDialog({ remote: initialRemote, branch: initialBranch, into 
           </Requirement>
         ))}
       {requirement === 'stash' && (
-        <Requirement
-          title={t('pull.need.stash')}
-          detail={effectiveMode === 'rebase' ? t('pull.need.stashRebase', String(ps.dirty.length)) : t('pull.need.stashMerge', String(ps.overlap.length))}
-        >
-          {effectiveMode !== 'rebase' && <SummaryFiles paths={ps.overlap} />}
-          {canAutostash && autostashBox}
-          <RequirementActions>
-            <Button small onClick={() => openDialog('stash')}>
-              {t('pull.need.openStash')}
-            </Button>
-          </RequirementActions>
-        </Requirement>
+        <StashRequirement status={ps} rebase={effectiveMode === 'rebase'} autostash={canAutostash ? autostash : undefined} onAutostash={setAutostash} />
       )}
       {!intoOther && (
         <div role="radiogroup" aria-label={t('pull.mode')}>
@@ -175,7 +164,11 @@ export function PullDialog({ remote: initialRemote, branch: initialBranch, into 
           ))}
         </div>
       )}
-      {requirement !== 'stash' && canAutostash && ps.dirty.length > 0 && <Advanced>{autostashBox}</Advanced>}
+      {requirement !== 'stash' && canAutostash && ps.dirty.length > 0 && (
+        <Advanced>
+          <AutostashCheckbox checked={autostash} onChange={setAutostash} />
+        </Advanced>
+      )}
     </DialogShell>
   );
 }

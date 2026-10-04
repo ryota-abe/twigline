@@ -95,7 +95,7 @@ export interface RepoSnapshot {
   sequence: SequenceState | null;
   submodules: SubmoduleInfo[];
   user: { name?: string; email?: string };
-  /** pullAutostash: git pull --autostash also works without --rebase (git 2.27) */
+  /** pullAutostash: --autostash works for git merge and git pull without --rebase (git 2.27) */
   features: { stashStaged: boolean; updateRefs: boolean; pullAutostash: boolean };
   gitVersion: string;
   objectFormat: 'sha1' | 'sha256';
@@ -301,7 +301,7 @@ export type Operation =
   | { kind: 'branch/rename'; from: string; to: string }
   | { kind: 'branch/setUpstream'; branch: string; upstream: string | null }
   | { kind: 'remoteBranch/delete'; remote: string; branch: string }
-  | { kind: 'merge'; ref: string; noFastForward: boolean; squash: boolean; commit: boolean }
+  | { kind: 'merge'; ref: string; noFastForward: boolean; squash: boolean; commit: boolean; autostash?: boolean }
   | { kind: 'rebase'; onto: string; autostash: boolean; updateRefs: boolean }
   | { kind: 'cherry-pick'; shas: Sha[]; noCommit: boolean }
   | { kind: 'revert'; sha: Sha }

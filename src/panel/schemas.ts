@@ -59,7 +59,7 @@ export const operation = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('branch/rename'), from: ref, to: ref }),
   z.object({ kind: z.literal('branch/setUpstream'), branch: ref, upstream: ref.nullable() }),
   z.object({ kind: z.literal('remoteBranch/delete'), remote, branch: ref }),
-  z.object({ kind: z.literal('merge'), ref, noFastForward: z.boolean(), squash: z.boolean(), commit: z.boolean() }),
+  z.object({ kind: z.literal('merge'), ref, noFastForward: z.boolean(), squash: z.boolean(), commit: z.boolean(), autostash: z.boolean().optional() }),
   z.object({ kind: z.literal('rebase'), onto: ref, autostash: z.boolean(), updateRefs: z.boolean() }),
   z.object({ kind: z.literal('cherry-pick'), shas: z.array(sha).min(1).max(1000), noCommit: z.boolean() }),
   z.object({ kind: z.literal('revert'), sha }),

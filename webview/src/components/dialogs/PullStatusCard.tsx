@@ -1,7 +1,8 @@
 import type { PullRequestInfo, PullRequestList } from '../../../../shared/protocol';
 import { t } from '../../i18n';
 import type { PullMode, PullStatus } from '../../util/pullStatus';
-import { SummaryCard, SummaryFiles, SummaryHint, SummaryPr, type SummaryTone } from './SummaryCard';
+import { IntegrateHints, integrateWarns } from './IntegrateParts';
+import { SummaryCard, SummaryHint, SummaryPr, type SummaryTone } from './SummaryCard';
 
 // What a pull would do: the route (remote branch -> local branch), how they compare as of the last fetch,
 // what happens in the chosen mode, predicted conflicts, and the pull request of the remote branch.
@@ -53,11 +54,9 @@ export function PullStatusCard({
 }) {
   const { icon, text } = stateLine(status, mode, from);
   const compared = status.state === 'upToDate' || status.state === 'fastForward' || status.state === 'diverged' || status.state === 'unrelated';
-  const merging = status.state === 'diverged' && mode !== 'ffOnly';
-  const conflicts = merging ? status.conflicts : undefined;
-  const rewrites = merging && mode === 'rebase' && status.rewritesPushed;
+  const rewrites = status.state === 'diverged' && mode === 'rebase' && status.rewritesPushed;
   const tone: SummaryTone =
-    blocked || !!conflicts?.length || rewrites || status.untrackedOverlap.length > 0
+    blocked || rewrites || integrateWarns(status, mode !== 'ffOnly')
       ? 'warn'
       : status.state === 'notFetched' || status.state === 'loading' || status.state === 'unknown'
         ? 'info'
@@ -67,20 +66,8 @@ export function PullStatusCard({
     <SummaryCard tone={tone} from={from} to={into} ahead={status.ahead} behind={status.behind} icon={icon} text={text}>
       {compared && <SummaryHint>{t('pull.staleHint')}</SummaryHint>}
       {intoOther && <SummaryHint>{t('pull.intoOther')}</SummaryHint>}
-      {conflicts && conflicts.length > 0 && (
-        <>
-          <SummaryHint warn>{t(mode === 'rebase' ? 'pull.conflicts.rebase' : 'pull.conflicts', String(conflicts.length))}</SummaryHint>
-          <SummaryFiles paths={conflicts} />
-        </>
-      )}
-      {conflicts && conflicts.length === 0 && <SummaryHint>{t('pull.noConflicts')}</SummaryHint>}
-      {rewrites && <SummaryHint warn>{t('pull.rewritesPushed')}</SummaryHint>}
-      {status.untrackedOverlap.length > 0 && (
-        <>
-          <SummaryHint warn>{t('pull.untrackedOverlap')}</SummaryHint>
-          <SummaryFiles paths={status.untrackedOverlap} />
-        </>
-      )}
+      <IntegrateHints status={status} rebase={mode === 'rebase'} merges={mode !== 'ffOnly'} />
+      {rewrites && <SummaryHint warn>{t('summary.rewritesPushed')}</SummaryHint>}
       <SummaryPr found={found} prs={prs} remote={remote} />
     </SummaryCard>
   );
