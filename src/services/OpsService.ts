@@ -229,6 +229,10 @@ export class OpsService {
         if (op.noFastForward) args.push('--no-ff');
         if (op.squash) args.push('--squash');
         if (!op.commit && !op.squash) args.push('--no-commit');
+        if (op.autostash) {
+          if (!this.repo.features.pullAutostash) throw new GitError('invalid', 'git 2.27 or later is required for --autostash');
+          args.push('--autostash');
+        }
         args.push('--end-of-options', assertRev(op.ref));
         return [w(args)];
       }
