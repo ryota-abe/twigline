@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import type { Operation } from '../../../../shared/protocol';
+import type { Operation, RefComparison } from '../../../../shared/protocol';
 import { t } from '../../i18n';
 import { closeDialog, getRpc, previewOp } from '../../store/actions';
 import { get } from '../../store/store';
@@ -153,6 +153,65 @@ export function Field({ label, children, hint, error }: { label: ReactNode; chil
 
 export function Warning({ children, danger }: { children: ReactNode; danger?: boolean }) {
   return <div className={cx('warning', danger && 'danger')}>{children}</div>;
+}
+
+/**
+ * Something that must be settled before OK is enabled (a force push, stashing local changes...): a warning with a title,
+ * what happens, and the controls that settle it (an option to check, buttons for another way). The dialog keeps OK disabled until then
+ */
+export function Requirement({ title, detail, danger, children }: { title: ReactNode; detail?: ReactNode; danger?: boolean; children?: ReactNode }) {
+  return (
+    <Warning danger={danger}>
+      <div className="requirement">
+        <strong>{title}</strong>
+        {detail && <span>{detail}</span>}
+        {children}
+      </div>
+    </Warning>
+  );
+}
+
+/** Buttons offering another way, under a Requirement */
+export function RequirementActions({ children }: { children: ReactNode }) {
+  return <div className="row wrap">{children}</div>;
+}
+
+/** Options that are rarely changed, collapsed under "Details" */
+export function Advanced({ children }: { children: ReactNode }) {
+  return (
+    <details className="dialog-advanced">
+      <summary>{t('dialog.advanced')}</summary>
+      <div className="dialog-advanced-body">{children}</div>
+    </details>
+  );
+}
+
+/**
+ * Compare two commits on the host (ahead / behind, merge base, and optionally incoming files and predicted conflicts).
+ * Pass SHAs so the comparison is redone when a ref moves. undefined while loading (and when a side is not given), null when a side does not resolve
+ */
+export function useRefCompare(ours: string | undefined, theirs: string | undefined, opts: { files?: boolean; conflicts?: boolean } = {}): RefComparison | null | undefined {
+  const [state, setState] = useState<{ key: string; value: RefComparison | null } | null>(null);
+  const key = ours && theirs ? JSON.stringify([ours, theirs, !!opts.files, !!opts.conflicts]) : '';
+  useEffect(() => {
+    if (!key) return;
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => {
+      getRpc()
+        .request('ref/compare', { repo: get().boot.repo, ours: ours!, theirs: theirs!, files: opts.files, conflicts: opts.conflicts }, ctrl.signal)
+        .then(
+          (value) => setState({ key, value }),
+          // Treated like "not known": the dialog still works without the comparison
+          (e) => !(e instanceof RpcError && e.category === 'cancelled') && setState({ key, value: null }),
+        );
+    }, 100);
+    return () => {
+      clearTimeout(timer);
+      ctrl.abort();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+  return state && state.key === key ? state.value : undefined;
 }
 
 /** Validate with git check-ref-format while typing */

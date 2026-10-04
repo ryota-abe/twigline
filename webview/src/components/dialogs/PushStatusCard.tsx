@@ -1,9 +1,7 @@
 import type { PullRequestList, RefInfo } from '../../../../shared/protocol';
 import { t } from '../../i18n';
-import { cx } from '../../util/format';
 import { pullRequestFor, type PushStatus } from '../../util/pushStatus';
-import { PrChip } from '../PullRequest';
-import { Icon } from '../ui';
+import { SummaryCard, SummaryHint, SummaryPr } from './SummaryCard';
 
 // What a push would do: the route (local -> remote branch), how it compares with the remote, and the pull request of the target branch.
 // The comparison comes from the last fetch, so a hint says so.
@@ -48,57 +46,29 @@ export function PushStatusCard({
 }) {
   const compared = status.state === 'ahead' || status.state === 'behind' || status.state === 'diverged' || status.state === 'upToDate';
   const found = pullRequestFor(prs, local, remote, remoteName);
-  const hosted = !!prs?.hostedRemotes?.includes(remote);
   const prDone = found?.pr.state === 'merged' || found?.pr.state === 'closed';
 
   return (
-    <div className={cx('push-card', status.forceRequired ? 'warn' : status.state === 'unknown' || status.state === 'gone' ? 'info' : 'ok')}>
-      <div className="push-route">
-        <span className="mono">{local.name}</span>
-        <Icon name="arrow-right" />
-        <span className="mono">{`${remote}/${remoteName}`}</span>
-        {(status.ahead > 0 || status.behind > 0) && (
-          <span className="push-counts" aria-hidden="true">
-            {`↑${status.ahead} ↓${status.behind}`}
-          </span>
-        )}
-      </div>
-      <div className="push-state">
-        <Icon name={STATE_ICON[status.state]} />
-        <span>{stateText(status)}</span>
-      </div>
-      {compared && <div className="push-hint">{t('push.staleHint')}</div>}
-      {found ? (
-        <div className="push-pr">
-          <PrChip pr={found.pr} refName={found.ref} />
-          <span className="push-pr-title">{found.pr.title}</span>
-          <span className="push-pr-branches mono">{`${found.pr.baseRef} ← ${found.pr.headRef}`}</span>
-        </div>
-      ) : hosted && prs?.status === 'ok' ? (
-        <div className="push-pr muted">
-          <Icon name="git-pull-request" />
-          <span>{t('push.pr.none')}</span>
-        </div>
-      ) : hosted && (prs?.status === 'signIn' || prs?.status === 'error') ? (
-        <div className="push-pr muted" title={prs.message}>
-          <Icon name="warning" />
-          <span>{t('push.pr.unknown')}</span>
-        </div>
-      ) : null}
+    <SummaryCard
+      tone={status.forceRequired ? 'warn' : status.state === 'unknown' || status.state === 'gone' ? 'info' : 'ok'}
+      from={local.name}
+      to={`${remote}/${remoteName}`}
+      ahead={status.ahead}
+      behind={status.behind}
+      icon={STATE_ICON[status.state]}
+      text={stateText(status)}
+    >
+      {compared && <SummaryHint>{t('summary.staleHint')}</SummaryHint>}
+      <SummaryPr found={found} prs={prs} remote={remote} />
       {found && status.state !== 'upToDate' && (
-        <div className={cx('push-hint', prDone && 'warn')}>
-          {prDone ? (
-            <>
-              <Icon name="warning" />
-              {t(found.pr.state === 'merged' ? 'push.pr.merged' : 'push.pr.closed', String(found.pr.number))}
-            </>
-          ) : force ? (
-            t('push.pr.forceNote', String(found.pr.number))
-          ) : (
-            t('push.pr.reflect', String(found.pr.number))
-          )}
-        </div>
+        <SummaryHint warn={prDone}>
+          {prDone
+            ? t(found.pr.state === 'merged' ? 'push.pr.merged' : 'push.pr.closed', String(found.pr.number))
+            : force
+              ? t('push.pr.forceNote', String(found.pr.number))
+              : t('push.pr.reflect', String(found.pr.number))}
+        </SummaryHint>
       )}
-    </div>
+    </SummaryCard>
   );
 }

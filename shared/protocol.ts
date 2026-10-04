@@ -95,7 +95,8 @@ export interface RepoSnapshot {
   sequence: SequenceState | null;
   submodules: SubmoduleInfo[];
   user: { name?: string; email?: string };
-  features: { stashStaged: boolean; updateRefs: boolean };
+  /** pullAutostash: git pull --autostash also works without --rebase (git 2.27) */
+  features: { stashStaged: boolean; updateRefs: boolean; pullAutostash: boolean };
   gitVersion: string;
   objectFormat: 'sha1' | 'sha256';
 }
@@ -307,7 +308,7 @@ export type Operation =
   | { kind: 'reset'; sha: Sha; mode: 'soft' | 'mixed' | 'hard' }
   | { kind: 'fetch'; remote: string | '*'; prune: boolean; tags: boolean }
   /** into: when updating a branch that is not checked out (fast-forward only; when omitted, merge into HEAD) */
-  | { kind: 'pull'; remote: string; branch: string; rebase: boolean; ffOnly: boolean; into?: string }
+  | { kind: 'pull'; remote: string; branch: string; rebase: boolean; ffOnly: boolean; into?: string; autostash?: boolean }
   | {
       kind: 'push';
       remote: string;
@@ -483,6 +484,27 @@ export interface SyntaxTheme {
   tokenColors: SyntaxTokenColor[];
 }
 
+/**
+ * How two commits relate, for the dialogs that show what an operation would do (pull, merge, rebase...).
+ * ahead / behind are seen from ours, like RefInfo: commits only ours has / only theirs has
+ */
+export interface RefComparison {
+  ours: Sha;
+  theirs: Sha;
+  ahead: number;
+  behind: number;
+  /** null for unrelated histories */
+  mergeBase: Sha | null;
+  /** Paths theirs changed since the merge base (when files was asked). Cut off at a limit, then truncated is set */
+  incomingFiles?: string[];
+  incomingFilesTruncated?: boolean;
+  /**
+   * Paths a merge of theirs into ours would conflict in (when conflicts was asked and the histories have diverged).
+   * Predicted with git merge-tree; null when it cannot be predicted (git older than 2.38, unrelated histories)
+   */
+  conflicts?: string[] | null;
+}
+
 // ---------------------------------------------------------------------------
 // RPC
 // ---------------------------------------------------------------------------
@@ -492,6 +514,8 @@ export interface RpcMethods {
   'repo/snapshot': (p: { repo: RepoId }) => RepoSnapshot;
   'repo/resolve': (p: { repo: RepoId; rev: string }) => Sha | null;
   'ref/validate': (p: { repo: RepoId; name: string }) => { valid: boolean };
+  /** null when either side does not resolve to a commit */
+  'ref/compare': (p: { repo: RepoId; ours: string; theirs: string; files?: boolean; conflicts?: boolean }) => RefComparison | null;
   'log/page': (p: { repo: RepoId; query: LogQuery; cursor?: string; offset: number; limit: number }) => LogPage;
   'commit/detail': (p: { repo: RepoId; sha: Sha; compareTo?: Sha; parent?: number }) => CommitDetail;
   'commit/info': (p: { repo: RepoId }) => CommitInfo;
