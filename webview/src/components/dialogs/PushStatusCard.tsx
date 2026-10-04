@@ -6,7 +6,7 @@ import { SummaryCard, SummaryHint, SummaryPr } from './SummaryCard';
 // What a push would do: the route (local -> remote branch), how it compares with the remote, and the pull request of the target branch.
 // The comparison comes from the last fetch, so a hint says so.
 
-const STATE_ICON: Record<PushStatus['state'], string> = {
+export const STATE_ICON: Record<PushStatus['state'], string> = {
   new: 'add',
   upToDate: 'check',
   ahead: 'arrow-up',
@@ -16,7 +16,7 @@ const STATE_ICON: Record<PushStatus['state'], string> = {
   unknown: 'info',
 };
 
-function stateText(s: PushStatus): string {
+export function stateText(s: PushStatus): string {
   switch (s.state) {
     case 'ahead':
       return t('push.state.ahead', String(s.ahead));
