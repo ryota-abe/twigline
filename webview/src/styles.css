@@ -1724,6 +1724,104 @@ body.resizing-column * {
   font-size: 11px;
   color: var(--twigline-muted);
 }
+/* Push dialog: what the push would do (route, comparison with the remote, pull request) */
+.push-card {
+  --push-tone: var(--twigline-pr-open);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px;
+  border: 1px solid var(--twigline-border);
+  border-left: 3px solid var(--push-tone);
+  border-radius: 3px;
+}
+.push-card.warn {
+  --push-tone: var(--twigline-warn-border);
+  background: var(--twigline-warn-bg);
+}
+.push-card.info {
+  --push-tone: var(--twigline-muted);
+}
+.push-route {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-weight: 600;
+}
+.push-route .mono {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.push-counts {
+  margin-left: auto;
+  font-weight: 400;
+  color: var(--twigline-muted);
+  white-space: nowrap;
+}
+.push-state {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.push-state .codicon {
+  color: var(--push-tone);
+  align-self: center;
+}
+.push-hint {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--twigline-muted);
+}
+.push-hint.warn {
+  color: inherit;
+}
+.push-hint.warn .codicon {
+  color: var(--twigline-warn-border);
+}
+.push-pr {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  margin-top: 2px;
+  padding-top: 6px;
+  border-top: 1px solid var(--twigline-border);
+}
+.push-pr.muted {
+  color: var(--twigline-muted);
+}
+.push-pr-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.push-pr-branches {
+  margin-left: auto;
+  color: var(--twigline-muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+.push-force-needed {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+.push-advanced > summary {
+  cursor: pointer;
+  color: var(--twigline-muted);
+  user-select: none;
+}
+.push-advanced-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 8px;
+}
 .remotes-table .tr {
   grid-template-columns: 120px 1fr auto;
 }

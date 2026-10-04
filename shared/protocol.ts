@@ -138,6 +138,8 @@ export interface PullRequestList {
   /** Which service, for signIn and error */
   provider?: PullRequestProvider;
   message?: string;
+  /** Names of the remotes PRs can be read from (GitHub, Bitbucket Cloud). Tells "no PR" apart from "not a hosted remote" */
+  hostedRemotes?: string[];
   /** Full ref name (refs/heads/x, refs/remotes/origin/x) -> the PR of that branch. The previous result is kept on error */
   byRef: Record<string, PullRequestInfo>;
 }

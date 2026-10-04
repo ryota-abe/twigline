@@ -51,19 +51,20 @@ export class PullRequestService {
     const repos = uniqueRepos([...hostedRemotes(snap.remotes).values()]);
     if (repos.length === 0) return { status: 'unsupported', byRef: {} };
     const targets = pullRequestTargets(snap.refs, snap.remotes);
-    const key = JSON.stringify([repos.map(repoKey), targets.map((t) => [t.ref, repoKey(t.repo), t.headRef])]);
+    const hosted = [...hostedRemotes(snap.remotes).keys()];
+    const key = JSON.stringify([hosted, repos.map(repoKey), targets.map((t) => [t.ref, repoKey(t.repo), t.headRef])]);
     // A fetch in flight is newer than the cache (so a request that arrives during a forced fetch is not given a stale result)
     if (this.inflight?.key === key) return this.inflight.promise;
     const c = this.cache;
     if (!force && c && c.key === key && Date.now() - c.at < c.ttl) return c.value;
 
-    const promise = this.load(repos, targets).then(
+    const promise = this.load(repos, targets, hosted).then(
       ({ value, ttl }) => {
         this.cache = { key, at: Date.now(), ttl, value };
         return value;
       },
       (e: unknown) => {
-        const value: PullRequestList = { status: 'error', message: e instanceof Error ? e.message : String(e), byRef: this.cache?.value.byRef ?? {} };
+        const value: PullRequestList = { status: 'error', message: e instanceof Error ? e.message : String(e), hostedRemotes: hosted, byRef: this.cache?.value.byRef ?? {} };
         this.cache = { key, at: Date.now(), ttl: TTL_FAILED, value };
         return value;
       },
@@ -76,7 +77,7 @@ export class PullRequestService {
     }
   }
 
-  private async load(repos: HostedRepo[], targets: PullRequestTarget[]): Promise<{ value: PullRequestList; ttl: number }> {
+  private async load(repos: HostedRepo[], targets: PullRequestTarget[], hosted: string[]): Promise<{ value: PullRequestList; ttl: number }> {
     const env = this.repo.env;
     const credentials = new Map<string, PullRequestCredential | undefined>();
     const service = (r: { provider: PullRequestProvider; host: string }) => `${r.provider}:${r.host}`;
@@ -107,11 +108,11 @@ export class PullRequestService {
       // Signing in makes it readable (private repository, unauthenticated rate limit, invalidated credentials)
       const needsSignIn = !!env.pullRequestCredential && (withCredential ? error.kind === 'auth' : error.kind !== 'network' && error.kind !== 'other');
       return {
-        value: { status: needsSignIn ? 'signIn' : 'error', provider, message: error.message, byRef: previous },
+        value: { status: needsSignIn ? 'signIn' : 'error', provider, message: error.message, hostedRemotes: hosted, byRef: previous },
         ttl: needsSignIn ? TTL_ANONYMOUS : TTL_FAILED,
       };
     }
-    return { value: { status: 'ok', byRef: matchPullRequests(targets, candidates) }, ttl: signedIn ? TTL_SIGNED_IN : TTL_ANONYMOUS };
+    return { value: { status: 'ok', hostedRemotes: hosted, byRef: matchPullRequests(targets, candidates) }, ttl: signedIn ? TTL_SIGNED_IN : TTL_ANONYMOUS };
   }
 }
 
