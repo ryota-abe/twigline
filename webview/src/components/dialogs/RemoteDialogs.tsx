@@ -1,10 +1,12 @@
 import { useMemo, useState } from 'react';
 import type { Operation } from '../../../../shared/protocol';
 import { t } from '../../i18n';
-import { closeDialog, confirm, runOp } from '../../store/actions';
+import { closeDialog, confirm, openDialog, runOp } from '../../store/actions';
 import { useStore } from '../../store/store';
-import { Checkbox, Empty, Select } from '../ui';
+import { pushStatus } from '../../util/pushStatus';
+import { Button, Checkbox, Empty, Select } from '../ui';
 import { DialogShell, Field, Warning } from './Dialog';
+import { PushStatusCard } from './PushStatusCard';
 
 // Pull, push, fetch
 
@@ -80,12 +82,13 @@ export function PullDialog({ remote: initialRemote, branch: initialBranch, into 
   );
 }
 
-/** Push after confirming a force push */
-async function runPush(op: PushOp) {
+/** Push after confirming a force push. lost is the number of remote commits a force push is known to discard */
+async function runPush(op: PushOp, lost = 0) {
   if (op.force) {
+    const branches = op.branches.map((b) => `${b.local} → ${op.remote}/${b.remote}`).join(', ');
     const ok = await confirm({
       title: t('push.forceConfirmTitle'),
-      message: t('push.forceConfirm', op.branches.map((b) => `${b.local} → ${op.remote}/${b.remote}`).join(', ')),
+      message: lost > 0 ? t('push.forceConfirmLost', branches, String(lost)) : t('push.forceConfirm', branches),
       okLabel: t('push.forceOk'),
       danger: true,
     });
@@ -99,6 +102,7 @@ async function runPush(op: PushOp) {
 export function PushDialog({ branch: initialBranch, setUpstream }: { branch?: string; setUpstream?: boolean }) {
   const { snapshot, upstreamRemote } = useRemotes();
   const forceMode = useStore((s) => s.config?.forcePushMode ?? 'withLease');
+  const prs = useStore((s) => s.pullRequests);
   const name = initialBranch ?? snapshot.head.branch ?? undefined;
   const local = snapshot.refs.find((r) => r.kind === 'head' && r.name === name);
   const [remote, setRemote] = useState(upstreamRemoteOf(snapshot, local?.upstream) ?? upstreamRemote ?? snapshot.remotes[0]?.name ?? '');
@@ -113,29 +117,53 @@ export function PushDialog({ branch: initialBranch, setUpstream }: { branch?: st
       </DialogShell>
     );
   }
-  const op: PushOp | null = remote && remoteName.trim() ? { kind: 'push', remote, branches: [{ local: name, remote: remoteName.trim(), setUpstream: track }], tags: false, force } : null;
+  const target = remoteName.trim();
+  const op: PushOp | null = remote && target ? { kind: 'push', remote, branches: [{ local: name, remote: target, setUpstream: track }], tags: false, force } : null;
+  const status = local && target ? pushStatus(local, snapshot.refs, remote, target) : undefined;
+  const forceRequired = !!status?.forceRequired;
+  // Nothing to send; still allowed when the push would only set the upstream
+  const nothing = status?.state === 'upToDate' && !(track && local?.upstream !== `${remote}/${target}`);
+  const forceLabel = forceMode === 'force' ? t('push.forcePlain') : t('push.forceLease');
 
   return (
     <DialogShell
       title={t('push.title')}
       okLabel={force ? t('push.forceOk') : t('push.ok')}
       danger={force}
-      okDisabled={!op}
+      okDisabled={!op || nothing || (forceRequired && !force)}
       preview={op}
-      onOk={() => (op ? runPush(op) : undefined)}
+      onOk={() => (op ? runPush(op, forceRequired ? status!.behind : 0) : undefined)}
     >
       <Field label={t('remote.remote')}>
         <Select value={remote} onChange={setRemote} options={snapshot.remotes.map((r) => ({ value: r.name, label: `${r.name}  ${r.pushUrl ?? r.fetchUrl ?? ''}` }))} />
       </Field>
-      <Field label={t('push.local')}>
-        <span className="readonly mono">{name}</span>
-      </Field>
-      <Field label={t('push.remoteName')}>
-        <input className="input" value={remoteName} onChange={(e) => setRemoteName(e.target.value)} />
-      </Field>
+      {local && status && <PushStatusCard local={local} remote={remote} remoteName={target} status={status} force={force} prs={prs} />}
+      {forceRequired && (
+        <Warning danger>
+          <div className="push-force-needed">
+            <strong>{t('push.forceNeeded')}</strong>
+            <span>{t('push.forceNeededDetail', String(status!.behind))}</span>
+            <Checkbox checked={force} onChange={setForce} label={forceLabel} />
+            <div>
+              <Button small onClick={() => openDialog('pull')}>
+                {t('menu.pull')}
+              </Button>
+            </div>
+          </div>
+        </Warning>
+      )}
       <Checkbox checked={track} onChange={setTrack} label={t('push.setUpstream')} />
-      <Checkbox checked={force} onChange={setForce} label={forceMode === 'force' ? t('push.forcePlain') : t('push.forceLease')} />
-      {force && <Warning danger>{t('push.forceWarning')}</Warning>}
+      <details className="push-advanced">
+        <summary>{t('push.advanced')}</summary>
+        <div className="push-advanced-body">
+          <Field label={t('push.remoteName')}>
+            <input className="input" value={remoteName} onChange={(e) => setRemoteName(e.target.value)} />
+          </Field>
+          {!forceRequired && <Checkbox checked={force} onChange={setForce} label={forceLabel} />}
+        </div>
+      </details>
+      {force && !forceRequired && <Warning danger>{t('push.forceWarning')}</Warning>}
+      {force && forceRequired && forceMode === 'withLease' && <div className="push-hint">{t('push.leaseHint')}</div>}
     </DialogShell>
   );
 }
