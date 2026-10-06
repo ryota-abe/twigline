@@ -2,6 +2,8 @@
 //   node scripts/make-screenshot-repo.mjs <dir>
 // Feature branches merged by pull request, branches in progress (pushed and local), a release branch, tags, a stash,
 // and main one commit ahead of origin. See "Screenshot" in CONTRIBUTING.md for taking the screenshot.
+// origin is a GitHub URL (https://github.com/example/inkwell.git) that url.<dir>.insteadOf points to a local bare repository
+// (<dir>-origin.git), and <dir>-pulls.json holds its pull requests for the development server (--pull-requests).
 
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
@@ -9,6 +11,8 @@ import * as path from 'node:path';
 
 const dir = path.resolve(process.argv[2] ?? 'screenshot-repo');
 const remoteDir = dir + '-origin.git';
+const pullsFile = dir + '-pulls.json';
+const remoteUrl = 'https://github.com/example/inkwell.git';
 for (const d of [dir, remoteDir]) if (existsSync(d)) rmSync(d, { recursive: true, force: true });
 mkdirSync(dir, { recursive: true });
 
@@ -279,17 +283,46 @@ commit(daniel, 'Show an offline banner while edits are queued', { 'src/sync/Offl
 checkout('main');
 commit(kenji, 'Undo for deleted notes', { 'src/model/store.ts': store('\n  restore: (note: Note) => void;') }, 2);
 
-// Remote: everything pushed except the local branch, then main moves one ahead
+// Remote: everything pushed except the local branch. The merged fix branch is deleted on the remote but kept locally (its upstream is gone)
 git(['init', '-q', '--bare', remoteDir], { cwd: path.dirname(dir) });
-git(['remote', 'add', 'origin', remoteDir]);
-git(['push', '-q', '-u', 'origin', 'main', 'release/1.4', 'feature/offline-sync']);
+git(['remote', 'add', 'origin', remoteUrl]);
+git(['config', `url.${remoteDir}.insteadOf`, remoteUrl]);
+git(['push', '-q', '-u', 'origin', 'main', 'release/1.4', 'feature/offline-sync', 'fix/search-debounce']);
 git(['push', '-q', 'origin', '--tags']);
-for (const b of ['release/1.4', 'feature/offline-sync']) git(['branch', '-q', `--set-upstream-to=origin/${b}`, b]);
-for (const b of ['feature/search', 'feature/tags', 'fix/search-debounce']) git(['branch', '-q', '-D', b]);
+git(['push', '-q', 'origin', '--delete', 'fix/search-debounce']);
+const tips = Object.fromEntries(['feature/search', 'feature/tags', 'fix/search-debounce', 'feature/offline-sync', 'release/1.4'].map((b) => [b, git(['rev-parse', b]).trim()]));
+for (const b of ['feature/search', 'feature/tags']) git(['branch', '-q', '-D', b]);
 commit(maya, 'Mention keyboard shortcuts in the README', { 'README.md': '# Inkwell\n\nA fast, offline-friendly notes app.\n\n## Shortcuts\n\n| Key | Action |\n| --- | --- |\n| Mod+N | New note |\n| Mod+K | Search |\n' }, 3);
 
 // A stash
 write('src/shortcuts.ts', "export const shortcuts = {\n  newNote: 'Mod+N',\n  search: 'Mod+K',\n  togglePreview: 'Mod+P',\n};\n");
 git(['stash', 'push', '-q', '-m', 'Preview toggle shortcut']);
 
-console.log(`created ${dir} (remote: ${remoteDir})`);
+// Pull requests, as GitHub's REST API returns them (GET /repos/example/inkwell/pulls)
+const iso = (rev) => git(['log', '-1', '--format=%cI', rev]).trim();
+const mergeOf = (n) => git(['log', '--merges', '--format=%H', `--grep=#${n} `, 'main']).trim();
+const pull = (number, title, branch, author, state) => {
+  const merged = state === 'merged' ? iso(mergeOf(number)) : null;
+  return {
+    number,
+    title,
+    html_url: `https://github.com/example/inkwell/pull/${number}`,
+    state: state === 'merged' ? 'closed' : 'open',
+    draft: state === 'draft',
+    merged_at: merged,
+    updated_at: merged ?? iso(tips[branch]),
+    user: { login: author },
+    head: { ref: branch, sha: tips[branch], repo: { owner: { login: 'example' } } },
+    base: { ref: 'main' },
+  };
+};
+const pulls = [
+  pull(47, 'Fix crash when a note has no tags', 'release/1.4', 'sofia-rossi', 'draft'),
+  pull(46, 'Sync edits made while offline', 'feature/offline-sync', 'daniel-okafor', 'open'),
+  pull(44, 'Debounce search and cancel stale requests', 'fix/search-debounce', 'daniel-okafor', 'merged'),
+  pull(43, 'Tags for notes', 'feature/tags', 'kenji-watanabe', 'merged'),
+  pull(41, 'Search notes from the sidebar', 'feature/search', 'daniel-okafor', 'merged'),
+];
+writeFileSync(pullsFile, JSON.stringify(pulls, null, 2) + '\n');
+
+console.log(`created ${dir} (remote: ${remoteDir}, pull requests: ${pullsFile})`);

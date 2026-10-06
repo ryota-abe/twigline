@@ -40,16 +40,19 @@ node dist/dev/devServer.js --repo ../twigline-demo --port 5178
 Syntax highlighting grammars and themes are read from the built-in extensions of an installed VS Code
 (`--vscode-extensions <dir>`; by default it looks at `TWIGLINE_VSCODE_PATH` and the usual install locations, and highlighting is off if none is found).
 Pull requests are read with the environment variable `GITHUB_TOKEN` (or `GH_TOKEN`) for GitHub, or `BITBUCKET_EMAIL` and `BITBUCKET_API_TOKEN` for Bitbucket (public repositories only if they are not set).
+`--pull-requests <file>` answers GitHub with the pull requests in a file instead (the response of `GET /repos/{owner}/{repo}/pulls`),
+so pull request badges can be shown without asking GitHub.
 
 ### Screenshot
 
 The README shows `docs/images/history.png`, the History tab of the repository made by `scripts/make-screenshot-repo.mjs`.
-To take it again after the UI changes:
+Its `origin` is a GitHub URL that `insteadOf` points to a local bare repository, and its pull requests (made up, like the rest of it)
+are written next to it for `--pull-requests`. To take it again after the UI changes:
 
 ```bash
 node scripts/make-screenshot-repo.mjs ../twigline-screenshot
 npm run build
-node dist/dev/devServer.js --repo ../twigline-screenshot --port 5178
+node dist/dev/devServer.js --repo ../twigline-screenshot --pull-requests ../twigline-screenshot-pulls.json --port 5178
 # http://localhost:5178/?lang=en&theme=dark
 ```
 
