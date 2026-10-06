@@ -41,6 +41,23 @@ Syntax highlighting grammars and themes are read from the built-in extensions of
 (`--vscode-extensions <dir>`; by default it looks at `TWIGLINE_VSCODE_PATH` and the usual install locations, and highlighting is off if none is found).
 Pull requests are read with the environment variable `GITHUB_TOKEN` (or `GH_TOKEN`) for GitHub, or `BITBUCKET_EMAIL` and `BITBUCKET_API_TOKEN` for Bitbucket (public repositories only if they are not set).
 
+### Screenshot
+
+The README shows `docs/images/history.png`, the History tab of the repository made by `scripts/make-screenshot-repo.mjs`.
+To take it again after the UI changes:
+
+```bash
+node scripts/make-screenshot-repo.mjs ../twigline-screenshot
+npm run build
+node dist/dev/devServer.js --repo ../twigline-screenshot --port 5178
+# http://localhost:5178/?lang=en&theme=dark
+```
+
+Use a 1280 × 860 window at 2× scale with syntax highlighting on (see above), select "Debounce search and cancel stale requests",
+expand Tags and Remotes in the sidebar, and keep the pointer off the panel. The image is reduced to 256 colors to keep it small.
+`docs/` is not included in the VSIX; `vsce` rewrites the image link to the copy on GitHub, so the image shows in the Marketplace
+once it is on `main`.
+
 ## Layout
 
 ```
