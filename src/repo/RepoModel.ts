@@ -45,7 +45,7 @@ export class RepoModel implements Disposable {
   readonly compare: CompareService;
   readonly commit: CommitService;
   readonly pullRequests: PullRequestService;
-  readonly features: { stashStaged: boolean; updateRefs: boolean; pullAutostash: boolean; mergeTree: boolean; aheadBehind: boolean; worktreePath: boolean };
+  readonly features: { stashStaged: boolean; updateRefs: boolean; pullAutostash: boolean; mergeTree: boolean; aheadBehind: boolean; worktreePath: boolean; forceIfIncludes: boolean };
 
   private readonly changeEmitter = new Emitter<ChangeKind[]>();
   readonly onDidChange = this.changeEmitter.event;
@@ -74,6 +74,7 @@ export class RepoModel implements Disposable {
       mergeTree: versionAtLeast(git.parts, 2, 38),
       aheadBehind: versionAtLeast(git.parts, 2, 41),
       worktreePath: versionAtLeast(git.parts, 2, 23),
+      forceIfIncludes: versionAtLeast(git.parts, 2, 30),
     };
     this.snapshot = new SnapshotService(this);
     this.status = new StatusService(this);

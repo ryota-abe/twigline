@@ -303,7 +303,10 @@ export class OpsService {
 
       case 'push': {
         const mode = this.repo.env.config().forcePushMode;
-        const force = op.force ? (mode === 'force' ? ['--force'] : ['--force-with-lease', '--force-if-includes']) : [];
+        // --force-if-includes (git 2.30+) also refuses when the remote-tracking branch was updated by a background fetch
+        // after the local branch last saw it
+        const lease = ['--force-with-lease', ...(this.repo.features.forceIfIncludes ? ['--force-if-includes'] : [])];
+        const force = op.force ? (mode === 'force' ? ['--force'] : lease) : [];
         const remote = assertRemote(op.remote);
         const refspec = (b: { local: string; remote: string }) => `refs/heads/${assertRef(b.local, 'branch name')}:refs/heads/${assertRef(b.remote, 'branch name')}`;
         const steps: Step[] = [];
