@@ -84,7 +84,8 @@ export function BranchDialog({ tab: initialTab, start: initial, names }: { tab?:
   // How many commits of each branch HEAD lacks (asked only on the delete tab)
   const counts = useAheadBehind(tab === 'delete' ? (snapshot.head.sha ?? undefined) : undefined, tab === 'delete' ? deletable : []);
   const infos = new Map(deletable.map((r) => [r.name, deleteInfo(r, counts?.[r.fullName]?.ahead)]));
-  const chosen = deletable.filter((r) => picked.has(r.name));
+  // git refuses to delete a branch checked out in another worktree, so it is shown but cannot be chosen
+  const chosen = deletable.filter((r) => picked.has(r.name) && !r.worktree);
   const needForce = chosen.filter((r) => infos.get(r.name)!.forceRequired);
   const atRisk = chosen.filter((r) => infos.get(r.name)!.atRisk > 0);
   const tracked = (r: RefInfo) => !!r.upstream && !r.gone;
@@ -184,13 +185,20 @@ export function BranchDialog({ tab: initialTab, start: initial, names }: { tab?:
               return (
                 <Checkbox
                   key={r.name}
-                  checked={picked.has(r.name)}
+                  checked={picked.has(r.name) && !r.worktree}
+                  disabled={!!r.worktree}
                   onChange={(v) => setPick([r.name], v)}
                   label={
                     <>
                       <span className={cx('mono', prDone(pr) && 'pr-done')}>{r.name}</span>
                       {pr && <PrChip pr={pr} refName={r.fullName} />}
-                      <DeleteBadges info={infos.get(r.name)!} upstream={r.upstream} />
+                      {r.worktree ? (
+                        <span className="mini-badge" title={t('branch.badge.worktreeTitle', r.worktree)}>
+                          {t('branch.badge.worktree')}
+                        </span>
+                      ) : (
+                        <DeleteBadges info={infos.get(r.name)!} upstream={r.upstream} />
+                      )}
                       {r.upstream && <span className="dim"> → {r.upstream}</span>}
                     </>
                   }
@@ -199,7 +207,7 @@ export function BranchDialog({ tab: initialTab, start: initial, names }: { tab?:
             })}
           </div>
           <span className="row">
-            <Button small disabled={!counts} onClick={() => setPick(deletable.filter((r) => safeToDelete(infos.get(r.name)!)).map((r) => r.name), true)}>
+            <Button small disabled={!counts} onClick={() => setPick(deletable.filter((r) => !r.worktree && safeToDelete(infos.get(r.name)!)).map((r) => r.name), true)}>
               {t('branch.selectMerged')}
             </Button>
             <Button small disabled={picked.size === 0} onClick={() => setPicked(new Set())}>

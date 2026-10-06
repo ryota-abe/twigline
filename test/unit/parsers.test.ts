@@ -1,3 +1,5 @@
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { LOG_FORMAT, NulRecordSplitter, parseLog, parseLogRecord } from '../../src/git/parsers/log';
 import { parseStatusV2 } from '../../src/git/parsers/status';
@@ -122,6 +124,10 @@ describe('refs', () => {
     repo.git(['config', 'branch.main.remote', 'origin']);
     repo.git(['config', 'branch.main.merge', 'refs/heads/main']);
     repo.git(['branch', 'feature/login', c1]);
+    repo.git(['branch', 'in-worktree', c1]);
+    // Inside the repository, so it is removed with it
+    const worktree = path.join(repo.dir, 'wt');
+    repo.git(['worktree', 'add', '-q', worktree, 'in-worktree']);
     const refs = parseForEachRef(
       repo.git(['for-each-ref', `--format=${FOR_EACH_REF_FORMAT}`, 'refs/heads', 'refs/remotes', 'refs/tags']),
       ['origin', 'my/remote'],
@@ -129,6 +135,10 @@ describe('refs', () => {
     const main = refs.find((r) => r.name === 'main')!;
     expect(main).toMatchObject({ kind: 'head', upstream: 'origin/main', ahead: 1, behind: 0, isHead: true });
     expect(refs.find((r) => r.name === 'feature/login')).toMatchObject({ kind: 'head', sha: c1 });
+    expect(refs.find((r) => r.name === 'feature/login')!.worktree).toBeUndefined();
+    // Checked out in another worktree; the current one is told by isHead instead
+    expect(fs.realpathSync(refs.find((r) => r.name === 'in-worktree')!.worktree!)).toBe(fs.realpathSync(worktree));
+    expect(main.worktree).toBeUndefined();
     expect(refs.find((r) => r.name === 'origin/main')).toMatchObject({ kind: 'remote', remote: 'origin' });
     expect(refs.find((r) => r.name === 'my/remote/feature')).toMatchObject({ kind: 'remote', remote: 'my/remote' });
     expect(refs.some((r) => r.name === 'origin/HEAD')).toBe(false);
