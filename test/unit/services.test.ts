@@ -444,7 +444,7 @@ describe('OpsService', () => {
     expect(err).toBeInstanceOf(GitError);
     expect(err.category).toBe('dirtyWorktree');
     expect(err.details.files).toEqual(['local.env']);
-    expect(err.details.rebaseStopped).toBe(true);
+    expect(err.details.sequenceStopped).toBe(true);
     expect(m.snapshot.readSequence()?.kind).toBe('rebase');
 
     // What "Stash and Continue" does: stash the file in the way, then continue the rebase instead of starting it again
@@ -454,6 +454,78 @@ describe('OpsService', () => {
     await m.ops.run({ kind: 'sequence/control', action: 'continue' });
     expect(m.snapshot.readSequence()).toBeNull();
     expect(r.git(['log', '--format=%s', 'upstream..main']).trim().split('\n')).toEqual(['ignore local.env', 'c3', 'add local.env']);
+  });
+
+  it('continues a cherry-pick that stopped on a file in the way without dropping that commit', async () => {
+    const r = repo();
+    r.commit('base', { 'a.txt': 'a\n' });
+    r.git(['checkout', '-q', '-b', 'other']);
+    const shas = [r.commit('one', { 'one.txt': '1\n' }), r.commit('add x', { 'x.txt': 'x\n' }), r.commit('three', { 'three.txt': '3\n' })];
+    r.git(['checkout', '-q', 'main']);
+    r.write('x.txt', 'mine\n');
+    const m = await model(r);
+
+    const err = await m.ops.run({ kind: 'cherry-pick', shas, noCommit: false }).catch((e) => e);
+    expect(err.category).toBe('dirtyWorktree');
+    expect(err.details.sequenceStopped).toBe(true);
+    // Neither CHERRY_PICK_HEAD nor REVERT_HEAD; only the sequencer is left
+    expect(m.snapshot.readSequence()).toMatchObject({ kind: 'cherry-pick' });
+    expect(shas[1].startsWith(m.snapshot.readSequence()!.incoming!)).toBe(true);
+
+    await m.ops.run({ kind: 'stash/push', keepIndex: false, includeUntracked: true, stagedOnly: false, blockers: err.details.files });
+    await m.ops.run({ kind: 'sequence/control', action: 'continue' });
+    expect(m.snapshot.readSequence()).toBeNull();
+    expect(r.git(['log', '--format=%s']).trim().split('\n')).toEqual(['three', 'add x', 'one', 'base']);
+  });
+
+  it('continues a revert of several commits that stopped on a file in the way', async () => {
+    const r = repo();
+    r.commit('base', { 'a.txt': 'a\n', 'x.txt': 'x\n' });
+    r.git(['rm', '-q', 'x.txt']);
+    r.commit('remove x');
+    r.commit('two', { 'two.txt': '2\n' });
+    r.write('x.txt', 'mine\n');
+    expect(() => r.git(['revert', '--no-edit', 'HEAD', 'HEAD~1'])).toThrow();
+    const m = await model(r);
+    expect(m.snapshot.readSequence()).toMatchObject({ kind: 'revert' });
+
+    await m.ops.run({ kind: 'stash/push', keepIndex: false, includeUntracked: true, stagedOnly: false });
+    await m.ops.run({ kind: 'sequence/control', action: 'continue' });
+    expect(m.snapshot.readSequence()).toBeNull();
+    expect(r.git(['log', '--format=%s']).trim().split('\n')).toEqual(['Revert "remove x"', 'Revert "two"', 'two', 'remove x', 'base']);
+  });
+
+  it('does not apply a conflicted commit again after it was committed by hand', async () => {
+    const r = repo();
+    r.commit('base', { 'a.txt': 'a\n' });
+    r.git(['checkout', '-q', '-b', 'other']);
+    const shas = [r.commit('one', { 'f.txt': 'theirs\n' }), r.commit('two', { 'two.txt': '2\n' })];
+    r.git(['checkout', '-q', 'main']);
+    r.commit('mine', { 'f.txt': 'mine\n' });
+    expect(() => r.git(['cherry-pick', ...shas])).toThrow();
+    r.write('f.txt', 'resolved\n');
+    r.git(['add', 'f.txt']);
+    r.git(['commit', '-q', '--no-edit']);
+    const m = await model(r);
+    expect(m.snapshot.readSequence()).toMatchObject({ kind: 'cherry-pick' });
+
+    const res = await m.ops.run({ kind: 'sequence/control', action: 'continue' });
+    expect(res.commands).toEqual(['git cherry-pick --continue']);
+    expect(m.snapshot.readSequence()).toBeNull();
+    expect(r.git(['log', '--format=%s']).trim().split('\n')).toEqual(['two', 'one', 'mine', 'base']);
+  });
+
+  it('does not mark a cherry-pick --no-commit that stopped, which git cannot continue', async () => {
+    const r = repo();
+    r.commit('base', { 'a.txt': 'a\n' });
+    r.git(['checkout', '-q', '-b', 'other']);
+    const shas = [r.commit('one', { 'one.txt': '1\n' }), r.commit('add x', { 'x.txt': 'x\n' })];
+    r.git(['checkout', '-q', 'main']);
+    r.write('x.txt', 'mine\n');
+    const m = await model(r);
+    const err = await m.ops.run({ kind: 'cherry-pick', shas, noCommit: true }).catch((e) => e);
+    expect(err.category).toBe('dirtyWorktree');
+    expect(err.details.sequenceStopped).toBeUndefined();
   });
 
   it('does not mark failures outside a rebase it started', async () => {
@@ -466,7 +538,7 @@ describe('OpsService', () => {
     const m = await model(r);
     const err = await m.ops.run({ kind: 'merge', ref: 'other', noFastForward: false, squash: false, commit: true }).catch((e) => e);
     expect(err.category).toBe('dirtyWorktree');
-    expect(err.details.rebaseStopped).toBeUndefined();
+    expect(err.details.sequenceStopped).toBeUndefined();
   });
 
   it('reports a stash that saved nothing', async () => {

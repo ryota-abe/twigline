@@ -328,8 +328,8 @@ export function ErrorDialog({ error, op }: { error: RpcErrorShape; op?: Operatio
                 openDialog('error', { error: { category: 'dirtyWorktree', message: t('error.nothingStashed'), files: error.files } });
                 return;
               }
-              // A rebase that stopped on the commit is continued (git rescheduled the commit); anything else runs again
-              await runOp(error.rebaseStopped ? { kind: 'sequence/control', action: 'continue' } : op, { success: t('error.stashedAndDone') });
+              // A rebase, cherry-pick or revert that stopped partway is continued, which retries the commit; anything else runs again
+              await runOp(error.sequenceStopped ? { kind: 'sequence/control', action: 'continue' } : op, { success: t('error.stashedAndDone') });
             }}
           >
             {t('error.stashAndContinue')}
