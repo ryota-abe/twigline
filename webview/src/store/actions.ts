@@ -6,6 +6,7 @@ import type {
   HostEvent,
   LogQuery,
   LogRow,
+  OpResult,
   Operation,
   StatusFile,
   UiAction,
@@ -658,6 +659,11 @@ function removeBusy(id: string): void {
 const progress = new Map<string, { title: string; message: string; percent?: number }>();
 
 export async function runOp(op: Operation, opts: { title?: string; success?: string } = {}): Promise<boolean> {
+  return (await runOpResult(op, opts)) !== null;
+}
+
+/** runOp that returns the result (null when it failed and the error has been reported) */
+export async function runOpResult(op: Operation, opts: { title?: string; success?: string } = {}): Promise<OpResult | null> {
   const id = addBusy(opts.title ?? opTitle(op.kind));
   try {
     const res = await rpc.request('op/run', { repo: repo(), op });
@@ -667,10 +673,10 @@ export async function runOp(op: Operation, opts: { title?: string; success?: str
     } else if (opts.success) {
       toast('info', opts.success);
     }
-    return true;
+    return res;
   } catch (e) {
     reportError(e, { op });
-    return false;
+    return null;
   } finally {
     removeBusy(id);
   }

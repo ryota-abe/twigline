@@ -318,7 +318,15 @@ export type Operation =
       tags: boolean;
       force: boolean;
     }
-  | { kind: 'stash/push'; message?: string; keepIndex: boolean; includeUntracked: boolean; stagedOnly: boolean }
+  | {
+      kind: 'stash/push';
+      message?: string;
+      keepIndex: boolean;
+      includeUntracked: boolean;
+      stagedOnly: boolean;
+      /** Files an operation said are in the way. When any of them is ignored, only these files are stashed, ignored ones included */
+      blockers?: string[];
+    }
   | { kind: 'stash/apply'; index: number; drop: boolean; restoreIndex: boolean }
   | { kind: 'stash/drop'; index: number }
   | { kind: 'stash/branch'; index: number; name: string }
@@ -346,6 +354,8 @@ export interface OpResult {
   message?: string;
   /** Stopped partway, e.g. because of a conflict */
   stopped?: boolean;
+  /** stash/push saved nothing (git reports success when there is nothing to stash) */
+  nothingStashed?: boolean;
 }
 
 export type GitErrorCategory =

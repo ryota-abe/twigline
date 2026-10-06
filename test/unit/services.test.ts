@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs';
 import * as path from 'node:path';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
+import type { Operation } from '../../shared/protocol';
 import { GitError } from '../../src/git/errors';
 import { GitHelpers } from '../../src/ipc/helpers';
 import type { RepoModel } from '../../src/repo/RepoModel';
@@ -390,6 +391,38 @@ describe('OpsService', () => {
     expect((await m.snapshot.get()).stashes[0].message).toContain('メッセージ');
     await m.ops.run({ kind: 'stash/apply', index: 0, drop: true, restoreIndex: false });
     expect(r.read('f.txt').toString()).toBe('2\n');
+  });
+
+  it('stashes ignored files in the way, and only the files in the way', async () => {
+    const r = repo();
+    r.commit('base', { '.gitignore': 'local.env\n', 'f.txt': '1\n' });
+    r.write('local.env', 'secret\n');
+    r.write('f.txt', '2\n');
+    const m = await model(r);
+    const op: Operation = { kind: 'stash/push', keepIndex: false, includeUntracked: true, stagedOnly: false, blockers: ['local.env'] };
+    expect((await m.ops.run(op, { dryRun: true })).commands).toEqual(['git stash push --all -- local.env']);
+    const res = await m.ops.run(op);
+    expect(res.nothingStashed).toBeUndefined();
+    expect(existsSync(path.join(r.dir, 'local.env'))).toBe(false);
+    expect(r.read('f.txt').toString()).toBe('2\n');
+  });
+
+  it('keeps the usual stash when none of the files in the way is ignored', async () => {
+    const r = repo();
+    r.commit('base', { '.gitignore': 'local.env\n', 'f.txt': '1\n' });
+    const m = await model(r);
+    const op: Operation = { kind: 'stash/push', keepIndex: false, includeUntracked: true, stagedOnly: false, blockers: ['new.txt'] };
+    expect((await m.ops.run(op, { dryRun: true })).commands).toEqual(['git stash push --include-untracked']);
+  });
+
+  it('reports a stash that saved nothing', async () => {
+    const r = repo();
+    r.commit('base', { '.gitignore': 'local.env\n', 'f.txt': '1\n' });
+    r.write('local.env', 'secret\n');
+    const m = await model(r);
+    const res = await m.ops.run({ kind: 'stash/push', keepIndex: false, includeUntracked: true, stagedOnly: false });
+    expect(res.nothingStashed).toBe(true);
+    expect(existsSync(path.join(r.dir, 'local.env'))).toBe(true);
   });
 });
 
