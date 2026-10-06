@@ -723,7 +723,7 @@ export function reportError(e: unknown, ctx: { op?: Operation } = {}): void {
       openDialog('push', { setUpstream: true });
       return;
     default:
-      openDialog('error', { error: { category: e.category, message: e.message, stderr: e.stderr, command: e.command, files: e.files }, op: ctx.op });
+      openDialog('error', { error: { category: e.category, message: e.message, stderr: e.stderr, command: e.command, files: e.files, rebaseStopped: e.rebaseStopped }, op: ctx.op });
   }
 }
 

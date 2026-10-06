@@ -393,6 +393,17 @@ describe('OpsService', () => {
     expect(r.read('f.txt').toString()).toBe('2\n');
   });
 
+  it('takes untracked files out of the working tree when stashing them', async () => {
+    const r = repo();
+    r.commit('base', { 'f.txt': '1\n' });
+    r.write('new.txt', 'n\n');
+    const m = await model(r);
+    await m.ops.run({ kind: 'stash/push', keepIndex: false, includeUntracked: true, stagedOnly: false });
+    expect(existsSync(path.join(r.dir, 'new.txt'))).toBe(false);
+    await m.ops.run({ kind: 'stash/apply', index: 0, drop: true, restoreIndex: false });
+    expect(r.read('new.txt').toString()).toBe('n\n');
+  });
+
   it('stashes ignored files in the way, and only the files in the way', async () => {
     const r = repo();
     r.commit('base', { '.gitignore': 'local.env\n', 'f.txt': '1\n' });
@@ -413,6 +424,49 @@ describe('OpsService', () => {
     const m = await model(r);
     const op: Operation = { kind: 'stash/push', keepIndex: false, includeUntracked: true, stagedOnly: false, blockers: ['new.txt'] };
     expect((await m.ops.run(op, { dryRun: true })).commands).toEqual(['git stash push --include-untracked']);
+  });
+
+  it('marks a rebase that stopped on a file in the way, so it can be continued after a stash', async () => {
+    const r = repo();
+    r.commit('base', { 'a.txt': 'a\n' });
+    r.git(['checkout', '-q', '-b', 'upstream']);
+    r.commit('upstream', { 'u.txt': 'u\n' });
+    r.git(['checkout', '-q', 'main']);
+    r.commit('add local.env', { 'local.env': 'committed\n' });
+    r.commit('c3', { 'b.txt': 'b\n' });
+    // The ignore rule comes after the commit that tracks the file, so the file is not ignored partway through the rebase
+    r.git(['rm', '-q', '--cached', 'local.env']);
+    r.commit('ignore local.env', { '.gitignore': 'local.env\n' });
+    r.write('local.env', 'mine\n');
+    const m = await model(r);
+
+    const err = await m.ops.run({ kind: 'rebase', onto: 'upstream', autostash: false, updateRefs: false }).catch((e) => e);
+    expect(err).toBeInstanceOf(GitError);
+    expect(err.category).toBe('dirtyWorktree');
+    expect(err.details.files).toEqual(['local.env']);
+    expect(err.details.rebaseStopped).toBe(true);
+    expect(m.snapshot.readSequence()?.kind).toBe('rebase');
+
+    // What "Stash and Continue" does: stash the file in the way, then continue the rebase instead of starting it again
+    const stash = await m.ops.run({ kind: 'stash/push', keepIndex: false, includeUntracked: true, stagedOnly: false, blockers: err.details.files });
+    expect(stash.nothingStashed).toBeUndefined();
+    expect(existsSync(path.join(r.dir, 'local.env'))).toBe(false);
+    await m.ops.run({ kind: 'sequence/control', action: 'continue' });
+    expect(m.snapshot.readSequence()).toBeNull();
+    expect(r.git(['log', '--format=%s', 'upstream..main']).trim().split('\n')).toEqual(['ignore local.env', 'c3', 'add local.env']);
+  });
+
+  it('does not mark failures outside a rebase it started', async () => {
+    const r = repo();
+    r.commit('base', { 'a.txt': 'a\n' });
+    r.git(['checkout', '-q', '-b', 'other']);
+    r.commit('add x', { 'x.txt': 'x\n' });
+    r.git(['checkout', '-q', 'main']);
+    r.write('x.txt', 'mine\n');
+    const m = await model(r);
+    const err = await m.ops.run({ kind: 'merge', ref: 'other', noFastForward: false, squash: false, commit: true }).catch((e) => e);
+    expect(err.category).toBe('dirtyWorktree');
+    expect(err.details.rebaseStopped).toBeUndefined();
   });
 
   it('reports a stash that saved nothing', async () => {

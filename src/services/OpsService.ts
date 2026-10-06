@@ -22,6 +22,7 @@ export type Step =
       progress?: string;
       /** Attach the editor environment for interactive rebase */
       rebaseEditor?: boolean;
+      env?: Record<string, string>;
     }
   | { type: 'fn'; describe: string; run: () => Promise<void> };
 
@@ -85,6 +86,20 @@ export class OpsService {
   constructor(private readonly repo: RepoModel) {}
 
   async run(op: Operation, opts: RunOpOptions = {}): Promise<OpResult> {
+    if (opts.dryRun || !isSequenceOp(op)) return this.runSteps(op, opts);
+    const inProgress = this.repo.snapshot.readSequence() !== null;
+    try {
+      return await this.runSteps(op, opts);
+    } catch (e) {
+      // A rebase that fails on a commit (e.g. a file in the way) stops with that commit rescheduled, so running the
+      // operation again would only say a rebase is in progress; tell the webview to continue the rebase instead.
+      // Not done for cherry-pick or revert, whose --continue would drop the commit that failed
+      if (e instanceof GitError && !inProgress && this.repo.snapshot.readSequence()?.kind === 'rebase') e.details.rebaseStopped = true;
+      throw e;
+    }
+  }
+
+  private async runSteps(op: Operation, opts: RunOpOptions): Promise<OpResult> {
     if (op.kind === 'rebase/interactive' && !opts.dryRun) {
       return this.repo.rebase.run(op.base, op.todo, opts);
     }
@@ -131,7 +146,7 @@ export class OpsService {
   }
 
   private async runGitStep(step: Extract<Step, { type: 'git' }>, opts: RunOpOptions, op?: Operation): Promise<void> {
-    const env: Record<string, string> = {};
+    const env: Record<string, string> = { ...step.env };
     const disposables: { dispose(): void }[] = [];
     const interactive = opts.interactive !== false;
     try {
@@ -360,8 +375,10 @@ export class OpsService {
           else if (op.includeUntracked) args.push('--include-untracked');
         }
         if (op.message) args.push('-m', op.message);
-        if (onlyBlockers) args.push('--', ...blockers);
-        return [w(args)];
+        if (onlyBlockers) return [w([...args, '--', ...blockers])];
+        // Without a pathspec, stash removes the untracked files it saved with "git clean -- :/", which literal pathspecs
+        // turn into a path that matches nothing: the files were saved but left in place, still in the way
+        return [w(args, { env: { GIT_LITERAL_PATHSPECS: '0' } })];
       }
 
       case 'stash/apply': {
