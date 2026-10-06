@@ -5,7 +5,7 @@ import { closeDialog, confirm, getRpc, runOp } from '../../store/actions';
 import { get, useStore } from '../../store/store';
 import { deleteInfo, safeToDelete, type DeleteInfo } from '../../util/branchDelete';
 import { cx, shortSha } from '../../util/format';
-import { integrateStatus, mergeRequirement, rebaseRequirement, type MergeMode } from '../../util/integrate';
+import { integrateStatus, makesMergeCommit, mergeRequirement, mergeStashPaths, rebaseRequirement, type MergeMode } from '../../util/integrate';
 import { resetStatus, type ResetMode } from '../../util/resetStatus';
 import { PrChip, prDone, prOf } from '../PullRequest';
 import { Button, Checkbox, Select } from '../ui';
@@ -84,7 +84,8 @@ export function BranchDialog({ tab: initialTab, start: initial, names }: { tab?:
   // How many commits of each branch HEAD lacks (asked only on the delete tab)
   const counts = useAheadBehind(tab === 'delete' ? (snapshot.head.sha ?? undefined) : undefined, tab === 'delete' ? deletable : []);
   const infos = new Map(deletable.map((r) => [r.name, deleteInfo(r, counts?.[r.fullName]?.ahead)]));
-  const chosen = deletable.filter((r) => picked.has(r.name));
+  // git refuses to delete a branch checked out in another worktree, so it is shown but cannot be chosen
+  const chosen = deletable.filter((r) => picked.has(r.name) && !r.worktree);
   const needForce = chosen.filter((r) => infos.get(r.name)!.forceRequired);
   const atRisk = chosen.filter((r) => infos.get(r.name)!.atRisk > 0);
   const tracked = (r: RefInfo) => !!r.upstream && !r.gone;
@@ -184,13 +185,20 @@ export function BranchDialog({ tab: initialTab, start: initial, names }: { tab?:
               return (
                 <Checkbox
                   key={r.name}
-                  checked={picked.has(r.name)}
+                  checked={picked.has(r.name) && !r.worktree}
+                  disabled={!!r.worktree}
                   onChange={(v) => setPick([r.name], v)}
                   label={
                     <>
                       <span className={cx('mono', prDone(pr) && 'pr-done')}>{r.name}</span>
                       {pr && <PrChip pr={pr} refName={r.fullName} />}
-                      <DeleteBadges info={infos.get(r.name)!} upstream={r.upstream} />
+                      {r.worktree ? (
+                        <span className="mini-badge" title={t('branch.badge.worktreeTitle', r.worktree)}>
+                          {t('branch.badge.worktree')}
+                        </span>
+                      ) : (
+                        <DeleteBadges info={infos.get(r.name)!} upstream={r.upstream} />
+                      )}
                       {r.upstream && <span className="dim"> → {r.upstream}</span>}
                     </>
                   }
@@ -199,7 +207,7 @@ export function BranchDialog({ tab: initialTab, start: initial, names }: { tab?:
             })}
           </div>
           <span className="row">
-            <Button small disabled={!counts} onClick={() => setPick(deletable.filter((r) => safeToDelete(infos.get(r.name)!)).map((r) => r.name), true)}>
+            <Button small disabled={!counts} onClick={() => setPick(deletable.filter((r) => !r.worktree && safeToDelete(infos.get(r.name)!)).map((r) => r.name), true)}>
               {t('branch.selectMerged')}
             </Button>
             <Button small disabled={picked.size === 0} onClick={() => setPicked(new Set())}>
@@ -394,7 +402,7 @@ export function MergeDialog({ ref: initial }: { ref?: string }) {
   const local = snapshot.refs.find((r) => r.kind === 'head' && r.isHead);
   const cmp = useRefCompare(snapshot.head.sha ?? undefined, ref ? commitOf(snapshot, ref) : undefined, { files: true, conflicts: true });
   const ms = integrateStatus({ local, target: ref, cmp: snapshot.head.sha ? cmp : null, status });
-  const requirement = mergeRequirement(ms);
+  const requirement = mergeRequirement(ms, mode);
   const canAutostash = snapshot.features.pullAutostash;
   const stash = autostash && canAutostash && ms.dirty.length > 0;
   const blocked = requirement === 'unrelated' || (requirement === 'stash' && !stash);
@@ -436,7 +444,7 @@ export function MergeDialog({ ref: initial }: { ref?: string }) {
         />
       )}
       {requirement === 'unrelated' && <Requirement danger title={t('merge.need.unrelated')} detail={t('merge.need.unrelatedDetail')} />}
-      {requirement === 'stash' && <StashRequirement status={ms} rebase={false} autostash={canAutostash ? autostash : undefined} onAutostash={setAutostash} />}
+      {requirement === 'stash' && <StashRequirement status={ms} paths={mergeStashPaths(ms, makesMergeCommit(ms, mode))} autostash={canAutostash ? autostash : undefined} onAutostash={setAutostash} />}
       <div role="radiogroup" aria-label={t('merge.mode')}>
         {modes.map((m) => (
           <label key={m.value} className="radio block">
@@ -497,7 +505,7 @@ export function RebaseDialog({ onto: initial }: { onto?: string }) {
           found={pr && local ? { pr, ref: local.fullName } : undefined}
         />
       )}
-      {requirement === 'stash' && <StashRequirement status={rs} rebase autostash={autostash} onAutostash={setAutostash} />}
+      {requirement === 'stash' && <StashRequirement status={rs} paths={undefined} autostash={autostash} onAutostash={setAutostash} />}
       {snapshot.features.updateRefs && (
         <Advanced>
           <Checkbox checked={updateRefs} onChange={setUpdateRefs} label={t('rebase.updateRefs')} />

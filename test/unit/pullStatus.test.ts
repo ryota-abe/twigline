@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { RefComparison, RefInfo, StatusFile, WorkingTreeStatus } from '../../shared/protocol';
-import { pullRequirement, pullStatus } from '../../webview/src/util/pullStatus';
+import { pullRequirement, pullStashPaths, pullStatus } from '../../webview/src/util/pullStatus';
 
 const head = (extra: Partial<RefInfo> = {}): RefInfo => ({ kind: 'head', name: 'main', fullName: 'refs/heads/main', sha: 'a'.repeat(40), isHead: true, ...extra });
 const remoteRef: RefInfo = { kind: 'remote', name: 'origin/main', fullName: 'refs/remotes/origin/main', sha: 'b'.repeat(40), remote: 'origin' };
@@ -66,5 +66,14 @@ describe('pullRequirement', () => {
     expect(pullRequirement(of(cmp(0, 1, { incomingFiles: ['b.txt'] }), { status }), 'ffOnly')).toBe('stash');
     // Untracked files alone do not stop a rebase
     expect(pullRequirement(of(cmp(0, 1), { status: { ...clean, unstaged: [file('u.txt', '?')] } }), 'rebase')).toBeNull();
+  });
+
+  it('needs a stash for any staged change when the pull creates a merge commit', () => {
+    const status: WorkingTreeStatus = { ...clean, staged: [file('c.txt')] };
+    expect(pullRequirement(of(cmp(1, 1, { incomingFiles: ['x.txt'] }), { status }), 'merge')).toBe('stash');
+    expect(pullStashPaths(of(cmp(1, 1, { incomingFiles: ['x.txt'] }), { status }), 'merge')).toEqual({ overlap: [], staged: ['c.txt'] });
+    // A fast-forward keeps the staged change
+    expect(pullRequirement(of(cmp(0, 1, { incomingFiles: ['x.txt'] }), { status }), 'merge')).toBeNull();
+    expect(pullStashPaths(of(cmp(1, 1, { incomingFiles: ['x.txt'] }), { status }), 'ffOnly')).toEqual({ overlap: [], staged: [] });
   });
 });

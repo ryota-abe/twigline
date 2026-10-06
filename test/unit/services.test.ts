@@ -231,6 +231,13 @@ describe('OpsService', () => {
       { dryRun: true },
     );
     expect(push.commands).toEqual(['git push --progress -u --force-with-lease --force-if-includes --end-of-options origin refs/heads/main:refs/heads/main']);
+    // git before 2.30 does not know --force-if-includes
+    (m.features as { forceIfIncludes: boolean }).forceIfIncludes = false;
+    const old = await m.ops.run(
+      { kind: 'push', remote: 'origin', branches: [{ local: 'main', remote: 'main', setUpstream: false }], tags: false, force: true },
+      { dryRun: true },
+    );
+    expect(old.commands).toEqual(['git push --progress --force-with-lease --end-of-options origin refs/heads/main:refs/heads/main']);
   });
 
   it('rejects option-like refs (argument injection)', async () => {

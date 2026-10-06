@@ -3,7 +3,7 @@ import type { Operation } from '../../../../shared/protocol';
 import { t } from '../../i18n';
 import { closeDialog, confirm, openDialog, runOp } from '../../store/actions';
 import { useStore } from '../../store/store';
-import { pullRequirement, pullStatus, type PullMode } from '../../util/pullStatus';
+import { pullRequirement, pullStashPaths, pullStatus, type PullMode } from '../../util/pullStatus';
 import { cx } from '../../util/format';
 import { pullRequestFor, pushComparePair, pushRowDefaults, pushStatus, type PushStatus } from '../../util/pushStatus';
 import { PrChip, prDone } from '../PullRequest';
@@ -42,8 +42,11 @@ export function PullDialog({ remote: initialRemote, branch: initialBranch, into 
     () => snapshot.refs.filter((r) => r.kind === 'remote' && r.remote === remote).map((r) => r.name.slice(remote.length + 1)),
     [snapshot, remote],
   );
+  // The default branch depends on the remote, so it is derived on every render; only what the user typed is kept, per remote
   const preferred = initialBranch ?? (upstream?.startsWith(remote + '/') ? upstream.slice(remote.length + 1) : (snapshot.head.branch ?? ''));
-  const [branch, setBranch] = useState(branches.includes(preferred) ? preferred : (branches[0] ?? preferred));
+  const [typed, setTyped] = useState<Record<string, string>>({});
+  const branch = typed[remote] ?? (branches.includes(preferred) ? preferred : (branches[0] ?? preferred));
+  const setBranch = (value: string) => setTyped((prev) => ({ ...prev, [remote]: value }));
   const [mode, setMode] = useState<PullMode>('merge');
   const [autostash, setAutostash] = useState(false);
 
@@ -149,7 +152,10 @@ export function PullDialog({ remote: initialRemote, branch: initialBranch, into 
           </Requirement>
         ))}
       {requirement === 'stash' && (
-        <StashRequirement status={ps} rebase={effectiveMode === 'rebase'} autostash={canAutostash ? autostash : undefined} onAutostash={setAutostash} />
+        <StashRequirement
+          status={ps}
+          paths={effectiveMode === 'rebase' ? undefined : pullStashPaths(ps, effectiveMode)}
+          autostash={canAutostash ? autostash : undefined} onAutostash={setAutostash} />
       )}
       {!intoOther && (
         <div role="radiogroup" aria-label={t('pull.mode')}>
@@ -197,7 +203,11 @@ export function PushDialog({ branch: initialBranch, setUpstream }: { branch?: st
   const name = initialBranch ?? snapshot.head.branch ?? undefined;
   const local = snapshot.refs.find((r) => r.kind === 'head' && r.name === name);
   const [remote, setRemote] = useState(upstreamRemoteOf(snapshot, local?.upstream) ?? upstreamRemote ?? snapshot.remotes[0]?.name ?? '');
-  const [remoteName, setRemoteName] = useState(local?.upstream?.startsWith(remote + '/') ? local.upstream.slice(remote.length + 1) : (name ?? ''));
+  // The default remote branch name depends on the remote (the upstream's name there, else the same name), so it is derived on every
+  // render; only what the user typed is kept, per remote
+  const [typed, setTyped] = useState<Record<string, string>>({});
+  const remoteName = typed[remote] ?? (local ? pushRowDefaults(local, remote).remote : (name ?? ''));
+  const setRemoteName = (value: string) => setTyped((prev) => ({ ...prev, [remote]: value }));
   const [track, setTrack] = useState(setUpstream === true || !local?.upstream);
   const [force, setForce] = useState(false);
   const target = remoteName.trim();
@@ -322,6 +332,8 @@ export function PushBranchesDialog() {
   const needForce = selected.filter((r) => r.status?.forceRequired);
   const lost = needForce.reduce((n, r) => n + (r.status?.behind ?? 0), 0);
   const commits = selected.reduce((n, r) => n + (r.status?.ahead ?? 0), 0);
+  // A branch new to the remote has no remote branch to count against, so it is not in commits and is told separately
+  const created = selected.filter((r) => r.status?.state === 'new' || r.status?.state === 'gone').length;
   const update = (patches: Record<string, RowEdit>) =>
     setEdits((prev) => {
       const next = { ...prev };
@@ -367,7 +379,8 @@ export function PushBranchesDialog() {
         ))}
       </div>
       <SummaryHint>
-        {t('pushBranches.summary', String(selected.length), String(commits))} {t('summary.staleHint')}
+        {t('pushBranches.summary', String(selected.length), String(commits))} {created > 0 && `${t('pushBranches.summaryNew', String(created))} `}
+        {t('summary.staleHint')}
       </SummaryHint>
       {needForce.length > 0 && (
         <Requirement

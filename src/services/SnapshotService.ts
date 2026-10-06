@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import * as path from 'node:path';
 import type { HeadInfo, RepoSnapshot, SequenceState, SubmoduleInfo } from '../../shared/protocol';
-import { FOR_EACH_REF_FORMAT, STASH_FORMAT, parseConfigZ, parseForEachRef, parseStashList, remotesFromConfig } from '../git/parsers/refs';
+import { FOR_EACH_REF_FORMAT, FOR_EACH_REF_FORMAT_NO_WORKTREE, STASH_FORMAT, parseConfigZ, parseForEachRef, parseStashList, remotesFromConfig } from '../git/parsers/refs';
 import type { RepoModel } from '../repo/RepoModel';
 
 /** repo/snapshot: HEAD, refs, remotes, stashes and the operation in progress */
@@ -29,7 +29,7 @@ export class SnapshotService {
     const [headRef, headSha, refsOut, stashOut, configOut, submodules] = await Promise.all([
       r.run(['symbolic-ref', '-q', 'HEAD'], { noThrow: true }),
       r.run(['rev-parse', '-q', '--verify', 'HEAD^{commit}'], { noThrow: true }),
-      r.run(['for-each-ref', `--format=${FOR_EACH_REF_FORMAT}`, 'refs/heads', 'refs/remotes', 'refs/tags']),
+      r.run(['for-each-ref', `--format=${this.repo.features.worktreePath ? FOR_EACH_REF_FORMAT : FOR_EACH_REF_FORMAT_NO_WORKTREE}`, 'refs/heads', 'refs/remotes', 'refs/tags']),
       r.run(['stash', 'list', '-z', `--format=${STASH_FORMAT}`], { noThrow: true }),
       r.run(['config', '-z', '--get-regexp', '^(remote\\..+\\.(url|pushurl)|user\\.(name|email))$'], { noThrow: true }),
       this.readSubmodules(),

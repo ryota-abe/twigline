@@ -1,7 +1,9 @@
 import type { RefInfo, RemoteInfo, StashInfo } from '../../../shared/protocol';
 
-export const FOR_EACH_REF_FORMAT =
+export const FOR_EACH_REF_FORMAT_NO_WORKTREE =
   '%(refname)%1f%(objectname)%1f%(*objectname)%1f%(upstream)%1f%(upstream:track,nobracket)%1f%(HEAD)%1f%(objecttype)';
+/** With the worktree a branch is checked out in (%(worktreepath), git 2.23+) */
+export const FOR_EACH_REF_FORMAT = `${FOR_EACH_REF_FORMAT_NO_WORKTREE}%1f%(worktreepath)`;
 
 export function shortRefName(full: string): string {
   if (full.startsWith('refs/heads/')) return full.slice('refs/heads/'.length);
@@ -10,12 +12,12 @@ export function shortRefName(full: string): string {
   return full;
 }
 
-/** git for-each-ref --format=FOR_EACH_REF_FORMAT refs/heads refs/remotes refs/tags */
+/** git for-each-ref --format=FOR_EACH_REF_FORMAT (or FOR_EACH_REF_FORMAT_NO_WORKTREE) refs/heads refs/remotes refs/tags */
 export function parseForEachRef(output: string, remoteNames: readonly string[] = []): RefInfo[] {
   const refs: RefInfo[] = [];
   for (const line of output.split('\n')) {
     if (!line) continue;
-    const [fullName, objectName, peeled, upstream, track, head, objectType] = line.split('\x1f');
+    const [fullName, objectName, peeled, upstream, track, head, objectType, worktree] = line.split('\x1f');
     if (!fullName || !objectName) continue;
     let kind: RefInfo['kind'];
     if (fullName.startsWith('refs/heads/')) kind = 'head';
@@ -30,6 +32,8 @@ export function parseForEachRef(output: string, remoteNames: readonly string[] =
     if (kind === 'head') {
       if (upstream) ref.upstream = shortRefName(upstream);
       if (head === '*') ref.isHead = true;
+      // Checked out in another worktree (the current one is told by %(HEAD))
+      else if (worktree) ref.worktree = worktree;
       if (track) {
         if (track === 'gone') ref.gone = true;
         const a = /ahead (\d+)/.exec(track);

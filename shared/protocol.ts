@@ -25,6 +25,8 @@ export interface RefInfo {
   /** The upstream branch no longer exists on the remote */
   gone?: boolean;
   isHead?: boolean;
+  /** Path of another worktree the local branch is checked out in (git refuses to delete it or to check it out here) */
+  worktree?: string;
   /** Remote name when kind === 'remote' */
   remote?: string;
   /** Annotated tag */
