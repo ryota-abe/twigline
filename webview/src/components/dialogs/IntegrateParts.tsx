@@ -52,27 +52,37 @@ export function integrateWarns(status: Status, merges = true): boolean {
 }
 
 /**
- * Local changes must be stashed first: any change for a rebase, the files the incoming commits change for a merge.
- * Settled by --autostash when the git in use has it, or by stashing in the stash dialog
+ * Local changes must be stashed first: any change for a rebase; for a merge, the files the incoming commits change, and any staged
+ * change when it creates a merge commit (paths, from mergeStashPaths). Settled by --autostash when the git in use has it,
+ * or by stashing in the stash dialog
  */
 export function StashRequirement({
   status,
-  rebase,
+  paths,
   autostash,
   onAutostash,
 }: {
   status: Status;
-  rebase: boolean;
+  /** What a merge refuses to run over; undefined for a rebase */
+  paths: { overlap: string[]; staged: string[] } | undefined;
   /** undefined when --autostash cannot be used */
   autostash: boolean | undefined;
   onAutostash: (v: boolean) => void;
 }) {
   return (
-    <Requirement
-      title={t('summary.need.stash')}
-      detail={rebase ? t('summary.need.stashRebase', String(status.dirty.length)) : t('summary.need.stashMerge', String(status.overlap.length))}
-    >
-      {!rebase && <SummaryFiles paths={status.overlap} />}
+    <Requirement title={t('summary.need.stash')} detail={paths ? undefined : t('summary.need.stashRebase', String(status.dirty.length))}>
+      {paths && paths.overlap.length > 0 && (
+        <>
+          <span>{t('summary.need.stashMerge', String(paths.overlap.length))}</span>
+          <SummaryFiles paths={paths.overlap} />
+        </>
+      )}
+      {paths && paths.staged.length > 0 && (
+        <>
+          <span>{t('summary.need.stashStaged', String(paths.staged.length))}</span>
+          <SummaryFiles paths={paths.staged} />
+        </>
+      )}
       {autostash !== undefined && <AutostashCheckbox checked={autostash} onChange={onAutostash} />}
       <RequirementActions>
         <Button small onClick={() => openDialog('stash')}>

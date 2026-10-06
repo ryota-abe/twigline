@@ -5,7 +5,7 @@ import { closeDialog, confirm, getRpc, runOp } from '../../store/actions';
 import { get, useStore } from '../../store/store';
 import { deleteInfo, safeToDelete, type DeleteInfo } from '../../util/branchDelete';
 import { cx, shortSha } from '../../util/format';
-import { integrateStatus, mergeRequirement, rebaseRequirement, type MergeMode } from '../../util/integrate';
+import { integrateStatus, makesMergeCommit, mergeRequirement, mergeStashPaths, rebaseRequirement, type MergeMode } from '../../util/integrate';
 import { resetStatus, type ResetMode } from '../../util/resetStatus';
 import { PrChip, prDone, prOf } from '../PullRequest';
 import { Button, Checkbox, Select } from '../ui';
@@ -394,7 +394,7 @@ export function MergeDialog({ ref: initial }: { ref?: string }) {
   const local = snapshot.refs.find((r) => r.kind === 'head' && r.isHead);
   const cmp = useRefCompare(snapshot.head.sha ?? undefined, ref ? commitOf(snapshot, ref) : undefined, { files: true, conflicts: true });
   const ms = integrateStatus({ local, target: ref, cmp: snapshot.head.sha ? cmp : null, status });
-  const requirement = mergeRequirement(ms);
+  const requirement = mergeRequirement(ms, mode);
   const canAutostash = snapshot.features.pullAutostash;
   const stash = autostash && canAutostash && ms.dirty.length > 0;
   const blocked = requirement === 'unrelated' || (requirement === 'stash' && !stash);
@@ -436,7 +436,7 @@ export function MergeDialog({ ref: initial }: { ref?: string }) {
         />
       )}
       {requirement === 'unrelated' && <Requirement danger title={t('merge.need.unrelated')} detail={t('merge.need.unrelatedDetail')} />}
-      {requirement === 'stash' && <StashRequirement status={ms} rebase={false} autostash={canAutostash ? autostash : undefined} onAutostash={setAutostash} />}
+      {requirement === 'stash' && <StashRequirement status={ms} paths={mergeStashPaths(ms, makesMergeCommit(ms, mode))} autostash={canAutostash ? autostash : undefined} onAutostash={setAutostash} />}
       <div role="radiogroup" aria-label={t('merge.mode')}>
         {modes.map((m) => (
           <label key={m.value} className="radio block">
@@ -497,7 +497,7 @@ export function RebaseDialog({ onto: initial }: { onto?: string }) {
           found={pr && local ? { pr, ref: local.fullName } : undefined}
         />
       )}
-      {requirement === 'stash' && <StashRequirement status={rs} rebase autostash={autostash} onAutostash={setAutostash} />}
+      {requirement === 'stash' && <StashRequirement status={rs} paths={undefined} autostash={autostash} onAutostash={setAutostash} />}
       {snapshot.features.updateRefs && (
         <Advanced>
           <Checkbox checked={updateRefs} onChange={setUpdateRefs} label={t('rebase.updateRefs')} />

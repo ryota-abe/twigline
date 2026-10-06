@@ -1,5 +1,5 @@
 import type { RefComparison, RefInfo, WorkingTreeStatus } from '../../../shared/protocol';
-import { integrateStatus, type IntegrateState, type IntegrateStatus } from './integrate';
+import { integrateStatus, mergeStashPaths, type IntegrateState, type IntegrateStatus } from './integrate';
 
 // What a pull would do, judged from the remote-tracking branch as of the last fetch and the working tree.
 // The pull fetches first, so this can only be a forecast: nothing is disabled on a guess that a fetch could change,
@@ -41,8 +41,15 @@ export function pullStatus(opts: {
 export function pullRequirement(s: PullStatus, mode: PullMode): 'ff' | 'stash' | 'unrelated' | null {
   if (s.state === 'unrelated') return 'unrelated';
   if (mode === 'ffOnly' && s.ffImpossible) return 'ff';
-  // git pull --rebase refuses any local change; a merge only refuses changes in the files it updates
+  // git pull --rebase refuses any local change; a merge refuses changes in the files it updates, and any staged change when it
+  // creates a merge commit
   if (mode === 'rebase' && s.dirty.length > 0) return 'stash';
-  if (s.overlap.length > 0) return 'stash';
+  const paths = pullStashPaths(s, mode);
+  if (paths.overlap.length > 0 || paths.staged.length > 0) return 'stash';
   return null;
+}
+
+/** Local changes a pull that merges refuses to run over (see mergeStashPaths); a pull merges when the histories have diverged */
+export function pullStashPaths(s: PullStatus, mode: PullMode): { overlap: string[]; staged: string[] } {
+  return mergeStashPaths(s, mode === 'merge' && s.state === 'diverged');
 }

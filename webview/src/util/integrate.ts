@@ -17,6 +17,8 @@ export interface IntegrateStatus {
   rewritesPushed: boolean;
   /** Paths changed in the working tree or index (tracked files) */
   dirty: string[];
+  /** Paths with changes in the index: git refuses a merge that creates a merge commit over any of them */
+  staged: string[];
   /** Dirty paths the incoming commits also change: git refuses a merge over them unless they are stashed */
   overlap: string[];
   /** Untracked paths the incoming commits add: git refuses until they are moved, and autostash does not take them */
@@ -37,7 +39,8 @@ export function integrateStatus(opts: {
 }): IntegrateStatus {
   const { local, target, cmp, status } = opts;
   const dirty = status ? dirtyPaths(status) : [];
-  const base = { ahead: 0, behind: 0, rewritesPushed: false, dirty, overlap: [], untrackedOverlap: [] };
+  const staged = status ? [...new Set(status.staged.map((f) => f.path))] : [];
+  const base = { ahead: 0, behind: 0, rewritesPushed: false, dirty, staged, overlap: [], untrackedOverlap: [] };
   if (cmp === undefined) return { ...base, state: 'loading' };
   if (cmp === null) return { ...base, state: 'unknown' };
 
@@ -68,14 +71,30 @@ export function dirtyPaths(status: WorkingTreeStatus): string[] {
 
 export type MergeMode = 'auto' | 'noFf' | 'squash';
 
+/** The merge creates a merge commit (not a fast-forward; --squash on a fast-forward checks out like one) */
+export function makesMergeCommit(s: Pick<IntegrateStatus, 'state'>, mode: MergeMode): boolean {
+  return s.state === 'diverged' || (s.state === 'fastForward' && mode === 'noFf');
+}
+
 /**
- * What must be settled before this merge can run: local changes in the files it updates (stash), or no common history (unrelated).
+ * Local changes a merge refuses to run over: changes in the files it updates, and, when it creates a merge commit,
+ * any change in the index (git merge requires the index to match HEAD then, even for files the merge does not touch).
+ * staged lists only the paths not already in overlap
+ */
+export function mergeStashPaths(s: Pick<IntegrateStatus, 'overlap' | 'staged'>, mergeCommit: boolean): { overlap: string[]; staged: string[] } {
+  const overlap = new Set(s.overlap);
+  return { overlap: s.overlap, staged: mergeCommit ? s.staged.filter((p) => !overlap.has(p)) : [] };
+}
+
+/**
+ * What must be settled before this merge can run: local changes it refuses to run over (stash), or no common history (unrelated).
  * stash does not look at autostash: the dialog keeps showing the requirement while autostash settles it
  */
-export function mergeRequirement(s: IntegrateStatus): 'stash' | 'unrelated' | null {
+export function mergeRequirement(s: IntegrateStatus, mode: MergeMode): 'stash' | 'unrelated' | null {
   // git merge refuses unrelated histories (it would need --allow-unrelated-histories)
   if (s.state === 'unrelated') return 'unrelated';
-  if (s.overlap.length > 0) return 'stash';
+  const paths = mergeStashPaths(s, makesMergeCommit(s, mode));
+  if (paths.overlap.length > 0 || paths.staged.length > 0) return 'stash';
   return null;
 }
 

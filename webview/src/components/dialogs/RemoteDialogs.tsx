@@ -3,7 +3,7 @@ import type { Operation } from '../../../../shared/protocol';
 import { t } from '../../i18n';
 import { closeDialog, confirm, openDialog, runOp } from '../../store/actions';
 import { useStore } from '../../store/store';
-import { pullRequirement, pullStatus, type PullMode } from '../../util/pullStatus';
+import { pullRequirement, pullStashPaths, pullStatus, type PullMode } from '../../util/pullStatus';
 import { cx } from '../../util/format';
 import { pullRequestFor, pushComparePair, pushRowDefaults, pushStatus, type PushStatus } from '../../util/pushStatus';
 import { PrChip, prDone } from '../PullRequest';
@@ -149,7 +149,10 @@ export function PullDialog({ remote: initialRemote, branch: initialBranch, into 
           </Requirement>
         ))}
       {requirement === 'stash' && (
-        <StashRequirement status={ps} rebase={effectiveMode === 'rebase'} autostash={canAutostash ? autostash : undefined} onAutostash={setAutostash} />
+        <StashRequirement
+          status={ps}
+          paths={effectiveMode === 'rebase' ? undefined : pullStashPaths(ps, effectiveMode)}
+          autostash={canAutostash ? autostash : undefined} onAutostash={setAutostash} />
       )}
       {!intoOther && (
         <div role="radiogroup" aria-label={t('pull.mode')}>
