@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.5.1
+
+Fixes for the dialogs added in 0.5.0.
+
+- Fixed: a merge or a pull that creates a merge commit failed when there were staged changes; the dialog now asks for them to be stashed first
+- Fixed: branches checked out in another worktree were offered for deletion, which git refuses; they are now shown disabled with an "In another worktree" badge
+- Fixed: every force push failed on git before 2.30, which does not know `--force-if-includes`
+- Fixed: choosing another remote in Push or Pull kept the first remote's branch name, so a push to a fork could go to the wrong branch
+- Fixed: the rebase dialog said "No conflicts expected" as a fact, although a rebase can still conflict on an intermediate commit
+- Fixed: the Push Branches summary could read "0 commits to push" when only new branches were selected
+- The README opens with a screenshot of the History tab
+
 ## 0.5.0
 
 Dialogs now show what an operation would do before it runs.
