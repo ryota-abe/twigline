@@ -378,8 +378,8 @@ export interface RpcError {
   stderr?: string;
   /** Files concerned when dirtyWorktree */
   files?: string[];
-  /** The operation started a rebase that failed and stopped partway; the rebase is to be continued rather than started again */
-  rebaseStopped?: boolean;
+  /** The operation started a rebase, cherry-pick or revert that failed and stopped partway; it is to be continued rather than started again */
+  sequenceStopped?: boolean;
 }
 
 // ---------------------------------------------------------------------------

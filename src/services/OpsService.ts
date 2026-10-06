@@ -1,9 +1,11 @@
-import { appendFile, readFile } from 'node:fs/promises';
+import { existsSync, readFileSync } from 'node:fs';
+import { appendFile, readFile, writeFile } from 'node:fs/promises';
 import * as path from 'node:path';
 import type { ChangeKind, OpResult, Operation } from '../../shared/protocol';
 import { GitError } from '../git/errors';
 import { formatCommand, type QueueKind } from '../git/GitRunner';
 import { ALL_KINDS, type RepoModel } from '../repo/RepoModel';
+import { firstTodoLine } from './SnapshotService';
 
 // op/run. Breaks an operation into steps (git commands or host-side work) and runs them in order.
 // With dryRun nothing is run; only the list of commands shown at the bottom of the dialog is returned.
@@ -91,11 +93,23 @@ export class OpsService {
     try {
       return await this.runSteps(op, opts);
     } catch (e) {
-      // A rebase that fails on a commit (e.g. a file in the way) stops with that commit rescheduled, so running the
-      // operation again would only say a rebase is in progress; tell the webview to continue the rebase instead.
-      // Not done for cherry-pick or revert, whose --continue would drop the commit that failed
-      if (e instanceof GitError && !inProgress && this.repo.snapshot.readSequence()?.kind === 'rebase') e.details.rebaseStopped = true;
+      // A rebase, cherry-pick or revert that fails on a commit (e.g. a file in the way) stops partway, so running the
+      // operation again would only say one is in progress; tell the webview to continue it instead
+      if (e instanceof GitError && !inProgress && this.canContinue()) e.details.sequenceStopped = true;
       throw e;
+    }
+  }
+
+  /** Whether the operation in progress can be continued once what stopped it is out of the way */
+  private canContinue(): boolean {
+    const seq = this.repo.snapshot.readSequence();
+    if (seq?.kind === 'rebase') return true;
+    if (seq?.kind !== 'cherry-pick' && seq?.kind !== 'revert') return false;
+    // With --no-commit the commits applied so far stay in the index, and git refuses to continue with a dirty index
+    try {
+      return !/^\s*no-commit\s*=\s*true\s*$/m.test(readFileSync(path.join(this.repo.gitDir, 'sequencer', 'opts'), 'utf8'));
+    } catch {
+      return true;
     }
   }
 
@@ -513,11 +527,11 @@ export class OpsService {
         return this.repo.rebase.plan(op.base, op.todo);
 
       case 'sequence/control':
-        return this.planSequenceControl(op.action, op.message);
+        return await this.planSequenceControl(op.action, op.message);
     }
   }
 
-  private planSequenceControl(action: 'continue' | 'skip' | 'abort', message?: string): Step[] {
+  private async planSequenceControl(action: 'continue' | 'skip' | 'abort', message?: string): Promise<Step[]> {
     const seq = this.repo.snapshot.readSequence();
     if (!seq) throw new GitError('invalid', 'No operation is in progress');
     const w = (args: string[], extra: Partial<Extract<Step, { type: 'git' }>> = {}): Step => ({ type: 'git', args, queue: 'write', ...extra });
@@ -529,10 +543,42 @@ export class OpsService {
       case 'rebase':
         return [w(['rebase', `--${action}`], { rebaseEditor: action === 'continue' && !!seq.interactive })];
       case 'cherry-pick':
-        return [w(['cherry-pick', `--${action}`])];
-      case 'revert':
-        return [w(['revert', `--${action}`])];
+      case 'revert': {
+        const steps: Step[] = [];
+        if (action === 'continue' && (await this.stoppedBeforeApplying())) steps.push(this.repeatFirstTodoStep());
+        steps.push(w([seq.kind, `--${action}`]));
+        return steps;
+      }
     }
+  }
+
+  /**
+   * A cherry-pick or revert of several commits stopped without applying the first commit of its todo (e.g. a file was
+   * in the way). git --continue takes that commit as committed by hand and goes on with the next one, dropping it.
+   * Told apart from a conflicted commit committed with git commit by HEAD not having moved since git stopped
+   */
+  private async stoppedBeforeApplying(): Promise<boolean> {
+    const g = this.repo.gitDir;
+    if (existsSync(path.join(g, 'CHERRY_PICK_HEAD')) || existsSync(path.join(g, 'REVERT_HEAD'))) return false;
+    const safety = await readFile(path.join(g, 'sequencer', 'abort-safety'), 'utf8').catch(() => undefined);
+    if (!safety?.trim()) return false;
+    const head = await this.repo.runner.run(['rev-parse', '-q', '--verify', 'HEAD'], { queue: 'read', okExitCodes: [0, 1] });
+    return head.stdout.toString('utf8').trim() === safety.trim();
+  }
+
+  /** Put the first commit of the sequencer todo in twice, so that git --continue, which drops one, applies the other */
+  private repeatFirstTodoStep(): Step {
+    const file = path.join(this.repo.gitDir, 'sequencer', 'todo');
+    return {
+      type: 'fn',
+      describe: '(retry the commit that was not applied: repeat it at the top of .git/sequencer/todo)',
+      run: async () => {
+        const todo = await readFile(file, 'utf8');
+        const first = firstTodoLine(todo);
+        if (!first) throw new GitError('invalid', 'No commit is left to apply');
+        await writeFile(file, `${first}\n${todo}`, 'utf8');
+      },
+    };
   }
 }
 

@@ -140,6 +140,22 @@ export class SnapshotService {
     if (pick) return { kind: 'cherry-pick', incoming: pick };
     const revert = read('REVERT_HEAD');
     if (revert) return { kind: 'revert', incoming: revert };
+    // A cherry-pick or revert of several commits that stopped without applying a commit (a file was in the way), or
+    // whose conflicted commit was committed with git commit, has neither of those: only the sequencer is left
+    const next = firstTodoLine(read('sequencer/todo') ?? '');
+    if (next) {
+      const [action, sha] = next.split(/\s+/);
+      if (action === 'pick' || action === 'p') return { kind: 'cherry-pick', incoming: sha };
+      if (action === 'revert') return { kind: 'revert', incoming: sha };
+    }
     return null;
   }
+}
+
+/** The first command of a sequencer todo (blank and comment lines skipped) */
+export function firstTodoLine(todo: string): string | undefined {
+  return todo
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .find((l) => l && !l.startsWith('#'));
 }
