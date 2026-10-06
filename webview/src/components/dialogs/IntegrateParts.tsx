@@ -33,7 +33,8 @@ export function IntegrateHints({ status, rebase, merges = true }: { status: Stat
       <SummaryFiles key="conflict-files" paths={conflicts} />,
     );
   } else if (conflicts) {
-    lines.push(<SummaryHint key="no-conflicts">{t('summary.noConflicts')}</SummaryHint>);
+    // Judged as one merge: a rebase applies commit by commit, so it can still conflict on the way
+    lines.push(<SummaryHint key="no-conflicts">{t(rebase ? 'summary.noConflicts.rebase' : 'summary.noConflicts')}</SummaryHint>);
   }
   if (status.untrackedOverlap.length > 0) {
     lines.push(
