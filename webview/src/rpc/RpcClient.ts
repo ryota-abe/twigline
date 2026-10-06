@@ -15,6 +15,7 @@ export class RpcError extends Error implements RpcErrorShape {
   readonly command?: string;
   readonly stderr?: string;
   readonly files?: string[];
+  readonly rebaseStopped?: boolean;
   constructor(e: RpcErrorShape) {
     super(e.message);
     this.name = 'RpcError';
@@ -22,6 +23,7 @@ export class RpcError extends Error implements RpcErrorShape {
     this.command = e.command;
     this.stderr = e.stderr;
     this.files = e.files;
+    this.rebaseStopped = e.rebaseStopped;
   }
 }
 

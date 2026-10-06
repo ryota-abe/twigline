@@ -5,7 +5,7 @@ export class GitError extends Error {
   constructor(
     readonly category: GitErrorCategory,
     message: string,
-    readonly details: { command?: string; stderr?: string; exitCode?: number; files?: string[] } = {},
+    readonly details: { command?: string; stderr?: string; exitCode?: number; files?: string[]; rebaseStopped?: boolean } = {},
   ) {
     super(message);
     this.name = 'GitError';
@@ -18,6 +18,7 @@ export class GitError extends Error {
       command: this.details.command,
       stderr: this.details.stderr,
       files: this.details.files,
+      rebaseStopped: this.details.rebaseStopped,
     };
   }
 }

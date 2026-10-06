@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { Operation, RpcError as RpcErrorShape } from '../../../../shared/protocol';
 import { t } from '../../i18n';
-import { closeDialog, confirm, getRpc, openDialog, resolveConfirm, runOp, uiAction } from '../../store/actions';
+import { closeDialog, confirm, getRpc, openDialog, resolveConfirm, runOp, runOpResult, uiAction } from '../../store/actions';
 import { get, useStore } from '../../store/store';
 import { basename, dirname, shortSha } from '../../util/format';
 import { Button, Checkbox, Icon, Select } from '../ui';
@@ -314,8 +314,22 @@ export function ErrorDialog({ error, op }: { error: RpcErrorShape; op?: Operatio
             onClick={async () => {
               closeDialog();
               const untracked = /untracked/i.test(error.stderr ?? '');
-              const ok = await runOp({ kind: 'stash/push', message: `Twigline: ${t('error.autoStash')}`, keepIndex: false, includeUntracked: untracked, stagedOnly: false });
-              if (ok) await runOp(op, { success: t('error.stashedAndDone') });
+              const res = await runOpResult({
+                kind: 'stash/push',
+                message: `Twigline: ${t('error.autoStash')}`,
+                keepIndex: false,
+                includeUntracked: untracked,
+                stagedOnly: false,
+                blockers: error.files,
+              });
+              if (!res) return;
+              // Running the operation again with the same files in the way would only fail the same way
+              if (res.nothingStashed) {
+                openDialog('error', { error: { category: 'dirtyWorktree', message: t('error.nothingStashed'), files: error.files } });
+                return;
+              }
+              // A rebase that stopped on the commit is continued (git rescheduled the commit); anything else runs again
+              await runOp(error.rebaseStopped ? { kind: 'sequence/control', action: 'continue' } : op, { success: t('error.stashedAndDone') });
             }}
           >
             {t('error.stashAndContinue')}

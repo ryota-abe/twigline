@@ -79,6 +79,7 @@ export const operation = z.discriminatedUnion('kind', [
     keepIndex: z.boolean(),
     includeUntracked: z.boolean(),
     stagedOnly: z.boolean(),
+    blockers: z.array(filePath).max(10_000).optional(),
   }),
   z.object({ kind: z.literal('stash/apply'), index: z.number().int().min(0), drop: z.boolean(), restoreIndex: z.boolean() }),
   z.object({ kind: z.literal('stash/drop'), index: z.number().int().min(0) }),

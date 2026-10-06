@@ -22,6 +22,7 @@ export type Step =
       progress?: string;
       /** Attach the editor environment for interactive rebase */
       rebaseEditor?: boolean;
+      env?: Record<string, string>;
     }
   | { type: 'fn'; describe: string; run: () => Promise<void> };
 
@@ -85,6 +86,20 @@ export class OpsService {
   constructor(private readonly repo: RepoModel) {}
 
   async run(op: Operation, opts: RunOpOptions = {}): Promise<OpResult> {
+    if (opts.dryRun || !isSequenceOp(op)) return this.runSteps(op, opts);
+    const inProgress = this.repo.snapshot.readSequence() !== null;
+    try {
+      return await this.runSteps(op, opts);
+    } catch (e) {
+      // A rebase that fails on a commit (e.g. a file in the way) stops with that commit rescheduled, so running the
+      // operation again would only say a rebase is in progress; tell the webview to continue the rebase instead.
+      // Not done for cherry-pick or revert, whose --continue would drop the commit that failed
+      if (e instanceof GitError && !inProgress && this.repo.snapshot.readSequence()?.kind === 'rebase') e.details.rebaseStopped = true;
+      throw e;
+    }
+  }
+
+  private async runSteps(op: Operation, opts: RunOpOptions): Promise<OpResult> {
     if (op.kind === 'rebase/interactive' && !opts.dryRun) {
       return this.repo.rebase.run(op.base, op.todo, opts);
     }
@@ -92,9 +107,30 @@ export class OpsService {
     const commands = steps.map((s) => (s.type === 'git' ? formatCommand(s.args) : s.describe));
     if (opts.dryRun) return { commands };
     return this.repo.runOp(kindsFor(op), async () => {
+      const stashBefore = op.kind === 'stash/push' ? await this.stashTop() : undefined;
       await this.execute(steps, opts, op);
-      return { commands, message: undefined, stopped: this.repo.snapshot.readSequence() !== null && isSequenceOp(op) ? true : undefined };
+      const nothingStashed = op.kind === 'stash/push' && (await this.stashTop()) === stashBefore ? true : undefined;
+      return { commands, message: undefined, stopped: this.repo.snapshot.readSequence() !== null && isSequenceOp(op) ? true : undefined, nothingStashed };
     });
+  }
+
+  /** The newest stash ('' when there is none). git stash push exits 0 without saving anything when there is nothing to stash */
+  private async stashTop(): Promise<string> {
+    const res = await this.repo.runner.run(['rev-parse', '-q', '--verify', 'refs/stash'], { queue: 'read', okExitCodes: [0, 1] });
+    return res.stdout.toString('utf8').trim();
+  }
+
+  /** The paths among these that git ignores (tracked files are never reported as ignored) */
+  private async ignoredPaths(paths: string[]): Promise<string[]> {
+    if (paths.length === 0) return [];
+    // check-ignore refuses the literal pathspec magic; it matches the paths as given anyway
+    const res = await this.repo.runner.run(['check-ignore', '-z', '--stdin'], {
+      queue: 'read',
+      stdin: Buffer.from(paths.join('\0') + '\0'),
+      okExitCodes: [0, 1],
+      env: { GIT_LITERAL_PATHSPECS: '0' },
+    });
+    return res.stdout.toString('utf8').split('\0').filter(Boolean);
   }
 
   /** Run the steps in order. Stop at the first failure. */
@@ -110,7 +146,7 @@ export class OpsService {
   }
 
   private async runGitStep(step: Extract<Step, { type: 'git' }>, opts: RunOpOptions, op?: Operation): Promise<void> {
-    const env: Record<string, string> = {};
+    const env: Record<string, string> = { ...step.env };
     const disposables: { dispose(): void }[] = [];
     const interactive = opts.interactive !== false;
     try {
@@ -326,15 +362,23 @@ export class OpsService {
 
       case 'stash/push': {
         const args = ['stash', 'push'];
+        const blockers = op.stagedOnly ? [] : (op.blockers ?? []).map((p) => this.repo.relPath(p));
+        // --include-untracked leaves ignored files in place, so with an ignored file in the way the stash would save nothing
+        // and the operation would fail again. Stash just the files in the way instead, with --all to take the ignored ones
+        const onlyBlockers = (await this.ignoredPaths(blockers)).length > 0;
         if (op.stagedOnly) {
           if (!this.repo.features.stashStaged) throw new GitError('invalid', 'git 2.35 or later is required for --staged');
           args.push('--staged');
         } else {
           if (op.keepIndex) args.push('--keep-index');
-          if (op.includeUntracked) args.push('--include-untracked');
+          if (onlyBlockers) args.push('--all');
+          else if (op.includeUntracked) args.push('--include-untracked');
         }
         if (op.message) args.push('-m', op.message);
-        return [w(args)];
+        if (onlyBlockers) return [w([...args, '--', ...blockers])];
+        // Without a pathspec, stash removes the untracked files it saved with "git clean -- :/", which literal pathspecs
+        // turn into a path that matches nothing: the files were saved but left in place, still in the way
+        return [w(args, { env: { GIT_LITERAL_PATHSPECS: '0' } })];
       }
 
       case 'stash/apply': {
