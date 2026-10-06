@@ -1,11 +1,13 @@
 // Development server: serves the webview bundle to a browser and runs RpcRouter against a real repository.
 // For trying the UI and the git layer together without starting VS Code (not included in the VSIX).
-//   node dist/dev/devServer.js --repo <path> [--port 5178] [--vscode-extensions <dir>]
+//   node dist/dev/devServer.js --repo <path> [--port 5178] [--vscode-extensions <dir>] [--pull-requests <file>]
 // Syntax highlighting grammars and themes are read from the built-in extensions of an installed VS Code
 // (--vscode-extensions, otherwise looked up from TWIGLINE_VSCODE_PATH and the usual install locations).
 // Instead of postMessage, the webview -> host direction uses POST /rpc and host -> webview uses Server-Sent Events (/events).
 // Pull requests are read with GITHUB_TOKEN (or GH_TOKEN) for GitHub, or BITBUCKET_EMAIL and BITBUCKET_API_TOKEN for Bitbucket Cloud,
 // if set (public repositories only otherwise).
+// --pull-requests answers GitHub with the pull requests in a file instead (the response of REST GET /repos/{owner}/{repo}/pulls,
+// for any GitHub repository), so pull request badges can be shown without asking GitHub (screenshots, offline work).
 
 import { watch as fsWatch, readFileSync, existsSync, readdirSync } from 'node:fs';
 import { rm } from 'node:fs/promises';
@@ -29,6 +31,7 @@ const port = Number(opt('port', '5178'));
 const extRoot = path.resolve(__dirname, '..', '..');
 const webviewDir = path.join(extRoot, 'dist', 'webview');
 const syntaxDir = path.join(extRoot, 'dist', 'syntax');
+const pullRequestFile = opt('pull-requests', '');
 
 const config: TwiglineConfig = {
   historyOrder: 'date',
@@ -145,6 +148,8 @@ const env: HostEnv = {
   helperExecPath: process.execPath,
   // Credentials for reading PRs come from environment variables (github.com and bitbucket.org only)
   pullRequestCredential: async (provider, host) => {
+    // The pull requests from a file are read like a public repository's (REST)
+    if (pullRequestFile) return undefined;
     const e = process.env;
     if (provider === 'github' && host === 'github.com' && (e.GITHUB_TOKEN || e.GH_TOKEN)) return { token: (e.GITHUB_TOKEN || e.GH_TOKEN)! };
     if (provider === 'bitbucket' && e.BITBUCKET_EMAIL && e.BITBUCKET_API_TOKEN) return { username: e.BITBUCKET_EMAIL, password: e.BITBUCKET_API_TOKEN };
@@ -184,6 +189,16 @@ const MIME: Record<string, string> = { '.js': 'text/javascript', '.css': 'text/c
 async function main(): Promise<void> {
   const git = await RepoModel.detectGit(process.env.TWIGLINE_GIT ?? 'git');
   model = await RepoModel.open(repoPath, git, env, new GitHelpers(extRoot, process.execPath));
+  if (pullRequestFile) {
+    const file = path.resolve(pullRequestFile);
+    console.log(`[pr] GitHub pull requests are read from ${file}`);
+    model.pullRequests.fetchImpl = async (url) => {
+      const github = /^https:\/\/[^/]+\/(api\/v3\/)?repos\/[^/]+\/[^/]+\/pulls\?/.test(url);
+      // Read on every request, so editing the file and refreshing shows the change
+      const body: unknown = github ? JSON.parse(readFileSync(file, 'utf8')) : { message: 'Not Found' };
+      return { ok: github, status: github ? 200 : 404, headers: { get: () => null }, json: async () => body };
+    };
+  }
   model.startWatching(true);
   let currentLang = 'ja';
   const router = new RpcRouter(model, broadcast, {

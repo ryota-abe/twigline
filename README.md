@@ -4,6 +4,8 @@ A Git client inside VS Code: branches, the commit graph, file status with line-l
 
 [日本語](./README.ja.md)
 
+![The History tab: the commit graph with branches, tags, remote branches and pull requests, and the selected commit's details and syntax-highlighted diff](docs/images/history.png)
+
 - Opens each repository in its own editor tab with "Uncommitted Changes | History" tabs, the history graph with branch lists, and details / diffs side by side
 - Actions sit where they apply: pull, push, merge and rebase for the current branch on the branch name in the tab row (clicking the ahead / behind counts also pushes / pulls); stash and discard inside the "Uncommitted Changes" tab; fetch, push branches, branch, tag and settings under "…" at the right end of the tab row
 - Stage / unstage / discard by file, hunk or line in the "Uncommitted Changes" tab
