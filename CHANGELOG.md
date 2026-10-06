@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.5.2
+
+Fixes for "Stash and Continue" when a file is in the way of an operation.
+
+- Fixed: ignored files in the way were not stashed, so "Stash and Continue" saved nothing and failed the same way again; the ignored files are now stashed, and when nothing could be stashed the dialog says so instead of running the operation again
+- Fixed: untracked files saved by "Stash and Continue" stayed in the working tree, so the operation failed again
+- Fixed: a rebase that stopped on a file in the way failed with "a rebase-merge directory already exists" after "Stash and Continue"; the rebase is now continued
+- Fixed: a cherry-pick or revert of several commits that stopped on a file in the way was not shown as in progress, and running it again failed; it is now shown with its banner, "Stash and Continue" continues it, and continuing no longer drops the commit that was not applied
+
 ## 0.5.1
 
 Fixes for the dialogs added in 0.5.0.
