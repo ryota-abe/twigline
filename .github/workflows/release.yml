@@ -147,8 +147,9 @@ jobs:
         with:
           name: vsix
 
+      # Pin the exact version: this step holds OVSX_PAT, so a new ovsx release must not run here unreviewed
       - name: Publish to Open VSX
         run: |
           flags=()
           if [ "$PRERELEASE" = "true" ]; then flags+=(--pre-release); fi
-          npx ovsx publish "$VSIX" --pat "$OVSX_PAT" "${flags[@]}"
+          npx --yes ovsx@1.2.0 publish "$VSIX" --pat "$OVSX_PAT" "${flags[@]}"

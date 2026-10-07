@@ -4,6 +4,7 @@
 // Syntax highlighting grammars and themes are read from the built-in extensions of an installed VS Code
 // (--vscode-extensions, otherwise looked up from TWIGLINE_VSCODE_PATH and the usual install locations).
 // Instead of postMessage, the webview -> host direction uses POST /rpc and host -> webview uses Server-Sent Events (/events).
+// Only requests to localhost / 127.0.0.1 on this port from its own page are served (no other host names or origins).
 // Pull requests are read with GITHUB_TOKEN (or GH_TOKEN) for GitHub, or BITBUCKET_EMAIL and BITBUCKET_API_TOKEN for Bitbucket Cloud,
 // if set (public repositories only otherwise).
 // --pull-requests answers GitHub with the pull requests in a file instead (the response of REST GET /repos/{owner}/{repo}/pulls,
@@ -28,6 +29,8 @@ const opt = (name: string, def: string) => {
 };
 const repoPath = path.resolve(opt('repo', process.cwd()));
 const port = Number(opt('port', '5178'));
+const allowedHosts = new Set([`localhost:${port}`, `127.0.0.1:${port}`]);
+const allowedOrigins = new Set([...allowedHosts].map((h) => `http://${h}`));
 const extRoot = path.resolve(__dirname, '..', '..');
 const webviewDir = path.join(extRoot, 'dist', 'webview');
 const syntaxDir = path.join(extRoot, 'dist', 'syntax');
@@ -219,8 +222,18 @@ async function main(): Promise<void> {
   model.onDidChange((kinds) => broadcast({ t: 'evt', event: { type: 'repo/changed', repo: model.id, kinds } }));
 
   const server = http.createServer((req, res) => {
+    // The RPC can run any git operation on the repository, so only the page this server serves may reach it:
+    // another host name is DNS rebinding, and a JSON body from another origin needs a CORS preflight this server never answers
+    if (!allowedHosts.has(req.headers.host ?? '') || (req.headers.origin !== undefined && !allowedOrigins.has(req.headers.origin))) {
+      res.writeHead(403).end('forbidden');
+      return;
+    }
     const url = new URL(req.url ?? '/', `http://localhost:${port}`);
     if (req.method === 'POST' && url.pathname === '/rpc') {
+      if (!/^application\/json\b/i.test(req.headers['content-type'] ?? '')) {
+        res.writeHead(415).end('unsupported media type');
+        return;
+      }
       let body = '';
       req.on('data', (d) => (body += d));
       req.on('end', () => {
