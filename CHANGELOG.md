@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.3
+
+A fix for the message filled in by Amend.
+
+- Fixed: checking "Amend last commit" could fill the commit box with the message of an older commit when the last commit was made outside Twigline (in a terminal or the Source Control view), or when it was checked right after opening the Uncommitted Changes tab; the message is now read from HEAD when it is checked
+- Development: the `npm run dev:web` server now answers only its own page on localhost
+
 ## 0.5.2
 
 Fixes for "Stash and Continue" when a file is in the way of an operation.
