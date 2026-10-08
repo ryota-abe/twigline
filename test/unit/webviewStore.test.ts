@@ -60,6 +60,8 @@ const snapshot: RepoSnapshot = {
 let status: WorkingTreeStatus;
 let host: MockHost;
 let prs: PullRequestList | Error;
+let lastMessage: string;
+let template: string | undefined;
 
 const openPr: PullRequestList = {
   status: 'ok',
@@ -71,6 +73,8 @@ const openPr: PullRequestList = {
 beforeEach(async () => {
   status = { staged: [], unstaged: [{ path: 'a.txt', status: 'M' }], conflicted: [] };
   prs = openPr;
+  lastMessage = 'first';
+  template = undefined;
   useStore.setState({
     snapshot: null,
     status: null,
@@ -109,6 +113,7 @@ beforeEach(async () => {
       parentIndex: 0,
     }),
     'ui/action': () => undefined,
+    'commit/info': () => ({ author: {}, lastMessage, recentMessages: [lastMessage], template, pushAfter: false }),
     'pr/list': () => (prs instanceof Error ? Promise.reject({ category: 'network', message: prs.message }) : prs),
   });
   actions.setRpc(new RpcClient(host));
@@ -221,13 +226,66 @@ describe('commit box', () => {
     useStore.setState({ commitMsg: '', status: { ...status, staged: [{ path: 'b.txt', status: 'A' }] } });
     expect(expanded()).toBe(true);
     useStore.setState({ status });
-    actions.setAmend(true);
+    void actions.setAmend(true);
     expect(expanded()).toBe(true);
-    actions.setAmend(false);
+    void actions.setAmend(false);
     useStore.setState({ commitMsg: '', snapshot: { ...snapshot, sequence: { kind: 'merge' } } });
     expect(expanded()).toBe(true);
     useStore.setState({ snapshot });
     expect(expanded()).toBe(false);
+  });
+
+  it('fills amend with the message HEAD has now, not the one read when the tab opened', async () => {
+    useStore.setState({ commitMsg: '', amend: false, savedMsgBeforeAmend: null });
+    await actions.loadCommitInfo();
+    expect(useStore.getState().commitInfo?.lastMessage).toBe('first');
+    // Committed from a terminal: only refs/heads/main moves, so no 'head' change reaches the webview
+    lastMessage = 'second';
+    await actions.setAmend(true);
+    expect(useStore.getState().commitMsg).toBe('second');
+    await actions.setAmend(false);
+    expect(useStore.getState().commitMsg).toBe('');
+  });
+
+  it('keeps what was typed or unchecked while the previous message is being read', async () => {
+    useStore.setState({ commitMsg: '', amend: false, savedMsgBeforeAmend: null });
+    const typed = actions.setAmend(true);
+    useStore.setState({ commitMsg: 'typed' });
+    await typed;
+    expect(useStore.getState().commitMsg).toBe('typed');
+
+    useStore.setState({ commitMsg: '', amend: false, savedMsgBeforeAmend: null });
+    const unchecked = actions.setAmend(true);
+    void actions.setAmend(false);
+    await unchecked;
+    expect(useStore.getState()).toMatchObject({ amend: false, commitMsg: '' });
+
+    // A message already in the box is kept as it is
+    useStore.setState({ commitMsg: 'draft', amend: false, savedMsgBeforeAmend: null });
+    await actions.setAmend(true);
+    expect(useStore.getState().commitMsg).toBe('draft');
+  });
+
+  it('does not put the template in the box while waiting for the message to amend', async () => {
+    template = 'TEMPLATE';
+    useStore.setState({ commitMsg: '', amend: false, savedMsgBeforeAmend: null, commitInfo: null });
+    await actions.setAmend(true);
+    expect(useStore.getState().commitMsg).toBe('first');
+  });
+
+  it('drops a commit info answer that a newer one overtook', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    const handlers = (host as unknown as { handlers: Record<string, () => unknown> }).handlers;
+    const original = handlers['commit/info'];
+    handlers['commit/info'] = () => gate.then(() => ({ author: {}, lastMessage: 'old', recentMessages: [], pushAfter: false }));
+    const slow = actions.loadCommitInfo();
+    handlers['commit/info'] = original;
+    lastMessage = 'new';
+    await actions.loadCommitInfo();
+    release();
+    await slow;
+    expect(useStore.getState().commitInfo?.lastMessage).toBe('new');
   });
 
   it('says why the commit button is disabled', () => {
