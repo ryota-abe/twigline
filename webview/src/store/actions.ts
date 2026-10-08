@@ -1,6 +1,7 @@
 import type {
   ChangeKind,
   ChangedFile,
+  CommitInfo,
   DiffTarget,
   FileDiff,
   HostEvent,
@@ -595,24 +596,47 @@ export function setDiffOpts(patch: Partial<TwiglineState['diffOpts']>): void {
 // Commit
 // ---------------------------------------------------------------------------
 
-export async function loadCommitInfo(): Promise<void> {
+let commitInfoSeq = 0;
+let amendSeq = 0;
+
+/** Returns what it read even when a newer read overtook it (the store keeps only the newest), or null on failure */
+export async function loadCommitInfo(): Promise<CommitInfo | null> {
+  const seq = ++commitInfoSeq;
   try {
     const info = await rpc.request('commit/info', { repo: repo() });
+    if (seq !== commitInfoSeq) return info;
     const s = get();
     set({
       commitInfo: info,
       pushAfter: info.pushAfter,
-      commitMsg: s.commitMsg || (s.commitInfo ? s.commitMsg : (info.template ?? '')),
+      // While amending, the box waits for the previous message, so do not put the template in it
+      commitMsg: s.commitMsg || (s.commitInfo || s.amend ? s.commitMsg : (info.template ?? '')),
     });
+    return info;
   } catch (e) {
     reportError(e);
+    return null;
   }
 }
 
-export function setAmend(amend: boolean): void {
+/**
+ * Checking amend fills an empty box with the message of HEAD. It is read again here rather than taken from commitInfo,
+ * because a commit made outside Twigline moves only refs/heads/<branch> and the cached message can be older than HEAD.
+ */
+export async function setAmend(amend: boolean): Promise<void> {
   const s = get();
-  if (amend) set({ amend, savedMsgBeforeAmend: s.commitMsg, commitMsg: s.commitMsg.trim() ? s.commitMsg : (s.commitInfo?.lastMessage ?? '') });
-  else set({ amend, commitMsg: s.savedMsgBeforeAmend ?? s.commitMsg, savedMsgBeforeAmend: null });
+  const seq = ++amendSeq;
+  if (!amend) {
+    set({ amend, commitMsg: s.savedMsgBeforeAmend ?? s.commitMsg, savedMsgBeforeAmend: null });
+    return;
+  }
+  set({ amend, savedMsgBeforeAmend: s.commitMsg });
+  if (s.commitMsg.trim()) return;
+  const info = await loadCommitInfo();
+  const now = get();
+  // Leave it alone if amend was toggled again or something was typed while reading
+  if (seq !== amendSeq || !now.amend || now.commitMsg !== s.commitMsg) return;
+  set({ commitMsg: info?.lastMessage ?? '' });
 }
 
 export async function commit(): Promise<void> {

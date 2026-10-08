@@ -326,7 +326,7 @@ export function CommitBox() {
             disabled={!canPush}
           />
         )}
-        <Checkbox checked={amend} onChange={setAmend} label={t('commit.amend')} disabled={!!snapshot?.head.unborn} />
+        <Checkbox checked={amend} onChange={(v) => void setAmend(v)} label={t('commit.amend')} disabled={!!snapshot?.head.unborn} />
         <span className="spacer" />
         {expanded && info && (
           <span className={cx('cm-author', !author && 'warn')} title={authorTitle}>
