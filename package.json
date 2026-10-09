@@ -85,17 +85,33 @@
       {
         "command": "twigline.fetch",
         "title": "%cmd.fetch%",
-        "category": "Twigline"
+        "category": "Twigline",
+        "icon": "$(repo-fetch)"
       },
       {
         "command": "twigline.pull",
         "title": "%cmd.pull%",
-        "category": "Twigline"
+        "category": "Twigline",
+        "icon": "$(repo-pull)"
       },
       {
         "command": "twigline.push",
         "title": "%cmd.push%",
-        "category": "Twigline"
+        "category": "Twigline",
+        "icon": "$(repo-push)"
+      },
+      {
+        "command": "twigline.repositories.openSettings",
+        "title": "%cmd.repositories.openSettings%",
+        "icon": "$(settings-gear)"
+      },
+      {
+        "command": "twigline.repository.openTerminal",
+        "title": "%cmd.repository.openTerminal%"
+      },
+      {
+        "command": "twigline.repository.copyPath",
+        "title": "%cmd.repository.copyPath%"
       },
       {
         "command": "twigline.fileHistory",
@@ -473,11 +489,58 @@
           "group": "7_twigline"
         }
       ],
+      "view/title": [
+        {
+          "command": "twigline.repositories.openSettings",
+          "when": "view == twigline.repositories",
+          "group": "navigation"
+        }
+      ],
       "view/item/context": [
+        {
+          "command": "twigline.fetch",
+          "when": "view == twigline.repositories && viewItem == twigline.repository",
+          "group": "inline@1"
+        },
+        {
+          "command": "twigline.pull",
+          "when": "view == twigline.repositories && viewItem == twigline.repository",
+          "group": "inline@2"
+        },
+        {
+          "command": "twigline.push",
+          "when": "view == twigline.repositories && viewItem == twigline.repository",
+          "group": "inline@3"
+        },
         {
           "command": "twigline.open",
           "when": "view == twigline.repositories && viewItem == twigline.repository",
-          "group": "inline"
+          "group": "1_open@1"
+        },
+        {
+          "command": "twigline.fetch",
+          "when": "view == twigline.repositories && viewItem == twigline.repository",
+          "group": "2_sync@1"
+        },
+        {
+          "command": "twigline.pull",
+          "when": "view == twigline.repositories && viewItem == twigline.repository",
+          "group": "2_sync@2"
+        },
+        {
+          "command": "twigline.push",
+          "when": "view == twigline.repositories && viewItem == twigline.repository",
+          "group": "2_sync@3"
+        },
+        {
+          "command": "twigline.repository.openTerminal",
+          "when": "view == twigline.repositories && viewItem == twigline.repository",
+          "group": "3_repository@1"
+        },
+        {
+          "command": "twigline.repository.copyPath",
+          "when": "view == twigline.repositories && viewItem == twigline.repository",
+          "group": "3_repository@2"
         }
       ],
       "webview/context": [
@@ -1068,6 +1131,18 @@
         {
           "command": "twigline.panel.settings",
           "when": "activeWebviewPanelId == 'twigline.repository'"
+        },
+        {
+          "command": "twigline.repositories.openSettings",
+          "when": "false"
+        },
+        {
+          "command": "twigline.repository.openTerminal",
+          "when": "false"
+        },
+        {
+          "command": "twigline.repository.copyPath",
+          "when": "false"
         }
       ]
     },

@@ -69,8 +69,8 @@ export function registerCommands(context: vscode.ExtensionContext, deps: Deps): 
   }
 
   // ---- Network actions started from the Command Palette (step-by-step input with QuickPick) ----
-  reg('twigline.fetch', async () => {
-    const model = await pickModel(repos, panels);
+  reg('twigline.fetch', async (arg?: unknown) => {
+    const model = await pickModel(repos, panels, arg);
     if (!model) return;
     const snap = await model.snapshot.get();
     const all = { label: `$(repo-sync) ${t('All remotes')}`, remote: '*' };
@@ -79,8 +79,8 @@ export function registerCommands(context: vscode.ExtensionContext, deps: Deps): 
     await runReported(env, model, () => model.ops.run({ kind: 'fetch', remote: pick.remote, prune: false, tags: false }, { interactive: true }));
   });
 
-  reg('twigline.pull', async () => {
-    const model = await pickModel(repos, panels);
+  reg('twigline.pull', async (arg?: unknown) => {
+    const model = await pickModel(repos, panels, arg);
     if (!model) return;
     const snap = await model.snapshot.get();
     if (snap.remotes.length === 0) {
@@ -117,10 +117,21 @@ export function registerCommands(context: vscode.ExtensionContext, deps: Deps): 
     );
   });
 
-  reg('twigline.push', async () => {
-    const model = await pickModel(repos, panels);
+  reg('twigline.push', async (arg?: unknown) => {
+    const model = await pickModel(repos, panels, arg);
     if (!model) return;
     await runReported(env, model, () => model.commit.pushCurrent());
+  });
+
+  // ---- Repository list (TreeView) ----
+  reg('twigline.repositories.openSettings', () => vscode.commands.executeCommand('workbench.action.openSettings', `@ext:${context.extension.id}`));
+  reg('twigline.repository.openTerminal', (arg?: unknown) => {
+    const root = rootFromArg(arg);
+    if (root) vscode.window.createTerminal({ cwd: root, name: path.basename(root) }).show();
+  });
+  reg('twigline.repository.copyPath', async (arg?: unknown) => {
+    const root = rootFromArg(arg);
+    if (root) await vscode.env.clipboard.writeText(root);
   });
 }
 
@@ -174,11 +185,12 @@ async function pickRepository(repos: RepositoryManager, panels: RepoPanelManager
   return pick?.entry;
 }
 
-async function pickModel(repos: RepositoryManager, panels: RepoPanelManager): Promise<RepoModel | undefined> {
-  const entry = await pickRepository(repos, panels);
-  if (!entry) return undefined;
+/** The repository passed by a menu (a row of the repository list), otherwise the one pickRepository chooses */
+async function pickModel(repos: RepositoryManager, panels: RepoPanelManager, arg?: unknown): Promise<RepoModel | undefined> {
+  const root = rootFromArg(arg) ?? (await pickRepository(repos, panels))?.root;
+  if (!root) return undefined;
   try {
-    return await repos.model(entry.root);
+    return await repos.model(root);
   } catch (e) {
     void vscode.window.showErrorMessage(toRpcError(e).message);
     return undefined;

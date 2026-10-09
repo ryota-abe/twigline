@@ -1,5 +1,5 @@
 // Only the part of the API of the vscode.git extension (getAPI(1)) that Twigline uses.
-// Used only for discovery, the path of the git executable and state change events.
+// Used only for discovery, the path of the git executable, state change events and the counts in the repository list.
 import type { Event, Uri } from 'vscode';
 
 export interface GitExtension {
@@ -37,9 +37,19 @@ export interface Submodule {
   readonly url: string;
 }
 
+export interface Change {
+  readonly uri: Uri;
+}
+
 export interface RepositoryState {
   readonly HEAD: Branch | undefined;
   readonly submodules: Submodule[];
+  /** Conflicted files */
+  readonly mergeChanges: Change[];
+  readonly indexChanges: Change[];
+  readonly workingTreeChanges: Change[];
+  /** Filled only when git.untrackedChanges is "separate" (with "mixed" they are in workingTreeChanges) */
+  readonly untrackedChanges: Change[];
   readonly onDidChange: Event<void>;
 }
 

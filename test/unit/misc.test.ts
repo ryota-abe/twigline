@@ -9,7 +9,7 @@ function readdirRecursive(dir: string): string[] {
 }
 import { describe, expect, it } from 'vitest';
 import * as iconv from 'iconv-lite';
-import { MENU_COMMANDS, PALETTE_COMMANDS, PANEL_COMMANDS } from '../../src/commands/menuCommands';
+import { MENU_COMMANDS, PALETTE_COMMANDS, PANEL_COMMANDS, VIEW_COMMANDS } from '../../src/commands/menuCommands';
 import { chooseEncoding, guessJapanese, isValidUtf8 } from '../../src/git/encoding';
 import { classifyGitError, extractOverwrittenFiles } from '../../src/git/errors';
 import { GitRunner, formatCommand, maskCredentials, parseProgress } from '../../src/git/GitRunner';
@@ -164,7 +164,7 @@ describe('manifest', () => {
 
   it('declares every registered command and nothing else', () => {
     const declared = (pkg.contributes.commands as { command: string }[]).map((c) => c.command).sort();
-    expect(declared).toEqual([...MENU_COMMANDS, ...PANEL_COMMANDS, ...PALETTE_COMMANDS].sort());
+    expect(declared).toEqual([...MENU_COMMANDS, ...PANEL_COMMANDS, ...VIEW_COMMANDS, ...PALETTE_COMMANDS].sort());
   });
 
   it('keeps Twigline operations out of the editor title bar and shows panel operations only for Twigline panels', () => {
@@ -178,7 +178,7 @@ describe('manifest', () => {
 
   it('hides context menu commands from the command palette', () => {
     const hidden = (pkg.contributes.menus.commandPalette as { command: string; when: string }[]).filter((m) => m.when === 'false').map((m) => m.command);
-    for (const id of MENU_COMMANDS) expect(hidden).toContain(id);
+    for (const id of [...MENU_COMMANDS, ...VIEW_COMMANDS]) expect(hidden).toContain(id);
   });
 
   it('has English and Japanese strings for every placeholder', () => {

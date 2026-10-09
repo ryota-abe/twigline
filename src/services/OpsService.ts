@@ -5,7 +5,7 @@ import type { ChangeKind, OpResult, Operation } from '../../shared/protocol';
 import { GitError } from '../git/errors';
 import { formatCommand, type QueueKind } from '../git/GitRunner';
 import { ALL_KINDS, type RepoModel } from '../repo/RepoModel';
-import { firstTodoLine } from './SnapshotService';
+import { firstTodoLine } from '../repo/sequence';
 
 // op/run. Breaks an operation into steps (git commands or host-side work) and runs them in order.
 // With dryRun nothing is run; only the list of commands shown at the bottom of the dialog is returned.
