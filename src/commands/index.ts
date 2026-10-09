@@ -23,7 +23,8 @@ export function registerCommands(context: vscode.ExtensionContext, deps: Deps): 
 
   // ---- Entry points ----
   reg('twigline.open', async (arg?: unknown) => {
-    const root = rootFromArg(arg) ?? (await pickRepository(repos, panels))?.root;
+    // From the Command Palette, always let the user choose: an open panel must not hide the other repositories
+    const root = rootFromArg(arg) ?? (await pickRepository(repos, panels, { preferActive: false }))?.root;
     if (root) await openOrReport(panels, root);
   });
 
@@ -144,10 +145,14 @@ function rootFromArg(arg: unknown): string | undefined {
   return undefined;
 }
 
-async function pickRepository(repos: RepositoryManager, panels: RepoPanelManager): Promise<RepoEntry | undefined> {
+/**
+ * Choose the target repository. With `preferActive` (the default), the repository of the frontmost Twigline panel
+ * is used without asking; otherwise a QuickPick is shown whenever there is more than one repository.
+ */
+async function pickRepository(repos: RepositoryManager, panels: RepoPanelManager, opts: { preferActive?: boolean } = {}): Promise<RepoEntry | undefined> {
   const active = panels.activeRepo;
   const list = repos.repositories;
-  if (active) {
+  if (active && opts.preferActive !== false) {
     const e = list.find((r) => r.id === active);
     if (e) return e;
   }
@@ -159,9 +164,11 @@ async function pickRepository(repos: RepositoryManager, panels: RepoPanelManager
     return undefined;
   }
   if (list.length === 1) return list[0];
-  const current = doc?.uri.scheme === 'file' ? repos.repositoryFor(doc.uri) : undefined;
+  // Put the repository of the active panel, then the one of the active editor, at the top
+  const current = active ?? (doc?.uri.scheme === 'file' ? repos.repositoryFor(doc.uri)?.id : undefined);
+  const items = list.map((r) => ({ label: r.name, description: vscode.workspace.asRelativePath(r.root), entry: r }));
   const pick = await vscode.window.showQuickPick(
-    list.map((r) => ({ label: r.name, description: vscode.workspace.asRelativePath(r.root), entry: r })).sort((a) => (a.entry.id === current?.id ? -1 : 0)),
+    [...items.filter((i) => i.entry.id === current), ...items.filter((i) => i.entry.id !== current)],
     { title: t('Choose a repository') },
   );
   return pick?.entry;
