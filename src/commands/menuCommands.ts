@@ -95,6 +95,12 @@ export const PANEL_COMMANDS = [
   'twigline.panel.settings',
 ] as const;
 
+/**
+ * Commands of the repository list (TreeView) in the Activity Bar: the view's title bar and the menus of a repository row.
+ * twigline.fetch, twigline.pull and twigline.push are also on a row; they take the row's repository.
+ */
+export const VIEW_COMMANDS = ['twigline.repositories.openSettings', 'twigline.repository.openTerminal', 'twigline.repository.copyPath'] as const;
+
 /** Commands that are also shown in the Command Palette */
 export const PALETTE_COMMANDS = [
   'twigline.open',

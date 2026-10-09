@@ -39,6 +39,9 @@ Keys in the panel: `Ctrl+Shift+1 / 2` (Uncommitted Changes / History), `Ctrl+F` 
 `↑ ↓ PageUp PageDown Home End` in lists, `Space` on the selected row of the file list or diff (toggle staging), `Shift+F10` (context menu).
 Fetch / pull / push are available as commands, so you can bind them to keys of your choice.
 
+The repository list in the Activity Bar shows each repository's branch, the number of changed files (badge), and a rebase, merge, cherry-pick or revert that has stopped (yellow; red with `!` when there are conflicts).
+Hovering a row shows fetch / pull / push; right-click also offers opening it in the integrated terminal and copying its path. The gear in the title opens Twigline's settings.
+
 When the panel opens, it shows the "Uncommitted Changes" tab if there are uncommitted changes, and the "History" tab otherwise.
 History has a single search box; a prefix selects the kind of search.
 

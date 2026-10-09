@@ -2,7 +2,7 @@ import * as assert from 'node:assert';
 import { execFileSync } from 'node:child_process';
 import * as path from 'node:path';
 import * as vscode from 'vscode';
-import { MENU_COMMANDS, PALETTE_COMMANDS, PANEL_COMMANDS } from '../../src/commands/menuCommands';
+import { MENU_COMMANDS, PALETTE_COMMANDS, PANEL_COMMANDS, VIEW_COMMANDS } from '../../src/commands/menuCommands';
 import type { TwiglineApi } from '../../src/extension';
 
 // Integration tests: run the extension in a VS Code that has opened the fixture repository, and check the git state.
@@ -41,7 +41,7 @@ describe('Twigline extension', function () {
   it('activates and registers every command', async () => {
     await api();
     const commands = await vscode.commands.getCommands(true);
-    for (const id of [...MENU_COMMANDS, ...PANEL_COMMANDS, ...PALETTE_COMMANDS]) assert.ok(commands.includes(id), `${id} is registered`);
+    for (const id of [...MENU_COMMANDS, ...PANEL_COMMANDS, ...VIEW_COMMANDS, ...PALETTE_COMMANDS]) assert.ok(commands.includes(id), `${id} is registered`);
   });
 
   it('detects the fixture repository through vscode.git', async () => {
