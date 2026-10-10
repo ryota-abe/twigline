@@ -120,7 +120,22 @@ export function registerCommands(context: vscode.ExtensionContext, deps: Deps): 
   reg('twigline.push', async (arg?: unknown) => {
     const model = await pickModel(repos, panels, arg);
     if (!model) return;
-    await runReported(env, model, () => model.commit.pushCurrent());
+    await runReported(env, model, async () => {
+      const target = await model.commit.pushTarget();
+      const push = t('Push');
+      const choice = await vscode.window.showWarningMessage(
+        t('Push {0} to {1}/{2}?', target.branch, target.remote, target.remoteBranch),
+        {
+          modal: true,
+          detail: target.setUpstream
+            ? t('{0} has no upstream. {1}/{2} will be created and set as its upstream.', target.branch, target.remote, target.remoteBranch)
+            : undefined,
+        },
+        push,
+      );
+      if (choice !== push) return;
+      await model.commit.pushCurrent(target);
+    });
   });
 
   // ---- Repository list (TreeView) ----

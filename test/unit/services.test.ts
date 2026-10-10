@@ -658,6 +658,31 @@ describe('CommitService', () => {
     expect(info.lastMessage).toContain('日本語のメッセージ');
     expect(info.recentMessages).toHaveLength(1);
   });
+
+  it('tells where the current branch is pushed, and pushes exactly there', async () => {
+    const r = repo();
+    r.commit('one');
+    const m = await model(r);
+    await expect(m.commit.pushTarget()).rejects.toMatchObject({ category: 'noUpstream' });
+
+    // Without an upstream: the same name on origin, even when another remote comes first
+    const up = makeRepo({ bare: true });
+    repos.push(up);
+    r.git(['remote', 'add', 'aaa', 'https://example.com/other.git']);
+    r.git(['remote', 'add', 'origin', up.dir]);
+    const target = await m.commit.pushTarget();
+    expect(target).toEqual({ branch: 'main', remote: 'origin', remoteBranch: 'main', setUpstream: true });
+    await m.commit.pushCurrent(target);
+    expect(r.git(['rev-parse', '--abbrev-ref', 'main@{upstream}']).trim()).toBe('origin/main');
+
+    // With an upstream: its remote and branch, which may have another name
+    r.git(['push', '-q', 'origin', 'main:release']);
+    r.git(['branch', '-q', '--set-upstream-to=origin/release']);
+    expect(await m.commit.pushTarget()).toEqual({ branch: 'main', remote: 'origin', remoteBranch: 'release', setUpstream: false });
+
+    r.git(['checkout', '-q', '--detach']);
+    await expect(m.commit.pushTarget()).rejects.toMatchObject({ category: 'invalid' });
+  });
 });
 
 describe.skipIf(!distReady)('askpass and editor helpers', () => {
