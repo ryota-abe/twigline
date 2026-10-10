@@ -14,6 +14,14 @@ export interface CreateCommitParams {
   pushAfter: boolean;
 }
 
+export interface PushTarget {
+  branch: string;
+  remote: string;
+  remoteBranch: string;
+  /** No upstream yet: the remote branch is created and set as the upstream */
+  setUpstream: boolean;
+}
+
 /** Commit box: author, previous messages, template, commit, push after commit */
 export class CommitService {
   constructor(private readonly repo: RepoModel) {}
@@ -79,8 +87,20 @@ export class CommitService {
     return { sha, pushed: true };
   }
 
-  /** Push the current branch to its upstream. Without an upstream, create one with the same name on the default remote and set tracking */
-  async pushCurrent(): Promise<void> {
+  /** Push the current branch to where pushTarget() points (pass a target already shown to the user to push exactly there) */
+  async pushCurrent(target?: PushTarget): Promise<void> {
+    const to = target ?? (await this.pushTarget());
+    await this.repo.ops.run({
+      kind: 'push',
+      remote: to.remote,
+      branches: [{ local: to.branch, remote: to.remoteBranch, setUpstream: to.setUpstream }],
+      tags: false,
+      force: false,
+    });
+  }
+
+  /** Where the current branch is pushed: its upstream. Without an upstream, a branch with the same name on the default remote, set as tracking */
+  async pushTarget(): Promise<PushTarget> {
     this.repo.snapshot.invalidate();
     const snap = await this.repo.snapshot.get();
     const branch = snap.head.branch;
@@ -92,12 +112,11 @@ export class CommitService {
     const remote = map.get(`branch.${branch}.remote`)?.[0];
     const merge = map.get(`branch.${branch}.merge`)?.[0];
     if (remote && merge?.startsWith('refs/heads/') && remote !== '.') {
-      await this.repo.ops.run({ kind: 'push', remote, branches: [{ local: branch, remote: merge.slice(11), setUpstream: false }], tags: false, force: false });
-      return;
+      return { branch, remote, remoteBranch: merge.slice(11), setUpstream: false };
     }
     const fallback = snap.remotes.find((r) => r.name === 'origin')?.name ?? snap.remotes[0]?.name;
     if (!fallback) throw new GitError('noUpstream', 'No remote is configured');
-    await this.repo.ops.run({ kind: 'push', remote: fallback, branches: [{ local: branch, remote: branch, setUpstream: true }], tags: false, force: false });
+    return { branch, remote: fallback, remoteBranch: branch, setUpstream: true };
   }
 }
 

@@ -46,6 +46,8 @@
   "Pull: choose a branch": "プル: ブランチを選択",
   "Pull: choose a remote": "プル: リモートを選択",
   "Pull: how to integrate": "プル: 取り込み方",
+  "Push": "プッシュ",
+  "Push {0} to {1}/{2}?": "{0} を {1}/{2} にプッシュしますか？",
   "Rebase": "リベース",
   "Repository optimized.": "リポジトリを最適化しました。",
   "Show Output": "出力を表示",
@@ -58,5 +60,6 @@
   "{0} changed files": "変更されたファイル {0} 件",
   "{0} conflicted files": "競合しているファイル {0} 件",
   "{0} failed (exit code {1}).": "{0} が失敗しました（終了コード {1}）。",
-  "{0} finished.": "{0} が完了しました。"
+  "{0} finished.": "{0} が完了しました。",
+  "{0} has no upstream. {1}/{2} will be created and set as its upstream.": "{0} にはアップストリームがありません。{1}/{2} を作成してアップストリームに設定します。"
 }
