@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.6.0
+
+The repository list in the Activity Bar shows each repository's state and gets its own actions.
+
+- Each row shows the number of changed files as a badge, and a rebase, merge, cherry-pick or revert that has stopped ("Rebasing 3/7" etc., yellow; red with `!` when there are conflicts); hovering a row shows the path and the staged / unstaged / untracked / conflicted counts
+- Rows have fetch / pull / push buttons, and a context menu with Open in Twigline, fetch / pull / push, Open in Integrated Terminal and Copy Path; fetch / pull / push act on that row's repository instead of asking
+- The gear in the title of the list opens Twigline's settings
+- Pushing from the repository list or the Command Palette now asks first, naming the branch and where it goes (and that the remote branch will be created when there is no upstream yet)
+- "Open Repository in Twigline" from the Command Palette now always asks which repository when there is more than one, with the active panel's repository at the top; it used to reopen the active panel's repository
+
 ## 0.5.3
 
 A fix for the message filled in by Amend.

@@ -2,7 +2,7 @@
   "name": "twigline",
   "displayName": "%displayName%",
   "description": "%description%",
-  "version": "0.5.3",
+  "version": "0.6.0",
   "publisher": "ryota-abe",
   "license": "MIT",
   "icon": "media/icon.png",
