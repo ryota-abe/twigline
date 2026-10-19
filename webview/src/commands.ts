@@ -162,6 +162,7 @@ export async function handleCommand(command: string, ctx: Ctx): Promise<void> {
       openDialog('branch', { tab: 'new', start: ref });
       return;
     case 'twigline.branch.merge':
+    case 'twigline.remoteBranch.merge':
       openDialog('merge', { ref });
       return;
     case 'twigline.branch.rebase':
@@ -203,9 +204,6 @@ export async function handleCommand(command: string, ctx: Ctx): Promise<void> {
     // ---- branch.remote ----
     case 'twigline.remoteBranch.checkout':
       openDialog('checkout', { remoteRef: ref, remote: str(ctx.remote) });
-      return;
-    case 'twigline.remoteBranch.merge':
-      openDialog('merge', { ref });
       return;
     case 'twigline.remoteBranch.delete': {
       const remote = str(ctx.remote) ?? ref?.split('/')[0];

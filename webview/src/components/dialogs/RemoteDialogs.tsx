@@ -8,7 +8,7 @@ import { cx } from '../../util/format';
 import { pullRequestFor, pushComparePair, pushRowDefaults, pushStatus, type PushStatus } from '../../util/pushStatus';
 import { PrChip, prDone } from '../PullRequest';
 import { Button, Checkbox, Empty, Icon, Select } from '../ui';
-import { Advanced, DialogShell, Field, Requirement, RequirementActions, Warning, compareKey, useRefCompare, useRefCompares } from './Dialog';
+import { Advanced, DialogShell, Field, ModeRadios, Requirement, RequirementActions, Warning, compareKey, useRefCompare, useRefCompares } from './Dialog';
 import { AutostashCheckbox, StashRequirement } from './IntegrateParts';
 import { PullStatusCard } from './PullStatusCard';
 import { PushStatusCard, STATE_ICON, stateText } from './PushStatusCard';
@@ -158,17 +158,7 @@ export function PullDialog({ remote: initialRemote, branch: initialBranch, into 
           autostash={canAutostash ? autostash : undefined} onAutostash={setAutostash} />
       )}
       {!intoOther && (
-        <div role="radiogroup" aria-label={t('pull.mode')}>
-          {modes.map((m) => (
-            <label key={m.value} className="radio block">
-              <input type="radio" checked={mode === m.value} onChange={() => setMode(m.value)} />
-              <span>
-                <b>{m.label}</b>
-                <span className="dim block">{m.desc}</span>
-              </span>
-            </label>
-          ))}
-        </div>
+        <ModeRadios label={t('pull.mode')} modes={modes} value={mode} onChange={setMode} />
       )}
       {requirement !== 'stash' && canAutostash && ps.dirty.length > 0 && (
         <Advanced>

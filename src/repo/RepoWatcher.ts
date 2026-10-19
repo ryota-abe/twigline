@@ -1,6 +1,6 @@
 import * as path from 'node:path';
 import type { ChangeKind } from '../../shared/protocol';
-import type { Disposable } from '../util/event';
+import { debounce, type Disposable } from '../util/event';
 import type { RepoModel } from './RepoModel';
 
 // Collects changes to .git for 250ms and then decides their kind.
@@ -36,7 +36,11 @@ export function classifyGitPath(rel: string): ChangeKind[] {
 export class RepoWatcher implements Disposable {
   private readonly subscriptions: Disposable[] = [];
   private pending = new Set<ChangeKind>();
-  private timer?: NodeJS.Timeout;
+  private readonly flush = debounce(() => {
+    const kinds = this.pending;
+    this.pending = new Set();
+    this.onKinds(kinds);
+  }, 250);
 
   constructor(
     repo: RepoModel,
@@ -54,29 +58,17 @@ export class RepoWatcher implements Disposable {
     const kinds = classifyGitPath(rel);
     if (kinds.length === 0) return;
     for (const k of kinds) this.pending.add(k);
-    if (this.timer) clearTimeout(this.timer);
-    this.timer = setTimeout(() => {
-      this.timer = undefined;
-      const kinds = this.pending;
-      this.pending = new Set();
-      this.onKinds(kinds);
-    }, 250);
+    this.flush();
   }
 
   /** Called from working tree changes (state.onDidChange of vscode.git) */
   worktreeChanged(): void {
     this.pending.add('status');
-    if (this.timer) clearTimeout(this.timer);
-    this.timer = setTimeout(() => {
-      this.timer = undefined;
-      const kinds = this.pending;
-      this.pending = new Set();
-      this.onKinds(kinds);
-    }, 250);
+    this.flush();
   }
 
   dispose(): void {
-    if (this.timer) clearTimeout(this.timer);
+    this.flush.cancel();
     for (const s of this.subscriptions) s.dispose();
     this.subscriptions.length = 0;
   }

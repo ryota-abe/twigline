@@ -1,4 +1,4 @@
-import type { RawFileDiff, RawHunk, RawLineKind } from './parsers/diff';
+import type { RawFileDiff, RawLineKind } from './parsers/diff';
 
 // ---------------------------------------------------------------------------
 // PatchBuilder
@@ -111,9 +111,4 @@ export function buildPatch(diff: RawFileDiff, selectedIds: ReadonlySet<number>, 
     }
   }
   return Buffer.concat(out);
-}
-
-/** List of line IDs that select a whole hunk */
-export function hunkLineIds(hunk: RawHunk): number[] {
-  return hunk.lines.filter((l) => l.kind !== ' ').map((l) => l.id);
 }

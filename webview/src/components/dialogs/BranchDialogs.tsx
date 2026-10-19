@@ -9,7 +9,7 @@ import { integrateStatus, makesMergeCommit, mergeRequirement, mergeStashPaths, r
 import { resetStatus, type ResetMode } from '../../util/resetStatus';
 import { PrChip, prDone, prOf } from '../PullRequest';
 import { Button, Checkbox, Select } from '../ui';
-import { Advanced, DialogShell, Field, Requirement, RequirementActions, Warning, useAheadBehind, useRefCompare, useRefNameValidation, useRequest } from './Dialog';
+import { Advanced, DialogShell, Field, ModeRadios, Requirement, RequirementActions, Warning, useAheadBehind, useRefCompare, useRefNameValidation, useRequest } from './Dialog';
 import { AutostashCheckbox, StashRequirement } from './IntegrateParts';
 import { MergeStatusCard, RebaseStatusCard } from './MergeRebaseCards';
 import { ResetStatusCard } from './ResetStatusCard';
@@ -445,17 +445,7 @@ export function MergeDialog({ ref: initial }: { ref?: string }) {
       )}
       {requirement === 'unrelated' && <Requirement danger title={t('merge.need.unrelated')} detail={t('merge.need.unrelatedDetail')} />}
       {requirement === 'stash' && <StashRequirement status={ms} paths={mergeStashPaths(ms, makesMergeCommit(ms, mode))} autostash={canAutostash ? autostash : undefined} onAutostash={setAutostash} />}
-      <div role="radiogroup" aria-label={t('merge.mode')}>
-        {modes.map((m) => (
-          <label key={m.value} className="radio block">
-            <input type="radio" checked={mode === m.value} onChange={() => setMode(m.value)} />
-            <span>
-              <b>{m.label}</b>
-              <span className="dim block">{m.desc}</span>
-            </span>
-          </label>
-        ))}
-      </div>
+      <ModeRadios label={t('merge.mode')} modes={modes} value={mode} onChange={setMode} />
       <Advanced>
         <Checkbox checked={commitNow} onChange={setCommitNow} label={t('merge.commit')} disabled={mode === 'squash'} />
         {requirement !== 'stash' && canAutostash && ms.dirty.length > 0 && <AutostashCheckbox checked={autostash} onChange={setAutostash} />}
@@ -570,17 +560,7 @@ export function ResetDialog({ sha }: { sha: string }) {
         mode={mode}
         found={pr && local ? { pr, ref: local.fullName } : undefined}
       />
-      <div role="radiogroup" aria-label={t('reset.mode')}>
-        {modes.map((m) => (
-          <label key={m.value} className="radio block">
-            <input type="radio" checked={mode === m.value} onChange={() => setMode(m.value)} />
-            <span>
-              <b>{m.label}</b>
-              <span className="dim block">{m.desc}</span>
-            </span>
-          </label>
-        ))}
-      </div>
+      <ModeRadios label={t('reset.mode')} modes={modes} value={mode} onChange={setMode} />
       {mode === 'hard' && rs.discarded > 0 && <Warning danger>{t('reset.hardWarning', String(rs.discarded))}</Warning>}
     </DialogShell>
   );

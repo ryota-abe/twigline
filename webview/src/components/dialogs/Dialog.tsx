@@ -176,6 +176,23 @@ export function RequirementActions({ children }: { children: ReactNode }) {
   return <div className="row wrap">{children}</div>;
 }
 
+/** Choice of how an operation runs (merge, pull, reset): one radio per mode, each with a line that tells what it does */
+export function ModeRadios<T extends string>({ label, modes, value, onChange }: { label: string; modes: { value: T; label: string; desc: string }[]; value: T; onChange: (v: T) => void }) {
+  return (
+    <div role="radiogroup" aria-label={label}>
+      {modes.map((m) => (
+        <label key={m.value} className="radio block">
+          <input type="radio" checked={value === m.value} onChange={() => onChange(m.value)} />
+          <span>
+            <b>{m.label}</b>
+            <span className="dim block">{m.desc}</span>
+          </span>
+        </label>
+      ))}
+    </div>
+  );
+}
+
 /** Options that are rarely changed, collapsed under "Details" */
 export function Advanced({ children }: { children: ReactNode }) {
   return (
