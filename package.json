@@ -206,6 +206,11 @@
         "category": "Twigline"
       },
       {
+        "command": "twigline.panel.openTerminal",
+        "title": "%cmd.panel.openTerminal%",
+        "category": "Twigline"
+      },
+      {
         "command": "twigline.panel.settings",
         "title": "%cmd.panel.settings%",
         "category": "Twigline"
@@ -1126,6 +1131,10 @@
         },
         {
           "command": "twigline.panel.discard",
+          "when": "activeWebviewPanelId == 'twigline.repository'"
+        },
+        {
+          "command": "twigline.panel.openTerminal",
           "when": "activeWebviewPanelId == 'twigline.repository'"
         },
         {

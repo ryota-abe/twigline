@@ -26,6 +26,7 @@
   "cmd.panel.tag": "タグ…",
   "cmd.panel.stash": "スタッシュ…",
   "cmd.panel.discard": "変更を破棄…",
+  "cmd.panel.openTerminal": "統合ターミナルで開く",
   "cmd.panel.settings": "リポジトリの設定…",
   "cmd.commit.checkout": "チェックアウト…",
   "cmd.commit.createBranch": "ブランチを作成…",

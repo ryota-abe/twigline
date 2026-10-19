@@ -78,7 +78,7 @@ export type MenuCommand = (typeof MENU_COMMANDS)[number];
  * On screen they are placed by the scope they work on (not in the editor title bar, which has VS Code's own buttons at a different level).
  * - Current branch (pull, push, merge, rebase): the menu on the current branch name in the tab row
  * - Working tree (stash, discard): inside the "Uncommitted Changes" tab
- * - Whole repository (fetch, push branches, branch, tag, settings): "..." in the tab row
+ * - Whole repository (fetch, push branches, branch, tag, terminal, settings): "..." in the tab row
  * They appear in the Command Palette only while a Twigline panel is frontmost (pull, push and fetch are omitted because twigline.pull etc. exist)
  */
 export const PANEL_COMMANDS = [
@@ -92,6 +92,7 @@ export const PANEL_COMMANDS = [
   'twigline.panel.pushBranches',
   'twigline.panel.branch',
   'twigline.panel.tag',
+  'twigline.panel.openTerminal',
   'twigline.panel.settings',
 ] as const;
 

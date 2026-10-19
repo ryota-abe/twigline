@@ -459,6 +459,8 @@ export type UiAction =
   /** Sign in to read PRs (GitHub: the VS Code account; Bitbucket: an API token) */
   | { kind: 'pullRequestSignIn'; provider: PullRequestProvider }
   | { kind: 'customAction'; sha?: Sha; path?: string; ref?: string }
+  /** Show a terminal in the repository root (an open one there is reused) */
+  | { kind: 'openTerminal' }
   | { kind: 'openSettings' }
   | { kind: 'openRepo'; path: string }
   | { kind: 'removeLock' }

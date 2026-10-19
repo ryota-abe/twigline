@@ -318,6 +318,9 @@ export class VscodeEnv implements HostEnv {
         return this.pullRequestSignIn(model, action.provider);
       case 'customAction':
         return this.runCustomAction(model, action);
+      case 'openTerminal':
+        this.openTerminal(model.root);
+        return;
       case 'openSettings':
         await vscode.commands.executeCommand('workbench.action.openSettings', '@ext:ryota-abe.twigline');
         return;
@@ -407,6 +410,27 @@ export class VscodeEnv implements HostEnv {
     // Allowing use of an existing session does not send a session change notification, so have the webview re-fetch here
     model.pullRequests.invalidate();
     this.panels.post(model.id, { type: 'pr/changed' });
+  }
+
+  /**
+   * Show a terminal in the repository root, reusing one that is already there (the active one first):
+   * one whose shell reports the root as its current directory, or, without shell integration, one started in the root
+   * (custom actions' terminals run their own command, so they are not reused)
+   */
+  openTerminal(root: string): void {
+    const key = (p: string) => (process.platform === 'win32' ? path.resolve(p).toLowerCase() : path.resolve(p));
+    const target = key(root);
+    const isAtRoot = (term: vscode.Terminal) => {
+      if (term.exitStatus) return false;
+      const cwd = term.shellIntegration?.cwd;
+      if (cwd) return cwd.scheme === 'file' && key(cwd.fsPath) === target;
+      const opts = term.creationOptions;
+      if ('pty' in opts || opts.shellPath || !opts.cwd) return false;
+      return key(typeof opts.cwd === 'string' ? opts.cwd : opts.cwd.fsPath) === target;
+    };
+    const active = vscode.window.activeTerminal;
+    const found = active && isAtRoot(active) ? active : vscode.window.terminals.find(isAtRoot);
+    (found ?? vscode.window.createTerminal({ cwd: root, name: path.basename(root) })).show();
   }
 
   private async runCustomAction(model: RepoModel, ctx: { sha?: string; path?: string; ref?: string }): Promise<void> {

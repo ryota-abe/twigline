@@ -26,6 +26,7 @@
   "cmd.panel.tag": "Tag…",
   "cmd.panel.stash": "Stash…",
   "cmd.panel.discard": "Discard Changes…",
+  "cmd.panel.openTerminal": "Open in Integrated Terminal",
   "cmd.panel.settings": "Repository Settings…",
   "cmd.commit.checkout": "Checkout…",
   "cmd.commit.createBranch": "Create Branch…",
