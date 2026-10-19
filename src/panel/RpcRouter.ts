@@ -32,10 +32,7 @@ export class RpcRouter {
         r.snapshot.invalidate();
         return r.snapshot.get();
       },
-      'repo/resolve': async (p) => {
-        const res = await r.runner.run(['rev-parse', '-q', '--verify', '--end-of-options', `${p.rev}^{commit}`], { noThrow: true });
-        return res.exitCode === 0 ? res.stdout.toString('utf8').trim() : null;
-      },
+      'repo/resolve': (p, c) => r.compare.resolve(p.rev, c.signal),
       'ref/validate': async (p) => {
         if (!p.name || p.name.startsWith('-')) return { valid: false };
         const res = await r.runner.run(['check-ref-format', '--branch', p.name], { noThrow: true });

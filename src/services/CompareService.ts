@@ -79,7 +79,8 @@ export class CompareService {
     return Number(res.stdout.toString('utf8').trim()) || 0;
   }
 
-  private async resolve(rev: string, signal?: AbortSignal): Promise<Sha | null> {
+  /** The commit a revision names. null when it does not resolve */
+  async resolve(rev: string, signal?: AbortSignal): Promise<Sha | null> {
     const res = await this.repo.runner.run(['rev-parse', '-q', '--verify', '--end-of-options', `${rev}^{commit}`], { signal, noThrow: true });
     return res.exitCode === 0 ? res.stdout.toString('utf8').trim() : null;
   }

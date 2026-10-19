@@ -48,15 +48,6 @@ export function createLaneState(): LaneState {
   return { lanes: [], colors: [], nextColor: 0, waiting: new Map() };
 }
 
-export function cloneLaneState(s: LaneState): LaneState {
-  return {
-    lanes: [...s.lanes],
-    colors: [...s.colors],
-    nextColor: s.nextColor,
-    waiting: new Map([...s.waiting].map(([k, v]) => [k, [...v]])),
-  };
-}
-
 function allocate(s: LaneState, reserved: number): number {
   let i = s.lanes.indexOf(null);
   while (i >= 0 && i === reserved) i = s.lanes.indexOf(null, i + 1);

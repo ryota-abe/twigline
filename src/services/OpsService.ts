@@ -61,6 +61,22 @@ function assertRemote(name: string): string {
   return name;
 }
 
+type GitStep = Extract<Step, { type: 'git' }>;
+
+/** A local write */
+function w(args: string[], extra: Partial<GitStep> = {}): Step {
+  return { type: 'git', args, queue: 'write', ...extra };
+}
+
+/** A network operation: may ask for credentials and shows its progress */
+function net(args: string[], progress: string, extra: Partial<GitStep> = {}): Step {
+  return { type: 'git', args, queue: 'net', auth: true, progress, ...extra };
+}
+
+function deleteRemoteBranch(remote: string, branch: string): Step {
+  return net(['push', '--progress', '--delete', '--end-of-options', assertRemote(remote), assertRef(branch, 'branch name')], `Deleting ${remote}/${branch}`);
+}
+
 function kindsFor(op: Operation): ChangeKind[] {
   switch (op.kind) {
     case 'fetch':
@@ -159,7 +175,7 @@ export class OpsService {
     }
   }
 
-  private async runGitStep(step: Extract<Step, { type: 'git' }>, opts: RunOpOptions, op?: Operation): Promise<void> {
+  private async runGitStep(step: GitStep, opts: RunOpOptions, op?: Operation): Promise<void> {
     const env: Record<string, string> = { ...step.env };
     const disposables: { dispose(): void }[] = [];
     const interactive = opts.interactive !== false;
@@ -227,16 +243,6 @@ export class OpsService {
 
   /** Turn an operation into a sequence of git commands */
   async plan(op: Operation): Promise<Step[]> {
-    const w = (args: string[], extra: Partial<Extract<Step, { type: 'git' }>> = {}): Step => ({ type: 'git', args, queue: 'write', ...extra });
-    const net = (args: string[], progress: string, extra: Partial<Extract<Step, { type: 'git' }>> = {}): Step => ({
-      type: 'git',
-      args,
-      queue: 'net',
-      auth: true,
-      progress,
-      ...extra,
-    });
-
     switch (op.kind) {
       case 'checkout': {
         if (op.createTracking) {
@@ -256,9 +262,7 @@ export class OpsService {
       case 'branch/delete': {
         const steps: Step[] = [];
         if (op.names.length > 0) steps.push(w(['branch', op.force ? '-D' : '-d', '--end-of-options', ...op.names.map((n) => assertRef(n, 'branch name'))]));
-        for (const rb of op.remoteBranches ?? []) {
-          steps.push(net(['push', '--progress', '--delete', '--end-of-options', assertRemote(rb.remote), assertRef(rb.branch, 'branch name')], `Deleting ${rb.remote}/${rb.branch}`));
-        }
+        for (const rb of op.remoteBranches ?? []) steps.push(deleteRemoteBranch(rb.remote, rb.branch));
         return steps;
       }
 
@@ -271,7 +275,7 @@ export class OpsService {
           : [w(['branch', '--unset-upstream', '--end-of-options', assertRef(op.branch, 'branch name')])];
 
       case 'remoteBranch/delete':
-        return [net(['push', '--progress', '--delete', '--end-of-options', assertRemote(op.remote), assertRef(op.branch, 'branch name')], `Deleting ${op.remote}/${op.branch}`)];
+        return [deleteRemoteBranch(op.remote, op.branch)];
 
       case 'merge': {
         if (op.squash && op.noFastForward) throw new GitError('invalid', 'Squash cannot be combined with --no-ff');
@@ -534,7 +538,6 @@ export class OpsService {
   private async planSequenceControl(action: 'continue' | 'skip' | 'abort', message?: string): Promise<Step[]> {
     const seq = this.repo.snapshot.readSequence();
     if (!seq) throw new GitError('invalid', 'No operation is in progress');
-    const w = (args: string[], extra: Partial<Extract<Step, { type: 'git' }>> = {}): Step => ({ type: 'git', args, queue: 'write', ...extra });
     switch (seq.kind) {
       case 'merge':
         if (action === 'abort') return [w(['merge', '--abort'])];

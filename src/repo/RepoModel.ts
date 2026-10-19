@@ -20,8 +20,6 @@ import { toRepoId } from './repoId';
 
 export const ALL_KINDS: ChangeKind[] = ['status', 'refs', 'head', 'stash', 'sequence', 'config'];
 
-export { toRepoId };
-
 export interface GitInfo {
   path: string;
   version: string;

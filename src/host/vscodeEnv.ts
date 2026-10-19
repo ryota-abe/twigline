@@ -353,8 +353,7 @@ export class VscodeEnv implements HostEnv {
         title = `${name} (${t('Index')})`;
         break;
       case 'commit': {
-        const parents = await model.diff.parentsOf(target.sha);
-        const parent = parents[Math.min(target.parent ?? 0, Math.max(parents.length - 1, 0))];
+        const parent = await model.diff.parentOf(target.sha, target.parent);
         left = parent ? revUri(model.root, parent, oldRel) : revUri(model.root, '4b825dc642cb6eb9a060e54bf8d69288fbee4904', oldRel);
         right = revUri(model.root, target.sha, rel);
         title = `${name} (${parent ? parent.slice(0, 7) : '∅'} ↔ ${target.sha.slice(0, 7)})`;

@@ -202,21 +202,23 @@ function isDots(q: LogQuery): boolean {
 
 const DOT: GraphRow = { lane: 0, color: 0, up: [], through: [], down: [], width: 1 };
 
-function graphFor(rows: LogRow[], showUncommitted: boolean, head: string | null | undefined, dots: boolean) {
+/** The graph of these rows, with the "Uncommitted Changes" row on top when it is shown */
+function graphFor(s: TwiglineState, rows: LogRow[]) {
+  const showUncommitted = computeShowUncommitted(s);
+  const dotsOnly = isDots(s.query);
+  const head = s.snapshot?.head.sha;
   const all: { sha: string; parents: string[] }[] = showUncommitted && head ? [{ sha: UNCOMMITTED, parents: [head] }, ...rows] : rows;
-  if (dots) return { graphRows: all.map(() => DOT), laneState: createLaneState(), maxLanes: 1 };
+  if (dotsOnly) return { showUncommitted, dotsOnly, graphRows: all.map(() => DOT), laneState: createLaneState(), maxLanes: 1 };
   const laneState = createLaneState();
   const graphRows = layoutRows(laneState, all);
   let maxLanes = 1;
   for (const g of graphRows) if (g.width > maxLanes) maxLanes = g.width;
-  return { graphRows, laneState, maxLanes };
+  return { showUncommitted, dotsOnly, graphRows, laneState, maxLanes };
 }
 
 export function recomputeGraph(): void {
   const s = get();
-  const showUncommitted = computeShowUncommitted(s);
-  const dots = isDots(s.query);
-  set({ showUncommitted, dotsOnly: dots, ...graphFor(s.rows, showUncommitted, s.snapshot?.head.sha, dots) });
+  set(graphFor(s, s.rows));
 }
 
 export async function reloadLog(opts: { keep?: boolean } = {}): Promise<void> {
@@ -231,23 +233,14 @@ export async function reloadLog(opts: { keep?: boolean } = {}): Promise<void> {
     const page = await rpc.request('log/page', { repo: repo(), query: s.query, offset: 0, limit }, ctrl.signal);
     if (gen !== logGen) return;
     const cur = get();
-    const showUncommitted = computeShowUncommitted(cur);
-    const dots = isDots(cur.query);
-    set({
-      rows: page.rows,
-      cursor: page.cursor,
-      logDone: page.done,
-      logLoading: false,
-      showUncommitted,
-      dotsOnly: dots,
-      ...graphFor(page.rows, showUncommitted, cur.snapshot?.head.sha, dots),
-    });
+    const graph = graphFor(cur, page.rows);
+    set({ rows: page.rows, cursor: page.cursor, logDone: page.done, logLoading: false, ...graph });
     const sel = get().selected;
     if (!opts.keep) {
       // On the first display, select the first row
-      const first = showUncommitted ? UNCOMMITTED : page.rows[0]?.sha;
+      const first = graph.showUncommitted ? UNCOMMITTED : page.rows[0]?.sha;
       if (first && sel.length === 0) selectRow(first, {});
-    } else if (sel.length === 1 && sel[0] === UNCOMMITTED && !showUncommitted) {
+    } else if (sel.length === 1 && sel[0] === UNCOMMITTED && !graph.showUncommitted) {
       // If the "Uncommitted Changes" row disappears (after a commit, for example), select HEAD
       const head = cur.snapshot?.head.sha ?? page.rows[0]?.sha;
       if (head) selectRow(head, {});
@@ -397,10 +390,6 @@ export async function loadDetail(parent?: number): Promise<void> {
   const ctrl = (detailCtrl = new AbortController());
   const s = get();
   const shas = s.selected.filter((x) => x !== UNCOMMITTED);
-  if (s.selected.length === 1 && s.selected[0] === UNCOMMITTED) {
-    set({ detail: null, detailFile: null, detailDiff: null, detailLoading: false });
-    return;
-  }
   if (shas.length === 0 || shas.length > 2) {
     set({ detail: null, detailFile: null, detailDiff: null, detailLoading: false });
     return;

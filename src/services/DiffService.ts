@@ -54,6 +54,12 @@ export class DiffService {
     return parents;
   }
 
+  /** The parent a commit is diffed against (the first one unless another is chosen). undefined for a root commit */
+  async parentOf(sha: Sha, index = 0): Promise<Sha | undefined> {
+    const parents = await this.parentsOf(sha);
+    return parents[Math.min(index, parents.length - 1)];
+  }
+
   // -------------------------------------------------------------------------
   // Commit details
   // -------------------------------------------------------------------------
@@ -116,6 +122,8 @@ export class DiffService {
     const target = p.target;
     let conflicted = false;
 
+    // A rename is diffed with both of its paths
+    const paths = oldRel && oldRel !== rel ? [oldRel, rel] : [rel];
     let args: string[];
     let okExitCodes: number[] | undefined;
     if (target.kind === 'worktree' && p.untracked) {
@@ -130,16 +138,11 @@ export class DiffService {
     } else if (target.kind === 'index') {
       args = ['diff', '--cached', ...DIFF_COMMON, '--no-renames', `-U${context}`, ...ws, '--', rel];
     } else if (target.kind === 'commit') {
-      const parents = await this.parentsOf(target.sha);
-      const paths = oldRel && oldRel !== rel ? [oldRel, rel] : [rel];
-      if (parents.length === 0) {
-        args = ['diff-tree', '-p', '-r', '--root', '--no-commit-id', '-M', ...DIFF_COMMON, `-U${context}`, ...ws, target.sha, '--', ...paths];
-      } else {
-        const parent = parents[Math.min(target.parent ?? 0, parents.length - 1)];
-        args = ['diff', ...DIFF_COMMON, '-M', `-U${context}`, ...ws, parent, target.sha, '--', ...paths];
-      }
+      const parent = await this.parentOf(target.sha, target.parent);
+      args = parent
+        ? ['diff', ...DIFF_COMMON, '-M', `-U${context}`, ...ws, parent, target.sha, '--', ...paths]
+        : ['diff-tree', '-p', '-r', '--root', '--no-commit-id', '-M', ...DIFF_COMMON, `-U${context}`, ...ws, target.sha, '--', ...paths];
     } else {
-      const paths = oldRel && oldRel !== rel ? [oldRel, rel] : [rel];
       args = ['diff', ...DIFF_COMMON, '-M', `-U${context}`, ...ws, target.from, target.to, '--', ...paths];
     }
 
@@ -285,8 +288,7 @@ export class DiffService {
       case 'index':
         return { before: await blob(`HEAD:${rel}`), after: await blob(`:${rel}`) };
       case 'commit': {
-        const parents = await this.parentsOf(target.sha);
-        const parent = parents[Math.min(target.parent ?? 0, Math.max(parents.length - 1, 0))];
+        const parent = await this.parentOf(target.sha, target.parent);
         return { before: parent ? await blob(`${parent}:${before}`) : undefined, after: await blob(`${target.sha}:${rel}`) };
       }
       case 'range':
