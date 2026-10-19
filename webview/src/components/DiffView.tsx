@@ -21,6 +21,7 @@ export function DiffView({ diff, onShowAll }: { diff: FileDiff; onShowAll?: () =
   const lineSel = useStore((s) => s.lineSel);
   const lineAnchor = useStore((s) => s.lineAnchor);
   const opts = useStore((s) => s.diffOpts);
+  const untrackedIn = useStore((s) => s.detailFile?.untrackedIn);
   const syntaxEnabled = useStore((s) => s.config?.syntaxHighlight ?? true);
   const scrollRef = useRef<HTMLDivElement>(null);
   const dragging = useRef(false);
@@ -114,6 +115,7 @@ export function DiffView({ diff, onShowAll }: { diff: FileDiff; onShowAll?: () =
 
   const hunkIds = (h: DiffHunk) => h.lines.filter((l) => l.kind !== ' ').map((l) => l.id);
 
+  // An untracked file of a stash is diffed from the stash's untracked-files commit, whose SHA is not the stash's
   const targetLabel =
     target.kind === 'worktree'
       ? untracked
@@ -121,9 +123,11 @@ export function DiffView({ diff, onShowAll }: { diff: FileDiff; onShowAll?: () =
         : t('diff.unstaged')
       : target.kind === 'index'
         ? t('diff.staged')
-        : target.kind === 'commit'
-          ? shortSha(target.sha)
-          : `${shortSha(target.from)}..${shortSha(target.to)}`;
+        : target.kind === 'commit' && target.sha === untrackedIn
+          ? t('diff.untracked')
+          : target.kind === 'commit'
+            ? shortSha(target.sha)
+            : `${shortSha(target.from)}..${shortSha(target.to)}`;
 
   return (
     <div className="diff">

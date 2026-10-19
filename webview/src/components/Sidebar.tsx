@@ -172,17 +172,21 @@ export function Sidebar() {
       <Section id="stashes" title={t('side.stashes')} collapsed={sectionCollapsed('stashes')}>
         {stashes.map((s) => (
           <div
-            key={s.sha}
+            key={s.index}
             className="side-item"
             role="treeitem"
             data-vscode-context={vsContext('stash', { repo, index: s.index, sha: s.sha })}
             onClick={() => {
               selectRow(s.sha, {});
             }}
-            title={s.message}
+            title={`stash@{${s.index}}: ${s.message}`}
           >
             <Icon name="archive" />
             <span className="label">{s.message}</span>
+            {/* Messages repeat (every autostash is "autostash"), so the index tells the entries apart */}
+            <span className="side-trail">
+              <span className="track">{`stash@{${s.index}}`}</span>
+            </span>
           </div>
         ))}
       </Section>
