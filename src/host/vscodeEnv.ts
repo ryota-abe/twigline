@@ -13,7 +13,8 @@ import type { RepositoryManager } from '../repo/RepositoryManager';
 import type { Disposable } from '../util/event';
 import { hostedRemotes, pullRequestUrl } from '../util/hosting';
 import type { PullRequestCredential } from '../util/pullRequests';
-import { readConfig, readCustomActions } from './config';
+import { resolveTerminalProfile, type ShellLaunch } from '../util/terminalProfile';
+import { readConfig, readCustomActions, terminalProfileSetting, terminalProfiles } from './config';
 import type { SyntaxRegistry, ThemeKind } from '../syntax/SyntaxRegistry';
 import type { HostEnv, SyntaxProvider } from './HostEnv';
 import { revUri } from './RevisionContentProvider';
@@ -28,6 +29,8 @@ export class VscodeEnv implements HostEnv {
 
   private registry?: SyntaxRegistry;
   private readonly subscriptions: vscode.Disposable[] = [];
+  /** Terminals of custom actions, which run their own command and are not reused */
+  private readonly actionTerminals = new WeakSet<vscode.Terminal>();
 
   constructor(private readonly context: vscode.ExtensionContext) {
     // Syntax highlighting: when the theme, color settings or extensions change, have the webview re-read them
@@ -319,8 +322,7 @@ export class VscodeEnv implements HostEnv {
       case 'customAction':
         return this.runCustomAction(model, action);
       case 'openTerminal':
-        this.openTerminal(model.root);
-        return;
+        return this.openTerminal(model.root);
       case 'openSettings':
         await vscode.commands.executeCommand('workbench.action.openSettings', '@ext:ryota-abe.twigline');
         return;
@@ -413,24 +415,32 @@ export class VscodeEnv implements HostEnv {
   }
 
   /**
-   * Show a terminal in the repository root, reusing one that is already there (the active one first):
-   * one whose shell reports the root as its current directory, or, without shell integration, one started in the root
-   * (custom actions' terminals run their own command, so they are not reused)
+   * Show a terminal in the repository root with the shell of twigline.terminal.profile (VS Code's default profile when empty).
+   * A terminal already there with that shell is reused (the active one first): its shell reports the root as its current directory,
+   * or, without shell integration, it was started in the root. Custom actions' terminals are not reused
    */
-  openTerminal(root: string): void {
+  async openTerminal(root: string): Promise<void> {
+    const name = terminalProfileSetting();
+    let launch: ShellLaunch | undefined;
+    if (name) {
+      const gitPath = await this.repos.git().then((g) => g.path, () => undefined);
+      launch = resolveTerminalProfile(name, { profiles: terminalProfiles(), platform: process.platform, env: process.env, gitPath, exists: existsSync });
+      if (!launch) void vscode.window.showWarningMessage(t('The terminal profile "{0}" (twigline.terminal.profile) was not found. The default terminal is opened instead.', name));
+    }
     const key = (p: string) => (process.platform === 'win32' ? path.resolve(p).toLowerCase() : path.resolve(p));
     const target = key(root);
-    const isAtRoot = (term: vscode.Terminal) => {
-      if (term.exitStatus) return false;
-      const cwd = term.shellIntegration?.cwd;
-      if (cwd) return cwd.scheme === 'file' && key(cwd.fsPath) === target;
+    const shell = launch && key(launch.shellPath);
+    const reusable = (term: vscode.Terminal) => {
+      if (term.exitStatus || this.actionTerminals.has(term)) return false;
       const opts = term.creationOptions;
-      if ('pty' in opts || opts.shellPath || !opts.cwd) return false;
-      return key(typeof opts.cwd === 'string' ? opts.cwd : opts.cwd.fsPath) === target;
+      if ('pty' in opts) return false;
+      if (shell && (!opts.shellPath || key(opts.shellPath) !== shell)) return false;
+      const cwd = term.shellIntegration?.cwd ?? (typeof opts.cwd === 'string' ? vscode.Uri.file(opts.cwd) : opts.cwd);
+      return cwd?.scheme === 'file' && key(cwd.fsPath) === target;
     };
     const active = vscode.window.activeTerminal;
-    const found = active && isAtRoot(active) ? active : vscode.window.terminals.find(isAtRoot);
-    (found ?? vscode.window.createTerminal({ cwd: root, name: path.basename(root) })).show();
+    const found = active && reusable(active) ? active : vscode.window.terminals.find(reusable);
+    (found ?? vscode.window.createTerminal({ cwd: root, name: path.basename(root), ...launch })).show();
   }
 
   private async runCustomAction(model: RepoModel, ctx: { sha?: string; path?: string; ref?: string }): Promise<void> {
@@ -457,7 +467,9 @@ export class VscodeEnv implements HostEnv {
     };
     const args = (picked.action.args ?? []).map((a) => a.replace(/\$\{(\w+)\}/g, (m, k: string) => (k in vars ? vars[k] : m)));
     if (picked.action.terminal) {
-      vscode.window.createTerminal({ name: picked.action.name, shellPath: picked.action.command, shellArgs: args, cwd: model.root }).show();
+      const term = vscode.window.createTerminal({ name: picked.action.name, shellPath: picked.action.command, shellArgs: args, cwd: model.root });
+      this.actionTerminals.add(term);
+      term.show();
       return;
     }
     this.output.appendLine(`> ${picked.action.command} ${args.join(' ')}`);

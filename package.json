@@ -1190,6 +1190,15 @@
           "scope": "machine",
           "markdownDescription": "%config.gitPath%"
         },
+        "twigline.terminal.profile": {
+          "type": "string",
+          "default": "",
+          "scope": "window",
+          "markdownDescription": "%config.terminal.profile%",
+          "examples": [
+            "Git Bash"
+          ]
+        },
         "twigline.history.order": {
           "type": "string",
           "default": "date",

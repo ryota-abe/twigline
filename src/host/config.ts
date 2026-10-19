@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import type { TwiglineConfig } from '../../shared/protocol';
+import type { TerminalProfile } from '../util/terminalProfile';
 
 export const DEFAULT_GRAPH_COLORS = ['#2f6bd8', '#c0397f', '#c98410', '#2c9a58', '#7a4fd0', '#d0503a', '#1a93a8', '#8a8f1f'];
 
@@ -54,4 +55,17 @@ export function gitPathSetting(): string | undefined {
   const inspected = vscode.workspace.getConfiguration('twigline').inspect<string>('gitPath');
   const v = inspected?.globalValue;
   return v && v.trim() ? v.trim() : undefined;
+}
+
+/** twigline.terminal.profile: the name of the terminal profile to open, or undefined for VS Code's default profile */
+export function terminalProfileSetting(): string | undefined {
+  const v = vscode.workspace.getConfiguration('twigline', null).get<string>('terminal.profile', '');
+  return v.trim() || undefined;
+}
+
+/** terminal.integrated.profiles.<os>. Only user settings, like twigline.gitPath: the shell to run is not taken from workspace settings */
+export function terminalProfiles(): Record<string, TerminalProfile | null> {
+  const os = process.platform === 'win32' ? 'windows' : process.platform === 'darwin' ? 'osx' : 'linux';
+  const inspected = vscode.workspace.getConfiguration('terminal.integrated', null).inspect<Record<string, TerminalProfile | null>>(`profiles.${os}`);
+  return { ...inspected?.defaultValue, ...inspected?.globalValue };
 }

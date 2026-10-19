@@ -89,6 +89,7 @@
   "view.repositories": "リポジトリ",
   "view.repositories.welcome": "このワークスペースには Git リポジトリがありません。\n[フォルダーを開く](command:vscode.openFolder)\n[リポジトリをクローン](command:git.clone)",
   "config.gitPath": "git 実行ファイルのパス。空なら組み込みの Git 拡張が使っている git を使います。ユーザー設定でのみ設定できます。",
+  "config.terminal.profile": "「統合ターミナルで開く」で使うターミナルのプロファイル。ターミナルのプロファイル一覧に出る名前で指定します（例: `Git Bash`）。空なら VS Code の既定のプロファイルを使います。プロファイルはユーザー設定の `terminal.integrated.profiles.*` から読みます。`Git Bash` は Twigline が使う git の場所から探します。",
   "config.history.order": "履歴の並び順。",
   "config.history.order.date": "日付順（`--date-order`）",
   "config.history.order.topo": "祖先順（`--topo-order`）",

@@ -36,6 +36,7 @@
   "No": "いいえ",
   "No Git repository was found.": "Git リポジトリが見つかりません。",
   "No custom actions are configured (twigline.customActions).": "カスタムアクションが設定されていません（twigline.customActions）。",
+  "The terminal profile \"{0}\" (twigline.terminal.profile) was not found. The default terminal is opened instead.": "ターミナルのプロファイル「{0}」（twigline.terminal.profile）が見つかりません。既定のターミナルを開きます。",
   "No pull request was found for this branch.": "このブランチのプルリクエストが見つかりません。",
   "No remote is configured.": "リモートが設定されていません。",
   "Open Settings": "設定を開く",

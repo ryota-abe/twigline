@@ -41,6 +41,7 @@ Fetch / pull / push are available as commands, so you can bind them to keys of y
 
 The repository list in the Activity Bar shows each repository's branch, the number of changed files (badge), and a rebase, merge, cherry-pick or revert that has stopped (yellow; red with `!` when there are conflicts).
 Hovering a row shows fetch / pull / push; right-click also offers opening it in the integrated terminal and copying its path. The gear in the title opens Twigline's settings.
+"Open in Integrated Terminal" (here or under "…" in the panel) shows a terminal already open in the repository instead of opening another. To open a shell other than VS Code's default, such as Git Bash, set `twigline.terminal.profile` to the profile's name.
 
 When the panel opens, it shows the "Uncommitted Changes" tab if there are uncommitted changes, and the "History" tab otherwise.
 History has a single search box; a prefix selects the kind of search.

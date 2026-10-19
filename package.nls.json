@@ -89,6 +89,7 @@
   "view.repositories": "Repositories",
   "view.repositories.welcome": "No Git repositories were found in this workspace.\n[Open Folder](command:vscode.openFolder)\n[Clone Repository](command:git.clone)",
   "config.gitPath": "Path to the git executable. When empty, the git used by the built-in Git extension is used. Can only be set in user settings.",
+  "config.terminal.profile": "Terminal profile used by \"Open in Integrated Terminal\", by its name in the terminal's profile list (e.g. `Git Bash`). When empty, VS Code's default profile is used. Profiles are read from `terminal.integrated.profiles.*` in user settings; `Git Bash` is found next to the git Twigline uses.",
   "config.history.order": "Order of the commit history.",
   "config.history.order.date": "Date order (`--date-order`)",
   "config.history.order.topo": "Ancestor order (`--topo-order`)",
