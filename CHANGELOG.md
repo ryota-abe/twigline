@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.6.1
+
+Stashes with untracked files, and telling stashes apart.
+
+- Fixed: the details of a stash made with untracked files (`--include-untracked` or `--all`) listed only the tracked changes; the untracked files are now listed too (status `?`), and their diff opens from the stash
+- The sidebar shows each stash's `stash@{n}` next to its message, so stashes with the same message (every autostash is "autostash") can be told apart
+
 ## 0.6.0
 
 The repository list in the Activity Bar shows each repository's state and gets its own actions.
