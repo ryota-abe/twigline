@@ -218,6 +218,45 @@ describe('DiffService + StageService', () => {
     expect(fd.hunks).toEqual([]);
     expect(fd.lineOps).toBe(false);
   });
+
+  it('lists the untracked files of a stash and diffs them from its untracked-files commit', async () => {
+    const r = repo();
+    r.commit('base', { 'a.txt': '1\n' });
+    r.write('a.txt', '2\n');
+    r.write('b.txt', 'staged\n');
+    r.git(['add', 'b.txt']);
+    r.write('c.txt', 'untracked\n');
+    r.git(['stash', 'push', '-u', '-q', '-m', 'wip']);
+    const untracked = r.git(['rev-parse', 'stash^3']).trim();
+    const m = await model(r);
+    const sha = (await m.snapshot.get()).stashes[0].sha;
+    const d = await m.diff.commitDetail(sha, undefined, undefined);
+    expect(d.files).toEqual([
+      { path: 'a.txt', status: 'M', additions: 1, deletions: 1 },
+      { path: 'b.txt', status: 'A', additions: 1, deletions: 0 },
+      { path: 'c.txt', status: '?', additions: 1, deletions: 0, untrackedIn: untracked },
+    ]);
+    const fd = await m.diff.get({ target: { kind: 'commit', sha: untracked }, path: 'c.txt', context: 3, ignoreWhitespace: false });
+    expect(fd.fileMode).toBe('added');
+    expect(fd.hunks[0].lines.map((l) => `${l.kind}${l.text}`)).toEqual(['+untracked']);
+  });
+
+  it('does not treat a merge commit with three parents as a stash', async () => {
+    const r = repo();
+    const base = r.commit('base', { 'a.txt': '1\n' });
+    for (const b of ['x', 'y']) {
+      r.git(['checkout', '-q', '-b', b, base]);
+      r.commit(b, { [`${b}.txt`]: `${b}\n` });
+    }
+    r.git(['checkout', '-q', 'main']);
+    r.git(['merge', '-q', '--no-ff', '--no-edit', 'x', 'y']);
+    const sha = r.git(['rev-parse', 'HEAD']).trim();
+    const m = await model(r);
+    const d = await m.diff.commitDetail(sha, undefined, undefined);
+    expect(d.parents).toHaveLength(3);
+    expect(d.files.map((f) => f.path)).toEqual(['x.txt', 'y.txt']);
+    expect(d.files.some((f) => f.untrackedIn)).toBe(false);
+  });
 });
 
 describe('OpsService', () => {

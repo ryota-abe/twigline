@@ -1,6 +1,7 @@
 import type {
   ChangeKind,
   ChangedFile,
+  CommitDetail,
   CommitInfo,
   DiffTarget,
   FileDiff,
@@ -450,11 +451,17 @@ async function fetchDiff(target: DiffTarget, path: string, extra: { oldPath?: st
   }
 }
 
+/** What a file of the details is diffed against. An untracked file of a stash comes from the stash's untracked-files commit */
+export function detailFileTarget(d: CommitDetail, file: ChangedFile): DiffTarget {
+  if (file.untrackedIn) return { kind: 'commit', sha: file.untrackedIn };
+  return d.compareTo ? { kind: 'range', from: d.compareTo, to: d.sha } : { kind: 'commit', sha: d.sha, parent: d.parentIndex };
+}
+
 export async function selectDetailFile(file: ChangedFile, full = false): Promise<void> {
   const d = get().detail;
   if (!d) return;
   set({ detailFile: file, lineSel: [], lineAnchor: null });
-  const target: DiffTarget = d.compareTo ? { kind: 'range', from: d.compareTo, to: d.sha } : { kind: 'commit', sha: d.sha, parent: d.parentIndex };
+  const target = detailFileTarget(d, file);
   const diff = await fetchDiff(target, file.path, { oldPath: file.oldPath, full });
   if (diff && get().detailFile?.path === file.path) set({ detailDiff: diff });
 }

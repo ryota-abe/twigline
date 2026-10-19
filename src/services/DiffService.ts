@@ -77,6 +77,16 @@ export class DiffService {
     } else {
       filesOut = (await r.run(['diff-tree', '-r', '-z', '-M', '--raw', '--numstat', '--no-commit-id', parents[parentIndex], full], { signal })).stdout;
     }
+    const files = parseRawNumstat(filesOut);
+    // A stash made with --include-untracked or --all keeps the untracked files in its third parent, not in its own tree
+    if (!compareTo && parents.length >= 3 && (await this.repo.snapshot.get()).stashes.some((s) => s.sha === full)) {
+      const untracked = parents[2];
+      const out = (await r.run(['diff-tree', '-r', '-z', '--raw', '--numstat', '--root', '--no-commit-id', untracked], { signal })).stdout;
+      const seen = new Set(files.map((f) => f.path));
+      for (const f of parseRawNumstat(out)) {
+        if (!seen.has(f.path)) files.push({ ...f, status: '?', untrackedIn: untracked });
+      }
+    }
     return {
       sha: full,
       parents,
@@ -87,7 +97,7 @@ export class DiffService {
       committerEmail,
       commitTime: Number(ct) || 0,
       message: body.join('\0').replace(/\n+$/, ''),
-      files: parseRawNumstat(filesOut),
+      files,
       compareTo,
       parentIndex,
     };

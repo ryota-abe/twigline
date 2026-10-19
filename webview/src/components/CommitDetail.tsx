@@ -1,6 +1,6 @@
 import type { ChangedFile, CommitDetail } from '../../../shared/protocol';
 import { t } from '../i18n';
-import { copyText, loadDetail, saveUi, selectDetailFile, selectRow, selectWorkingFile, uiAction } from '../store/actions';
+import { copyText, detailFileTarget, loadDetail, saveUi, selectDetailFile, selectRow, selectWorkingFile, uiAction } from '../store/actions';
 import { useStore } from '../store/store';
 import { UNCOMMITTED, fullDate, shortSha } from '../util/format';
 import { DiffView } from './DiffView';
@@ -74,7 +74,9 @@ function CommitMeta({ detail }: { detail: CommitDetail }) {
   const isStash = refs.stashes.has(detail.sha);
 
   const fileContext = (f: ChangedFile) =>
-    vsContext('file.commit', { repo, path: f.path, sha: detail.sha, oldPath: f.oldPath ?? '', compareTo: detail.compareTo ?? '', parent: detail.parentIndex });
+    f.untrackedIn
+      ? vsContext('file.commit', { repo, path: f.path, sha: f.untrackedIn, oldPath: '', compareTo: '', parent: 0 })
+      : vsContext('file.commit', { repo, path: f.path, sha: detail.sha, oldPath: f.oldPath ?? '', compareTo: detail.compareTo ?? '', parent: detail.parentIndex });
 
   return (
     <div className="meta">
@@ -150,7 +152,7 @@ function CommitMeta({ detail }: { detail: CommitDetail }) {
           onOpen={(f) =>
             uiAction({
               kind: 'openDiff',
-              target: detail.compareTo ? { kind: 'range', from: detail.compareTo, to: detail.sha } : { kind: 'commit', sha: detail.sha, parent: detail.parentIndex },
+              target: detailFileTarget(detail, f),
               path: f.path,
               oldPath: f.oldPath,
             })

@@ -196,6 +196,8 @@ export interface ChangedFile {
   additions?: number;
   deletions?: number;
   binary?: boolean;
+  /** Untracked file of a stash: the stash's untracked-files commit (a root commit holding only them), which the diff is taken from */
+  untrackedIn?: Sha;
 }
 
 export interface CommitDetail {
