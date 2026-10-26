@@ -251,8 +251,24 @@ export function CheckoutDialog({ sha, remoteRef, remote }: { sha?: string; remot
     return <RemoteCheckout remoteRef={remoteRef} defaultName={short} existing={existing} />;
   }
 
-  const branchesHere = locals.filter((r) => r.sha === sha && !r.isHead);
-  return <CommitCheckout sha={sha!} branches={branchesHere.map((r) => r.name)} />;
+  const localsHere = locals.filter((r) => r.sha === sha);
+  // A remote branch already reachable through a local branch at the commit (same name or its upstream) is not offered again
+  const remotesHere = snapshot.refs.filter(
+    (r) => r.kind === 'remote' && r.sha === sha && !localsHere.some((l) => l.name === remoteShortName(r) || l.upstream === r.name),
+  );
+  return (
+    <CommitCheckout
+      sha={sha!}
+      branches={localsHere.filter((r) => !r.isHead).map((r) => r.name)}
+      remoteBranches={remotesHere}
+      existing={existing}
+    />
+  );
+}
+
+/** Branch name of a remote branch without the remote (origin/feature/x -> feature/x) */
+function remoteShortName(r: RefInfo): string {
+  return r.remote ? r.name.slice(r.remote.length + 1) : r.name.slice(r.name.indexOf('/') + 1);
 }
 
 function RemoteCheckout({ remoteRef, defaultName, existing }: { remoteRef: string; defaultName: string; existing: string[] }) {
@@ -294,30 +310,61 @@ function RemoteCheckout({ remoteRef, defaultName, existing }: { remoteRef: strin
   );
 }
 
-function CommitCheckout({ sha, branches }: { sha: string; branches: string[] }) {
-  const [choice, setChoice] = useState<string>(branches[0] ?? '');
-  const op: Operation = choice ? { kind: 'checkout', ref: choice } : { kind: 'checkout', ref: sha, detach: true };
+type CommitChoice = { kind: 'local' | 'remote'; ref: string } | { kind: 'detached' };
+
+function CommitCheckout({ sha, branches, remoteBranches, existing }: { sha: string; branches: string[]; remoteBranches: RefInfo[]; existing: string[] }) {
+  // Name proposed for the local branch tracking a remote branch (empty when a local branch of that name already exists)
+  const trackingName = (r: RefInfo) => (existing.includes(remoteShortName(r)) ? '' : remoteShortName(r));
+  const [choice, setChoice] = useState<CommitChoice>(() =>
+    branches.length > 0 ? { kind: 'local', ref: branches[0] } : remoteBranches.length > 0 ? { kind: 'remote', ref: remoteBranches[0].name } : { kind: 'detached' },
+  );
+  const [name, setName] = useState(() => (remoteBranches.length > 0 && branches.length === 0 ? trackingName(remoteBranches[0]) : ''));
+  const validation = useRefNameValidation(choice.kind === 'remote' ? name : '', existing);
+  const op: Operation | null =
+    choice.kind === 'local'
+      ? { kind: 'checkout', ref: choice.ref }
+      : choice.kind === 'remote'
+        ? validation.valid
+          ? { kind: 'checkout', ref: choice.ref, createTracking: name.trim() }
+          : null
+        : { kind: 'checkout', ref: sha, detach: true };
+  const pickRemote = (r: RefInfo) => {
+    setChoice({ kind: 'remote', ref: r.name });
+    setName(trackingName(r));
+  };
   return (
     <DialogShell
       title={t('checkout.commitTitle', shortSha(sha))}
       okLabel={t('checkout.ok')}
+      okDisabled={!op}
       preview={op}
       onOk={async () => {
         closeDialog();
-        await runOp(op);
+        if (op) await runOp(op);
       }}
     >
       {branches.map((b) => (
         <label key={b} className="radio">
-          <input type="radio" checked={choice === b} onChange={() => setChoice(b)} />
+          <input type="radio" checked={choice.kind === 'local' && choice.ref === b} onChange={() => setChoice({ kind: 'local', ref: b })} />
           {t('checkout.branchAtCommit', b)}
         </label>
       ))}
+      {remoteBranches.map((r) => (
+        <label key={r.name} className="radio">
+          <input type="radio" checked={choice.kind === 'remote' && choice.ref === r.name} onChange={() => pickRemote(r)} />
+          {t('checkout.remoteAtCommit', r.name)}
+        </label>
+      ))}
+      {choice.kind === 'remote' && (
+        <Field label={t('branch.name')} error={name.trim() ? validation.message : undefined} hint={t('checkout.trackHint', choice.ref)}>
+          <input className="input" value={name} onChange={(e) => setName(e.target.value)} />
+        </Field>
+      )}
       <label className="radio">
-        <input type="radio" checked={choice === ''} onChange={() => setChoice('')} />
+        <input type="radio" checked={choice.kind === 'detached'} onChange={() => setChoice({ kind: 'detached' })} />
         {t('checkout.detached')}
       </label>
-      {choice === '' && <Warning>{t('checkout.detachedWarning')}</Warning>}
+      {choice.kind === 'detached' && <Warning>{t('checkout.detachedWarning')}</Warning>}
     </DialogShell>
   );
 }
