@@ -415,17 +415,19 @@ export class VscodeEnv implements HostEnv {
   }
 
   /**
-   * Show a terminal in the repository root with the shell of twigline.terminal.profile (VS Code's default profile when empty).
+   * Show a terminal in the repository root with the shell of twigline.terminal.profile (see terminalProfileSetting).
    * A terminal already there with that shell is reused (the active one first): its shell reports the root as its current directory,
    * or, without shell integration, it was started in the root. Custom actions' terminals are not reused
    */
   async openTerminal(root: string): Promise<void> {
-    const name = terminalProfileSetting();
+    const profile = terminalProfileSetting();
     let launch: ShellLaunch | undefined;
-    if (name) {
+    if (profile) {
       const gitPath = await this.repos.git().then((g) => g.path, () => undefined);
-      launch = resolveTerminalProfile(name, { profiles: terminalProfiles(), platform: process.platform, env: process.env, gitPath, exists: existsSync });
-      if (!launch) void vscode.window.showWarningMessage(t('The terminal profile "{0}" (twigline.terminal.profile) was not found. The default terminal is opened instead.', name));
+      launch = resolveTerminalProfile(profile.name, { profiles: terminalProfiles(), platform: process.platform, env: process.env, gitPath, exists: existsSync });
+      if (!launch && profile.explicit) {
+        void vscode.window.showWarningMessage(t('The terminal profile "{0}" (twigline.terminal.profile) was not found. The default terminal is opened instead.', profile.name));
+      }
     }
     const key = (p: string) => (process.platform === 'win32' ? path.resolve(p).toLowerCase() : path.resolve(p));
     const target = key(root);

@@ -1196,7 +1196,8 @@
           "scope": "window",
           "markdownDescription": "%config.terminal.profile%",
           "examples": [
-            "Git Bash"
+            "Git Bash",
+            "default"
           ]
         },
         "twigline.history.order": {

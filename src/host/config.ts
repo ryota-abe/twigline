@@ -57,10 +57,17 @@ export function gitPathSetting(): string | undefined {
   return v && v.trim() ? v.trim() : undefined;
 }
 
-/** twigline.terminal.profile: the name of the terminal profile to open, or undefined for VS Code's default profile */
-export function terminalProfileSetting(): string | undefined {
-  const v = vscode.workspace.getConfiguration('twigline', null).get<string>('terminal.profile', '');
-  return v.trim() || undefined;
+/**
+ * The terminal profile to open (twigline.terminal.profile), or undefined for VS Code's default profile (`default`).
+ * When empty on Windows, Git Bash, unless a default profile is chosen in VS Code (terminal.integrated.defaultProfile.windows).
+ * explicit: named in the setting (a profile that is not found is reported)
+ */
+export function terminalProfileSetting(): { name: string; explicit: boolean } | undefined {
+  const v = vscode.workspace.getConfiguration('twigline', null).get<string>('terminal.profile', '').trim();
+  if (v === 'default') return undefined;
+  if (v) return { name: v, explicit: true };
+  if (process.platform !== 'win32' || vscode.workspace.getConfiguration('terminal.integrated', null).get<string | null>('defaultProfile.windows')) return undefined;
+  return { name: 'Git Bash', explicit: false };
 }
 
 /** terminal.integrated.profiles.<os>. Only user settings, like twigline.gitPath: the shell to run is not taken from workspace settings */
