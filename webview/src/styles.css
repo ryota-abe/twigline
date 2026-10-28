@@ -1695,6 +1695,8 @@ body.resizing-column * {
   flex-direction: column;
   gap: 3px;
   max-height: 220px;
+  /* With overflow set it could shrink to nothing in a tall dialog; let the dialog body scroll instead */
+  flex-shrink: 0;
   overflow: auto;
   padding: 4px;
   border: 1px solid var(--twigline-border);
