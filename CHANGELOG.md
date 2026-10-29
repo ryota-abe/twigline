@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.3
+
+A fix for the lists of checkboxes in dialogs.
+
+- Fixed: the list of branches on the "Delete Branches" tab of the Branch dialog (and the list of files in "Discard Changes") could shrink to almost nothing when the dialog reached its maximum height; the list now keeps its height and the dialog scrolls instead
+
 ## 0.6.2
 
 Checking out a remote branch from the history.
