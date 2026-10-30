@@ -12,7 +12,7 @@ import type { RepoModel } from '../repo/RepoModel';
 import type { RepositoryManager } from '../repo/RepositoryManager';
 import type { Disposable } from '../util/event';
 import { hostedRemotes, pullRequestUrl } from '../util/hosting';
-import type { PullRequestCredential } from '../util/pullRequests';
+import { pullRequestSource, type PullRequestCredential } from '../util/pullRequests';
 import { readConfig, readCustomActions } from './config';
 import type { SyntaxRegistry, ThemeKind } from '../syntax/SyntaxRegistry';
 import type { HostEnv, SyntaxProvider } from './HostEnv';
@@ -384,14 +384,42 @@ export class VscodeEnv implements HostEnv {
 
   private async createPullRequest(model: RepoModel, branch: string): Promise<void> {
     const snap = await model.snapshot.get();
-    const ref = snap.refs.find((r) => r.kind === 'head' && r.name === branch);
-    const remoteName = ref?.upstream?.split('/')[0] ?? 'origin';
-    const remote = snap.remotes.find((r) => r.name === remoteName) ?? snap.remotes[0];
-    const upstreamBranch = ref?.upstream && remote ? ref.upstream.slice(remote.name.length + 1) : branch;
-    const url = remote?.fetchUrl ? pullRequestUrl(remote.fetchUrl, upstreamBranch) : undefined;
+    const source = pullRequestSource(snap.refs, snap.remotes, branch);
+    if (!source) {
+      void vscode.window.showWarningMessage(t('This repository has no remote. Add a remote and push the branch before creating a pull request.'));
+      return;
+    }
+    const url = source.remote.fetchUrl ? pullRequestUrl(source.remote.fetchUrl, source.branch) : undefined;
     if (!url) {
       void vscode.window.showWarningMessage(t('Could not determine the pull request URL for this remote.'));
       return;
+    }
+    const push = t('Push…');
+    if (!source.pushed) {
+      // The page for creating a PR cannot show a branch that is not on the remote
+      const choice = await vscode.window.showWarningMessage(
+        t('Branch {0} has not been pushed to {1}. Push it before creating a pull request.', branch, source.remote.name),
+        { modal: true },
+        push,
+      );
+      if (choice === push) this.panels.forward(model.id, { command: 'twigline.branch.push', context: { ref: branch } });
+      return;
+    }
+    let ahead = source.ahead;
+    if (ahead === undefined) {
+      const res = await model.runner.run(['rev-list', '--count', `refs/heads/${branch}`, `^refs/remotes/${source.remote.name}/${source.branch}`, '--'], { noThrow: true });
+      ahead = Number.parseInt(res.stdout.toString().trim(), 10) || 0;
+    }
+    if (ahead > 0) {
+      const open = t('Open Anyway');
+      const choice = await vscode.window.showWarningMessage(
+        t('Branch {0} has {1} commit(s) that have not been pushed to {2}. The pull request will not include them.', branch, String(ahead), source.remote.name),
+        { modal: true },
+        push,
+        open,
+      );
+      if (choice === push) this.panels.forward(model.id, { command: 'twigline.branch.push', context: { ref: branch } });
+      if (choice !== open) return;
     }
     await vscode.env.openExternal(vscode.Uri.parse(url));
   }
