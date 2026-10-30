@@ -140,9 +140,9 @@ export function registerCommands(context: vscode.ExtensionContext, deps: Deps): 
 
   // ---- Repository list (TreeView) ----
   reg('twigline.repositories.openSettings', () => vscode.commands.executeCommand('workbench.action.openSettings', `@ext:${context.extension.id}`));
-  reg('twigline.repository.openTerminal', (arg?: unknown) => {
+  reg('twigline.repository.openTerminal', async (arg?: unknown) => {
     const root = rootFromArg(arg);
-    if (root) vscode.window.createTerminal({ cwd: root, name: path.basename(root) }).show();
+    if (root) await env.openTerminal(root);
   });
   reg('twigline.repository.copyPath', async (arg?: unknown) => {
     const root = rootFromArg(arg);

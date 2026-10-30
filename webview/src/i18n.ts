@@ -32,6 +32,7 @@ const ja = {
   'menu.branch': 'ブランチ…',
   'menu.tag': 'タグ…',
   'menu.refresh': '再読み込み',
+  'menu.openTerminal': '統合ターミナルで開く',
   'menu.settings': 'リポジトリの設定…',
 
   'side.title': 'リポジトリ',
@@ -616,6 +617,7 @@ const en: Record<Key, string> = {
   'menu.branch': 'Branch…',
   'menu.tag': 'Tag…',
   'menu.refresh': 'Refresh',
+  'menu.openTerminal': 'Open in Integrated Terminal',
   'menu.settings': 'Repository Settings…',
 
   'side.title': 'Repository',

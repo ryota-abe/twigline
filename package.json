@@ -206,6 +206,11 @@
         "category": "Twigline"
       },
       {
+        "command": "twigline.panel.openTerminal",
+        "title": "%cmd.panel.openTerminal%",
+        "category": "Twigline"
+      },
+      {
         "command": "twigline.panel.settings",
         "title": "%cmd.panel.settings%",
         "category": "Twigline"
@@ -1129,6 +1134,10 @@
           "when": "activeWebviewPanelId == 'twigline.repository'"
         },
         {
+          "command": "twigline.panel.openTerminal",
+          "when": "activeWebviewPanelId == 'twigline.repository'"
+        },
+        {
           "command": "twigline.panel.settings",
           "when": "activeWebviewPanelId == 'twigline.repository'"
         },
@@ -1180,6 +1189,16 @@
           "default": "",
           "scope": "machine",
           "markdownDescription": "%config.gitPath%"
+        },
+        "twigline.terminal.profile": {
+          "type": "string",
+          "default": "",
+          "scope": "window",
+          "markdownDescription": "%config.terminal.profile%",
+          "examples": [
+            "Git Bash",
+            "default"
+          ]
         },
         "twigline.history.order": {
           "type": "string",

@@ -7,7 +7,7 @@ A Git client inside VS Code: branches, the commit graph, file status with line-l
 ![The History tab: the commit graph with branches, tags, remote branches and pull requests, and the selected commit's details and syntax-highlighted diff](docs/images/history.png)
 
 - Opens each repository in its own editor tab with "Uncommitted Changes | History" tabs, the history graph with branch lists, and details / diffs side by side
-- Actions sit where they apply: pull, push, merge and rebase for the current branch on the branch name in the tab row (clicking the ahead / behind counts also pushes / pulls); stash and discard inside the "Uncommitted Changes" tab; fetch, push branches, branch, tag and settings under "…" at the right end of the tab row
+- Actions sit where they apply: pull, push, merge and rebase for the current branch on the branch name in the tab row (clicking the ahead / behind counts also pushes / pulls); stash and discard inside the "Uncommitted Changes" tab; fetch, push branches, branch, tag, terminal and settings under "…" at the right end of the tab row
 - Stage / unstage / discard by file, hunk or line in the "Uncommitted Changes" tab
 - Right-click opens VS Code's own context menu
 - Actions with options open a dialog that previews the git command to be run; push, pull, merge, rebase, reset and branch deletion also show what the operation would do (ahead / behind, conflicts, force push, commits that would be lost) before it runs
@@ -41,6 +41,7 @@ Fetch / pull / push are available as commands, so you can bind them to keys of y
 
 The repository list in the Activity Bar shows each repository's branch, the number of changed files (badge), and a rebase, merge, cherry-pick or revert that has stopped (yellow; red with `!` when there are conflicts).
 Hovering a row shows fetch / pull / push; right-click also offers opening it in the integrated terminal and copying its path. The gear in the title opens Twigline's settings.
+"Open in Integrated Terminal" (here or under "…" in the panel) shows a terminal already open in the repository instead of opening another. On Windows it opens Git Bash when Git for Windows is installed and no default terminal profile is chosen in VS Code. To choose the shell, set `twigline.terminal.profile` to a profile's name, or to `default` for VS Code's default profile.
 
 When the panel opens, it shows the "Uncommitted Changes" tab if there are uncommitted changes, and the "History" tab otherwise.
 History has a single search box; a prefix selects the kind of search.

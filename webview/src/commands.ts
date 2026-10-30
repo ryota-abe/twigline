@@ -92,6 +92,9 @@ export async function handleCommand(command: string, ctx: Ctx): Promise<void> {
     case 'twigline.panel.tag':
       openDialog('tag');
       return;
+    case 'twigline.panel.openTerminal':
+      uiAction({ kind: 'openTerminal' });
+      return;
     case 'twigline.panel.settings':
       openDialog('settings');
       return;
