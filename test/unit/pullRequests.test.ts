@@ -5,7 +5,7 @@ import type { RepoModel } from '../../src/repo/RepoModel';
 import { branchQuery, fetchBitbucketPullRequests, parseBitbucketPullRequests, pullRequestsUrl } from '../../src/util/bitbucket';
 import { buildPullRequestQuery, fetchGitHubPullRequests, parseGraphQLPullRequests, parseRestPullRequests } from '../../src/util/github';
 import { hostedRepoOf } from '../../src/util/hosting';
-import { PullRequestError, matchPullRequests, pullRequestTargets, type FetchLike } from '../../src/util/pullRequests';
+import { PullRequestError, matchPullRequests, pullRequestSource, pullRequestTargets, type FetchLike } from '../../src/util/pullRequests';
 import { TEST_CONFIG, makeRepo, openModel, testEnv, type TempRepo } from './helpers';
 
 // Pull requests linked to branches (GitHub, Bitbucket Cloud): remote detection, queries, response conversion, matching with branches, caching
@@ -120,6 +120,50 @@ describe('hosted remotes', () => {
       ['refs/heads/bb-topic', 'team/app', 'topic', true],
     ]);
     expect(pullRequestTargets(refs, [remotes[1]])).toEqual([]);
+  });
+
+  it('tells whether the branch a PR would be created from is on the remote', () => {
+    const remotes: RemoteInfo[] = [
+      { name: 'fork', fetchUrl: 'git@github.com:me/repo.git' },
+      { name: 'origin', fetchUrl: 'git@github.com:org/repo.git' },
+      { name: 'team/x', fetchUrl: 'git@github.com:team/repo.git' },
+    ];
+    const ref = (kind: RefInfo['kind'], name: string, extra: Partial<RefInfo> = {}): RefInfo => ({
+      kind,
+      name,
+      fullName: `refs/${kind === 'head' ? 'heads' : 'remotes'}/${name}`,
+      sha: 'a'.repeat(40),
+      ...(kind === 'remote' ? { remote: name.startsWith('team/x/') ? 'team/x' : name.split('/')[0] } : {}),
+      ...extra,
+    });
+    const refs = [
+      ref('head', 'synced', { upstream: 'fork/synced', ahead: 0 }),
+      ref('head', 'ahead', { upstream: 'origin/renamed', ahead: 2 }),
+      ref('head', 'gone', { upstream: 'origin/gone', gone: true }),
+      ref('head', 'slash', { upstream: 'team/x/slash' }),
+      // No upstream: a remote branch with the same name, else origin
+      ref('head', 'same'),
+      ref('head', 'moved', { sha: 'b'.repeat(40) }),
+      ref('head', 'local-only'),
+      ref('remote', 'fork/synced'),
+      ref('remote', 'origin/renamed'),
+      ref('remote', 'team/x/slash'),
+      ref('remote', 'fork/same'),
+      ref('remote', 'origin/moved'),
+    ];
+    const of = (branch: string) => {
+      const s = pullRequestSource(refs, remotes, branch);
+      return s && [s.remote.name, s.branch, s.pushed, s.ahead];
+    };
+    expect(of('synced')).toEqual(['fork', 'synced', true, 0]);
+    expect(of('ahead')).toEqual(['origin', 'renamed', true, 2]);
+    expect(of('gone')).toEqual(['origin', 'gone', false, undefined]);
+    expect(of('slash')).toEqual(['team/x', 'slash', true, 0]);
+    expect(of('same')).toEqual(['fork', 'same', true, 0]);
+    // Differs from the remote branch, and how far ahead it is needs git
+    expect(of('moved')).toEqual(['origin', 'moved', true, undefined]);
+    expect(of('local-only')).toEqual(['origin', 'local-only', false, undefined]);
+    expect(pullRequestSource(refs, [], 'synced')).toBeUndefined();
   });
 });
 

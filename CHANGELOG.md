@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.6.3
+
+A fix for the lists of checkboxes in dialogs.
+
+- Fixed: the list of branches on the "Delete Branches" tab of the Branch dialog (and the list of files in "Discard Changes") could shrink to almost nothing when the dialog reached its maximum height; the list now keeps its height and the dialog scrolls instead
+
+## 0.6.2
+
+Checking out a remote branch from the history.
+
+- "Checkout..." on a commit in the history now also lists the remote branches at that commit, and creates a local branch tracking the chosen one (its name can be edited); a commit with only a remote branch could be checked out only as a detached HEAD before. A remote branch that a local branch at the same commit already covers (same name, or tracking it) is not listed again
+
 ## 0.6.1
 
 Stashes with untracked files, and telling stashes apart.

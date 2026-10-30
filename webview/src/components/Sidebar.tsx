@@ -89,7 +89,7 @@ export function Sidebar() {
               </>
             );
           }}
-          context={(r) => vsContext('branch.local', { repo, ref: r.name, twiglineIsHead: !!r.isHead, ...prContext(prOf(prs, r)) })}
+          context={(r) => vsContext('branch.local', { repo, ref: r.name, twiglineIsHead: !!r.isHead, twiglineHasRemote: snapshot.remotes.length > 0, ...prContext(prOf(prs, r)) })}
           onClick={(r) => void revealSha(r.sha)}
           onDoubleClick={(r) => !r.isHead && void runOp({ kind: 'checkout', ref: r.name })}
         />
