@@ -52,6 +52,40 @@ export function pullRequestTargets(refs: readonly RefInfo[], remotes: readonly R
   return out;
 }
 
+/** Where a PR created from a local branch comes from, and whether the branch is on that remote yet */
+export interface PullRequestSource {
+  remote: RemoteInfo;
+  /** Branch name on the remote */
+  branch: string;
+  /** The remote branch exists (as far as the last fetch knows) */
+  pushed: boolean;
+  /** Commits on the local branch that the remote branch does not have (undefined: not known without asking git) */
+  ahead?: number;
+}
+
+/**
+ * The remote and branch the "create PR" page is opened for. With an upstream, its remote and branch;
+ * without one, a remote branch with the same name (origin first), otherwise origin (or the first remote) as the push would choose.
+ * Undefined when there is no remote.
+ */
+export function pullRequestSource(refs: readonly RefInfo[], remotes: readonly RemoteInfo[], branch: string): PullRequestSource | undefined {
+  if (remotes.length === 0) return undefined;
+  const local = refs.find((r) => r.kind === 'head' && r.name === branch);
+  const remoteRefs = new Map(refs.filter((r) => r.kind === 'remote').map((r) => [r.name, r]));
+  let remote: RemoteInfo | undefined;
+  let name = branch;
+  if (local?.upstream) {
+    // A remote name may contain slashes, so decide the upstream remote by longest match
+    remote = [...remotes].sort((a, b) => b.name.length - a.name.length).find((r) => local.upstream!.startsWith(`${r.name}/`));
+    if (remote) name = local.upstream.slice(remote.name.length + 1);
+  }
+  remote ??= remotes.find((r) => remoteRefs.has(`${r.name}/${branch}`)) ?? remotes.find((r) => r.name === 'origin') ?? remotes[0];
+  const tracked = remoteRefs.get(`${remote.name}/${name}`);
+  if (!tracked || local?.gone) return { remote, branch: name, pushed: false };
+  const ahead = local?.upstream === tracked.name ? local.ahead ?? 0 : local?.sha === tracked.sha ? 0 : undefined;
+  return { remote, branch: name, pushed: true, ahead };
+}
+
 /** A fetched PR and the information used to match it with a branch */
 export interface PullRequestCandidate extends PullRequestInfo {
   /** Host and owner of the repository where the PR's source branch lives (tells PRs from forks apart) */

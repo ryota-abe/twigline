@@ -666,7 +666,7 @@
         },
         {
           "command": "twigline.branch.createPullRequest",
-          "when": "webviewId == 'twigline.repository' && webviewSection == 'branch.local' && !twiglinePrOpen",
+          "when": "webviewId == 'twigline.repository' && webviewSection == 'branch.local' && !twiglinePrOpen && twiglineHasRemote",
           "group": "5_pr@2"
         },
         {
