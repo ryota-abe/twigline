@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.7.0
+
+Opening a terminal for the repository, and a check before creating a pull request.
+
+- "…" at the right end of the tab row has "Open in Integrated Terminal" (also in the Command Palette while a Twigline panel is frontmost)
+- "Open in Integrated Terminal", from the panel or the repository list, shows a terminal already open in the repository instead of opening another
+- New setting `twigline.terminal.profile`: the terminal profile "Open in Integrated Terminal" uses, by its name (e.g. `Git Bash`), or `default` for VS Code's default profile. When it is empty, Git Bash is opened on Windows if Git for Windows is installed and no default terminal profile is chosen in VS Code; otherwise VS Code's default profile
+- "Create Pull Request" warns when the branch has not been pushed yet, with "Push…" to open the push dialog, instead of opening the compare page for a branch the remote does not have; when the branch has unpushed commits it warns too, with "Open Anyway"
+- "Create Pull Request" is no longer shown in repositories with no remote
+
 ## 0.6.3
 
 A fix for the lists of checkboxes in dialogs.
