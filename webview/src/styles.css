@@ -499,17 +499,26 @@ body.resizing-column * {
   user-select: none;
 }
 /* Filter: normally only a magnifier on the heading; appears when the mouse is over the sidebar */
-.side-filter-btn {
+/* Buttons on section headings (filter, fetch) show while the pointer is over the sidebar; those on a row while it is over the row */
+.side-filter-btn,
+.side-sec-btn,
+.side-row-btn {
   width: 18px;
   height: 18px;
   opacity: 0;
   transition: opacity 0.12s;
 }
 .sidebar:hover .side-filter-btn,
-.side-filter-btn:focus-visible {
+.sidebar:hover .side-sec-btn,
+.side-item:hover .side-row-btn,
+.side-filter-btn:focus-visible,
+.side-sec-btn:focus-visible,
+.side-row-btn:focus-visible {
   opacity: 0.7;
 }
-.sidebar .side-filter-btn:hover {
+.sidebar .side-filter-btn:hover,
+.sidebar .side-sec-btn:hover,
+.sidebar .side-row-btn:hover {
   opacity: 1;
 }
 .side-sec-action {

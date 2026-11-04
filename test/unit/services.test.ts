@@ -307,6 +307,23 @@ describe('OpsService', () => {
     await expect(m.ops.run({ kind: 'remoteBranch/delete', remote: 'missing', branch: 'main' })).rejects.toBeInstanceOf(GitError);
   });
 
+  it('clears the "authentication required" mark of a remote once a fetch from it gets through', async () => {
+    const up = makeRepo({ bare: true });
+    repos.push(up);
+    const r = repo();
+    r.commit('one');
+    r.git(['remote', 'add', 'origin', up.dir]);
+    r.git(['remote', 'add', 'other', up.dir]);
+    r.git(['push', '-q', 'origin', 'main']);
+    const m = await model(r);
+    m.snapshot.authRequired.add('origin');
+    m.snapshot.authRequired.add('other');
+    await m.ops.run({ kind: 'fetch', remote: 'origin', prune: true, tags: false });
+    expect([...m.snapshot.authRequired]).toEqual(['other']);
+    await m.ops.run({ kind: 'fetch', remote: '*', prune: true, tags: false });
+    expect(m.snapshot.authRequired.size).toBe(0);
+  });
+
   it('rejects option-like refs (argument injection)', async () => {
     const r = repo();
     r.commit('one');

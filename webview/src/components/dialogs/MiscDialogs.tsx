@@ -460,11 +460,15 @@ export function EditMessageDialog({ requestId, title, initial }: { requestId: st
 }
 
 /** Repository settings: add, edit and delete remotes, user.name / user.email of this repository, .gitignore */
-export function SettingsDialog() {
+/** editRemote: opened from a remote in the sidebar, which starts out being edited */
+export function SettingsDialog({ editRemote }: { editRemote?: string }) {
   const snapshot = useStore((s) => s.snapshot)!;
   const [name, setName] = useState(snapshot.user.name ?? '');
   const [email, setEmail] = useState(snapshot.user.email ?? '');
-  const [editing, setEditing] = useState<{ original?: string; name: string; url: string } | null>(null);
+  const [editing, setEditing] = useState<{ original?: string; name: string; url: string } | null>(() => {
+    const r = snapshot.remotes.find((x) => x.name === editRemote);
+    return r ? { original: r.name, name: r.name, url: r.fetchUrl ?? '' } : null;
+  });
   return (
     <DialogShell title={t('settings.title')} wide cancelLabel={t('close')}>
       <h4>{t('settings.remotes')}</h4>

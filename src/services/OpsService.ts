@@ -145,6 +145,11 @@ export class OpsService {
     return this.repo.runOp(kindsFor(op), async () => {
       const stashBefore = op.kind === 'stash/push' ? await this.stashTop() : undefined;
       await this.execute(steps, opts, op);
+      // A fetch that got through no longer needs the "authentication required" mark from a periodic fetch
+      if (op.kind === 'fetch') {
+        if (op.remote === '*') this.repo.snapshot.authRequired.clear();
+        else this.repo.snapshot.authRequired.delete(op.remote);
+      }
       const nothingStashed = op.kind === 'stash/push' && (await this.stashTop()) === stashBefore ? true : undefined;
       return { commands, message: undefined, stopped: this.repo.snapshot.readSequence() !== null && isSequenceOp(op) ? true : undefined, nothingStashed };
     });

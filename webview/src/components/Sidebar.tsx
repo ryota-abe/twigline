@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import type { RefInfo } from '../../../shared/protocol';
 import { t } from '../i18n';
-import { jumpTo, runOp, selectRow, toggleCollapsed, uiAction } from '../store/actions';
+import { fetchRemote, jumpTo, runOp, selectRow, toggleCollapsed, uiAction } from '../store/actions';
 import { useStore } from '../store/store';
 import { cx } from '../util/format';
 import { matchesFilter, parseFilter } from '../util/sidebarFilter';
@@ -117,21 +117,40 @@ export function Sidebar() {
       )}
 
       {(!filtering || remotes.length > 0) && (
-      <Section id="remotes" title={t('side.remotes')} collapsed={sectionCollapsed('remotes', true)}>
+      <Section
+        id="remotes"
+        title={t('side.remotes')}
+        collapsed={sectionCollapsed('remotes', true)}
+        action={
+          snapshot.remotes.length > 0 && (
+            <IconButton icon="repo-fetch" className="side-sec-btn" title={t('side.fetchAll')} onClick={() => void fetchRemote('*')} />
+          )
+        }
+      >
         {remotes.map(({ rm, branches }) => {
           const key = `remote:${rm.name}`;
           const isCollapsed = sectionCollapsed(key);
           return (
             <div key={rm.name}>
-              <div className="side-item folder" role="treeitem" aria-expanded={!isCollapsed} onClick={() => toggleCollapsed(key)} title={rm.fetchUrl}>
+              <div
+                className="side-item folder"
+                role="treeitem"
+                aria-expanded={!isCollapsed}
+                data-vscode-context={vsContext('remote', { repo, remote: rm.name })}
+                onClick={() => toggleCollapsed(key)}
+                title={rm.fetchUrl}
+              >
                 <Icon name={isCollapsed ? 'chevron-right' : 'chevron-down'} />
                 <Icon name="cloud" />
                 <span className="label">{rm.name}</span>
-                {rm.authRequired && (
-                  <span className="warn-mark" title={t('side.authRequired')}>
-                    <Icon name="lock" />
-                  </span>
-                )}
+                <span className="side-trail" onClick={(e) => e.stopPropagation()}>
+                  {rm.authRequired && (
+                    <span className="warn-mark" title={t('side.authRequired')}>
+                      <Icon name="lock" />
+                    </span>
+                  )}
+                  <IconButton icon="repo-fetch" className="side-row-btn" title={t('side.fetchRemote', rm.name)} onClick={() => void fetchRemote(rm.name)} />
+                </span>
               </div>
               {!isCollapsed && (
                 <div className="indent">
