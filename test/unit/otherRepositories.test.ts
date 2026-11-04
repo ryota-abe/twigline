@@ -1,9 +1,9 @@
 import * as path from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
-import type { ChangeKind } from '../../shared/protocol';
-import { addOther, hasOther, isSameOrInside, isWorktreeChange, MAX_OTHER_REPOSITORIES, removeOther, sanitizeOthers } from '../../src/repo/otherRepositories';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { addOther, hasOther, isSameOrInside, MAX_OTHER_REPOSITORIES, removeOther, sanitizeOthers } from '../../src/repo/otherRepositories';
 import { repoStatusFromWorkingTree } from '../../src/repo/repoStatus';
-import { makeRepo, openModel, testEnv, type TempRepo } from './helpers';
+import { StatusPoller, statusFingerprint } from '../../src/repo/statusPoller';
+import { makeRepo, openModel, type TempRepo } from './helpers';
 
 const abs = (...parts: string[]) => path.resolve(path.sep, ...parts);
 
@@ -51,20 +51,9 @@ describe('list of other repositories', () => {
     expect(isSameOrInside(abs('ws'), abs('ws', 'sub'))).toBe(false);
     expect(isSameOrInside(abs('x'), path.sep)).toBe(true);
   });
-
-  it('refreshes the status for working tree changes but not for the git directory', () => {
-    expect(isWorktreeChange('src/a.ts')).toBe(true);
-    expect(isWorktreeChange(path.join('src', 'a.ts'))).toBe(true);
-    expect(isWorktreeChange('.gitignore')).toBe(true);
-    expect(isWorktreeChange('sub/.git/index')).toBe(true);
-    expect(isWorktreeChange('.git')).toBe(false);
-    expect(isWorktreeChange(path.join('.git', 'index'))).toBe(false);
-    expect(isWorktreeChange(path.join('..', 'other', 'a.ts'))).toBe(false);
-    expect(isWorktreeChange('')).toBe(false);
-  });
 });
 
-describe('other repositories: state and watching', () => {
+describe('other repositories: state', () => {
   const repos: TempRepo[] = [];
   afterEach(() => {
     for (const r of repos.splice(0)) r.cleanup();
@@ -88,38 +77,131 @@ describe('other repositories: state and watching', () => {
     }
   });
 
-  it('watches the working tree only when asked, and ignores the git directory there', async () => {
+  it('fingerprints the status so that editing an already modified file is noticed', async () => {
     const r = makeRepo();
     repos.push(r);
-    r.commit('init', { 'a.txt': 'a\n' });
-    const watchers = new Map<string, (abs: string) => void>();
-    const env = testEnv({
-      watch: (dir, onChange) => {
-        watchers.set(dir, onChange);
-        return { dispose: () => watchers.delete(dir) };
-      },
-    });
-    const model = await openModel(r.dir, env);
+    r.commit('init', { 'a.txt': 'a\n', 'b.txt': 'b\n' });
+    r.write('a.txt', 'changed\n');
+    const model = await openModel(r.dir);
     try {
-      model.startWatching(true);
-      expect(watchers.has(model.root)).toBe(false);
-      model.stopWatching();
-
-      model.startWatching(true, { worktree: true });
-      expect(watchers.has(model.root)).toBe(true);
-      const changes: ChangeKind[][] = [];
-      const sub = model.onDidChange((kinds) => changes.push([...kinds]));
-      watchers.get(model.root)!(path.join(model.root, '.git', 'index.lock'));
-      await new Promise((res) => setTimeout(res, 400));
-      expect(changes).toEqual([]);
-      watchers.get(model.root)!(path.join(model.root, 'a.txt'));
-      for (let i = 0; i < 50 && changes.length === 0; i++) await new Promise((res) => setTimeout(res, 100));
-      expect(changes).toEqual([['status']]);
-      sub.dispose();
-      model.stopWatching();
-      expect(watchers.has(model.root)).toBe(false);
+      const read = async () => {
+        model.status.invalidate();
+        return statusFingerprint(model.root, model.gitDir, await model.status.getParsed());
+      };
+      const first = await read();
+      expect(await read()).toBe(first);
+      // Still "M", but the content (and size) changed
+      r.write('a.txt', 'changed once more\n');
+      const edited = await read();
+      expect(edited).not.toBe(first);
+      r.git(['add', 'a.txt']);
+      const staged = await read();
+      expect(staged).not.toBe(edited);
+      r.write('new.txt', 'new\n');
+      expect(await read()).not.toBe(staged);
     } finally {
       model.dispose();
     }
+  });
+});
+
+describe('StatusPoller', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  const setup = (fingerprints: (string | undefined)[], tookMs = 0) => {
+    let i = 0;
+    const read = vi.fn(async () => {
+      if (tookMs) await new Promise((res) => setTimeout(res, tookMs));
+      return fingerprints[Math.min(i++, fingerprints.length - 1)];
+    });
+    const onChange = vi.fn();
+    const poller = new StatusPoller({ read, onChange, minIntervalMs: 5_000, maxIntervalMs: 60_000, factor: 20, debounceMs: 150 });
+    return { poller, read, onChange };
+  };
+
+  it('takes the first read as the baseline and reports only a different result', async () => {
+    const { poller, read, onChange } = setup(['a', 'a', 'b', 'b']);
+    poller.poke();
+    await vi.advanceTimersByTimeAsync(150);
+    poller.poke();
+    await vi.advanceTimersByTimeAsync(150);
+    expect(read).toHaveBeenCalledTimes(2);
+    expect(onChange).not.toHaveBeenCalled();
+    poller.poke();
+    await vi.advanceTimersByTimeAsync(150);
+    expect(onChange).toHaveBeenCalledTimes(1);
+    poller.poke();
+    await vi.advanceTimersByTimeAsync(150);
+    expect(onChange).toHaveBeenCalledTimes(1);
+    poller.dispose();
+  });
+
+  it('polls only while active, at an interval that follows how long the read took', async () => {
+    const { poller, read } = setup(['a'], 1_000);
+    poller.setActive(true);
+    await vi.advanceTimersByTimeAsync(150 + 1_000);
+    expect(read).toHaveBeenCalledTimes(1);
+    // 1s × 20 = 20s until the next read
+    await vi.advanceTimersByTimeAsync(19_000);
+    expect(read).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(1_000 + 1_000);
+    expect(read).toHaveBeenCalledTimes(2);
+    poller.setActive(false);
+    await vi.advanceTimersByTimeAsync(120_000);
+    expect(read).toHaveBeenCalledTimes(2);
+    poller.dispose();
+  });
+
+  it('keeps the minimum interval for a fast read, and an event pending when it becomes inactive', async () => {
+    const { poller, read } = setup(['a']);
+    poller.setActive(true);
+    await vi.advanceTimersByTimeAsync(150);
+    expect(read).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(5_000);
+    expect(read).toHaveBeenCalledTimes(2);
+    poller.poke();
+    poller.setActive(false);
+    await vi.advanceTimersByTimeAsync(150);
+    expect(read).toHaveBeenCalledTimes(3);
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(read).toHaveBeenCalledTimes(3);
+    poller.dispose();
+  });
+
+  it('reads again after the current read when an event comes meanwhile', async () => {
+    const { poller, read, onChange } = setup(['a', 'b'], 1_000);
+    poller.poke();
+    await vi.advanceTimersByTimeAsync(500);
+    poller.poke();
+    // The first read ends at 1150ms, the second starts 150ms later and takes 1s
+    await vi.advanceTimersByTimeAsync(650 + 150 + 1_000);
+    expect(read).toHaveBeenCalledTimes(2);
+    expect(onChange).toHaveBeenCalledTimes(1);
+    poller.dispose();
+  });
+
+  it('skips a read that returns nothing and takes a new baseline silently on resync', async () => {
+    const { poller, read, onChange } = setup(['a', undefined, 'b', 'c']);
+    poller.poke();
+    await vi.advanceTimersByTimeAsync(150);
+    poller.poke();
+    await vi.advanceTimersByTimeAsync(150);
+    expect(read).toHaveBeenCalledTimes(2);
+    expect(onChange).not.toHaveBeenCalled();
+    poller.resync();
+    await vi.advanceTimersByTimeAsync(150);
+    expect(onChange).not.toHaveBeenCalled();
+    poller.poke();
+    await vi.advanceTimersByTimeAsync(150);
+    expect(onChange).toHaveBeenCalledTimes(1);
+    poller.dispose();
+    poller.poke();
+    await vi.advanceTimersByTimeAsync(1_000);
+    expect(read).toHaveBeenCalledTimes(4);
   });
 });

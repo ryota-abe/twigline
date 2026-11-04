@@ -55,14 +55,3 @@ export function isSameOrInside(target: string, base: string): boolean {
   if (t === b) return true;
   return t.startsWith(b.endsWith(path.sep) ? b : b + path.sep);
 }
-
-/**
- * Whether a change Twigline's own working tree watcher saw needs a status refresh: anything under the root except the .git directory
- * (its changes come from RepoWatcher's own watchers of the git directory). `rel` is relative to the root.
- */
-export function isWorktreeChange(rel: string): boolean {
-  if (!rel || path.isAbsolute(rel)) return false;
-  const parts = rel.split(/[\\/]/);
-  if (parts[0] === '..') return false;
-  return parts[0] !== '.git';
-}

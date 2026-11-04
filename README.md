@@ -47,6 +47,7 @@ A repository outside the workspace can be opened with "Open Repository from Fold
 Workspace Trust does not cover such a folder, so Twigline asks before running git there the first time: git can run programs set in the repository (hooks, `core.fsmonitor` and others).
 It is then listed under "Other Repositories" at the end of the list, in every window (per machine for remote windows), until "Remove from List" in its right-click menu.
 Its branch and badges are shown while its panel is open; Twigline does not run git in it until it is opened.
+vscode.git does not report changes to its files, so Twigline reads `git status` again when the window gets focus, when the panel is shown, when a file in it is saved (or created, deleted, renamed) in VS Code, and every few seconds while the panel is visible and the window has focus.
 
 When the panel opens, it shows the "Uncommitted Changes" tab if there are uncommitted changes, and the "History" tab otherwise.
 History has a single search box; a prefix selects the kind of search.

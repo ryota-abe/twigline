@@ -114,10 +114,15 @@ export class RepoModel implements Disposable {
     return { path: gitPath, version: v.text, parts: v.parts };
   }
 
-  /** Start watching .git (when the panel opens). `worktree` also watches the working tree (see RepoWatcher) */
-  startWatching(autoRefresh: boolean, opts: { worktree?: boolean } = {}): void {
+  /** Start watching .git (when the panel opens) */
+  startWatching(autoRefresh: boolean): void {
     if (this.watcher || !autoRefresh) return;
-    this.watcher = new RepoWatcher(this, (kinds) => this.notifyChanged(kinds), opts.worktree);
+    this.watcher = new RepoWatcher(this, (kinds) => this.notifyChanged(kinds));
+  }
+
+  /** A write operation of Twigline is running (its result is notified when it finishes) */
+  get busy(): boolean {
+    return this.opDepth > 0;
   }
 
   stopWatching(): void {
@@ -125,7 +130,7 @@ export class RepoModel implements Disposable {
     this.watcher = undefined;
   }
 
-  /** Changes in the working tree (state.onDidChange of vscode.git, or RepoWatcher's watcher of the working tree). Reflected only while watching */
+  /** Changes in the working tree (state.onDidChange of vscode.git). Reflected only while watching */
   worktreeChanged(): void {
     this.watcher?.worktreeChanged();
   }

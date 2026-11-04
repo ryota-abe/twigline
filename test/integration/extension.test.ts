@@ -158,6 +158,14 @@ describe('Twigline extension', function () {
         await until(() => a.panels.has(model.id));
         // The panel reads the status, and the repository list keeps it for the row
         await until(() => a.repos.statusOf(a.repos.otherRepositories.find((r) => r.id === model.id)!));
+        // vscode.git does not report its working tree changes: a file created in VS Code makes Twigline read git status again,
+        // and the panel, told that it changed, reads the status too
+        await until(() => a.panels.rpcStats(model.id)['status/get']?.ok);
+        const before = a.panels.rpcStats(model.id)['status/get']?.ok ?? 0;
+        const edit = new vscode.WorkspaceEdit();
+        edit.createFile(vscode.Uri.file(path.join(model.root, 'new.txt')), { contents: Buffer.from('new\n') });
+        assert.ok(await vscode.workspace.applyEdit(edit));
+        await until(() => (a.panels.rpcStats(model.id)['status/get']?.ok ?? 0) > before, 15_000);
       } finally {
         a.repos.removeOther(model.root);
       }

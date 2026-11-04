@@ -9,6 +9,7 @@ import { loadCore } from '../coreLoader';
 import type { RepositoryManager } from '../repo/RepositoryManager';
 import { renderHtml } from './html';
 import type { RpcRouter } from './RpcRouter';
+import { pollWorktree } from './worktreePolling';
 
 export const VIEW_TYPE = 'twigline.repository';
 
@@ -140,10 +141,13 @@ export class RepoPanelManager implements vscode.Disposable {
       toVscodeDisposable(model.onDidChange((kinds) => this.post(model.id, { type: 'repo/changed', repo: model.id, kinds }))),
       panel.onDidDispose(() => this.onDisposed(model.id)),
     );
-    // vscode.git does not watch an other repository (outside the workspace), so Twigline watches its working tree too
-    const other = this.repos.isOther(model.root);
-    if (other) this.repos.touchOther(model.root);
-    model.startWatching(vscode.workspace.getConfiguration('twigline', vscode.Uri.file(model.root)).get<boolean>('autoRefresh', true), { worktree: other });
+    const autoRefresh = vscode.workspace.getConfiguration('twigline', vscode.Uri.file(model.root)).get<boolean>('autoRefresh', true);
+    model.startWatching(autoRefresh);
+    if (this.repos.isOther(model.root)) {
+      this.repos.touchOther(model.root);
+      // vscode.git does not report working tree changes of an other repository (outside the workspace): read git status again instead
+      if (autoRefresh) entry.disposables.push(pollWorktree(model, panel));
+    }
     this.scheduleAutoFetch(entry);
     const lang = vscode.env.language.toLowerCase().startsWith('ja') ? 'ja' : 'en';
     panel.webview.html = renderHtml(panel.webview, this.context.extensionUri, { repo: model.id, root: model.root, lang });
