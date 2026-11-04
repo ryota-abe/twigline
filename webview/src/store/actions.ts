@@ -702,6 +702,14 @@ export async function runOpResult(op: Operation, opts: { title?: string; success
   }
 }
 
+/**
+ * One-click fetch from the sidebar ('*': every remote). Prunes, so a branch deleted on the remote (e.g. by merging its PR)
+ * no longer looks present here; the Fetch dialog is for other options
+ */
+export function fetchRemote(remote: string): Promise<boolean> {
+  return runOp({ kind: 'fetch', remote, prune: true, tags: false }, { success: remote === '*' ? t('fetch.done') : t('side.fetchedFrom', remote) });
+}
+
 export async function previewOp(op: Operation, signal?: AbortSignal): Promise<string[]> {
   const res = await rpc.request('op/run', { repo: repo(), op, dryRun: true }, signal);
   return res.commands;

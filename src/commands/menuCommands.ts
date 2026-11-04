@@ -37,6 +37,10 @@ export const MENU_COMMANDS = [
   'twigline.remoteBranch.compare',
   'twigline.remoteBranch.delete',
   'twigline.remoteBranch.openPullRequest',
+  // remote
+  'twigline.remote.fetch',
+  'twigline.remote.fetchWithOptions',
+  'twigline.remote.edit',
   // tag
   'twigline.tag.checkout',
   'twigline.tag.createBranch',

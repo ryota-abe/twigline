@@ -25,6 +25,8 @@ export type Step =
       /** Attach the editor environment for interactive rebase */
       rebaseEditor?: boolean;
       env?: Record<string, string>;
+      /** Steps to run instead when the step fails in a way that counts as done; undefined lets the failure through */
+      recover?: (e: GitError) => Step[] | undefined;
     }
   | { type: 'fn'; describe: string; run: () => Promise<void> };
 
@@ -74,7 +76,11 @@ function net(args: string[], progress: string, extra: Partial<GitStep> = {}): St
 }
 
 function deleteRemoteBranch(remote: string, branch: string): Step {
-  return net(['push', '--progress', '--delete', '--end-of-options', assertRemote(remote), assertRef(branch, 'branch name')], `Deleting ${remote}/${branch}`);
+  return net(['push', '--progress', '--delete', '--end-of-options', assertRemote(remote), assertRef(branch, 'branch name')], `Deleting ${remote}/${branch}`, {
+    // Already deleted on the remote (e.g. when its PR was merged) while the remote-tracking ref is still here
+    // because nothing has pruned it since: the branch is gone as asked, so only the stale ref is removed
+    recover: (e) => (/remote ref does not exist/.test(e.details.stderr ?? '') ? [w(['update-ref', '-d', `refs/remotes/${remote}/${branch}`])] : undefined),
+  });
 }
 
 function kindsFor(op: Operation): ChangeKind[] {
@@ -139,6 +145,11 @@ export class OpsService {
     return this.repo.runOp(kindsFor(op), async () => {
       const stashBefore = op.kind === 'stash/push' ? await this.stashTop() : undefined;
       await this.execute(steps, opts, op);
+      // A fetch that got through no longer needs the "authentication required" mark from a periodic fetch
+      if (op.kind === 'fetch') {
+        if (op.remote === '*') this.repo.snapshot.authRequired.clear();
+        else this.repo.snapshot.authRequired.delete(op.remote);
+      }
       const nothingStashed = op.kind === 'stash/push' && (await this.stashTop()) === stashBefore ? true : undefined;
       return { commands, message: undefined, stopped: this.repo.snapshot.readSequence() !== null && isSequenceOp(op) ? true : undefined, nothingStashed };
     });
@@ -171,7 +182,13 @@ export class OpsService {
         await step.run();
         continue;
       }
-      await this.runGitStep(step, opts, op);
+      try {
+        await this.runGitStep(step, opts, op);
+      } catch (e) {
+        const instead = step.recover && e instanceof GitError ? step.recover(e) : undefined;
+        if (!instead) throw e;
+        await this.execute(instead, opts, op);
+      }
     }
   }
 

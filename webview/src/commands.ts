@@ -2,6 +2,7 @@ import { t } from './i18n';
 import {
   confirm,
   copyText,
+  fetchRemote,
   getRpc,
   loadDetail,
   openDialog,
@@ -216,6 +217,19 @@ export async function handleCommand(command: string, ctx: Ctx): Promise<void> {
       if (ok) await runOp({ kind: 'remoteBranch/delete', remote, branch }, { success: t('cmd.deleted', ref) });
       return;
     }
+
+    // ---- remote ----
+    case 'twigline.remote.fetch': {
+      const remote = str(ctx.remote);
+      if (remote) await fetchRemote(remote);
+      return;
+    }
+    case 'twigline.remote.fetchWithOptions':
+      openDialog('fetch', { remote: str(ctx.remote) });
+      return;
+    case 'twigline.remote.edit':
+      openDialog('settings', { editRemote: str(ctx.remote) });
+      return;
 
     // ---- tag ----
     case 'twigline.tag.checkout':

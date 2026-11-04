@@ -398,10 +398,12 @@ export function PushBranchesDialog() {
   );
 }
 
-export function FetchDialog() {
+/** remote: opened from a remote in the sidebar, which is chosen instead of all remotes */
+export function FetchDialog({ remote: initial }: { remote?: string }) {
   const { snapshot, upstreamRemote } = useRemotes();
-  const [all, setAll] = useState(true);
-  const [remote, setRemote] = useState(upstreamRemote ?? snapshot.remotes[0]?.name ?? '');
+  const given = snapshot.remotes.some((r) => r.name === initial) ? initial : undefined;
+  const [all, setAll] = useState(!given);
+  const [remote, setRemote] = useState(given ?? upstreamRemote ?? snapshot.remotes[0]?.name ?? '');
   const [prune, setPrune] = useState(false);
   const [tags, setTags] = useState(false);
   if (snapshot.remotes.length === 0) {

@@ -340,6 +340,18 @@
         "title": "%cmd.remoteBranch.openPullRequest%"
       },
       {
+        "command": "twigline.remote.fetch",
+        "title": "%cmd.remote.fetch%"
+      },
+      {
+        "command": "twigline.remote.fetchWithOptions",
+        "title": "%cmd.remote.fetchWithOptions%"
+      },
+      {
+        "command": "twigline.remote.edit",
+        "title": "%cmd.remote.edit%"
+      },
+      {
         "command": "twigline.tag.checkout",
         "title": "%cmd.tag.checkout%"
       },
@@ -705,6 +717,21 @@
           "group": "4_pr@1"
         },
         {
+          "command": "twigline.remote.fetch",
+          "when": "webviewId == 'twigline.repository' && webviewSection == 'remote'",
+          "group": "1_fetch@1"
+        },
+        {
+          "command": "twigline.remote.fetchWithOptions",
+          "when": "webviewId == 'twigline.repository' && webviewSection == 'remote'",
+          "group": "1_fetch@2"
+        },
+        {
+          "command": "twigline.remote.edit",
+          "when": "webviewId == 'twigline.repository' && webviewSection == 'remote'",
+          "group": "2_manage@1"
+        },
+        {
           "command": "twigline.tag.checkout",
           "when": "webviewId == 'twigline.repository' && webviewSection == 'tag'",
           "group": "1_checkout@1"
@@ -963,6 +990,18 @@
         },
         {
           "command": "twigline.remoteBranch.openPullRequest",
+          "when": "false"
+        },
+        {
+          "command": "twigline.remote.fetch",
+          "when": "false"
+        },
+        {
+          "command": "twigline.remote.fetchWithOptions",
+          "when": "false"
+        },
+        {
+          "command": "twigline.remote.edit",
           "when": "false"
         },
         {

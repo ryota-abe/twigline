@@ -34,7 +34,7 @@ export function Dialogs() {
     case 'pushBranches':
       return <PushBranchesDialog key={key} />;
     case 'fetch':
-      return <FetchDialog key={key} />;
+      return <FetchDialog key={key} remote={p.remote} />;
     case 'branch':
       return <BranchDialog key={key} {...p} />;
     case 'checkout':
@@ -72,7 +72,7 @@ export function Dialogs() {
     case 'editMessage':
       return <EditMessageDialog key={key} requestId={p.requestId} title={p.title} initial={p.initial} />;
     case 'settings':
-      return <SettingsDialog key={key} />;
+      return <SettingsDialog key={key} editRemote={p.editRemote} />;
     case 'interactiveRebase':
       return <InteractiveRebaseDialog key={key} base={p.base ?? null} />;
   }
