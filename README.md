@@ -43,6 +43,11 @@ The repository list in the Activity Bar shows each repository's branch, the numb
 Hovering a row shows fetch / pull / push; right-click also offers opening it in the integrated terminal and copying its path. The gear in the title opens Twigline's settings.
 "Open in Integrated Terminal" (here or under "…" in the panel) shows a terminal already open in the repository instead of opening another. On Windows it opens Git Bash when Git for Windows is installed and no default terminal profile is chosen in VS Code. To choose the shell, set `twigline.terminal.profile` to a profile's name, or to `default` for VS Code's default profile.
 
+A repository outside the workspace can be opened with "Open Repository from Folder…" (the folder icon in the title of the list, or the Command Palette).
+Workspace Trust does not cover such a folder, so Twigline asks before running git there the first time: git can run programs set in the repository (hooks, `core.fsmonitor` and others).
+It is then listed under "Other Repositories" at the end of the list, in every window (per machine for remote windows), until "Remove from List" in its right-click menu.
+Its branch and badges are shown while its panel is open; Twigline does not run git in it until it is opened.
+
 When the panel opens, it shows the "Uncommitted Changes" tab if there are uncommitted changes, and the "History" tab otherwise.
 History has a single search box; a prefix selects the kind of search.
 

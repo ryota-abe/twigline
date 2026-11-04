@@ -1,5 +1,7 @@
 import * as assert from 'node:assert';
 import { execFileSync } from 'node:child_process';
+import { mkdtempSync, rmSync } from 'node:fs';
+import * as os from 'node:os';
 import * as path from 'node:path';
 import * as vscode from 'vscode';
 import { MENU_COMMANDS, PALETTE_COMMANDS, PANEL_COMMANDS, VIEW_COMMANDS } from '../../src/commands/menuCommands';
@@ -135,6 +137,38 @@ describe('Twigline extension', function () {
     await model.stage.applyLines(diff.diffId, [line.id], 'stage');
     assert.ok(git(['diff', '--cached', '--', file.path]).includes(line.text));
     await model.stage.unstagePaths([file.path]);
+  });
+
+  it('lists a repository outside the workspace under Other Repositories and opens it', async () => {
+    const a = await api();
+    const dir = mkdtempSync(path.join(os.tmpdir(), 'twigline-other-'));
+    try {
+      execFileSync('git', ['init', '-q'], { cwd: dir });
+      execFileSync('git', ['-c', 'user.name=Test', '-c', 'user.email=test@example.com', 'commit', '-q', '--allow-empty', '-m', 'init'], { cwd: dir });
+      // Outside the workspace and unknown to vscode.git: opening it needs the user's confirmation
+      assert.strictEqual(a.repos.needsTrust(dir), true);
+      const model = await a.repos.model(dir);
+      a.repos.addOther(model.root);
+      try {
+        assert.strictEqual(a.repos.needsTrust(model.root), false);
+        assert.ok(a.repos.isOther(model.root));
+        assert.ok(a.repos.otherRepositories.some((r) => r.id === model.id && r.other));
+        assert.ok(!a.repos.repositories.some((r) => r.id === model.id), 'vscode.git does not list it');
+        await vscode.commands.executeCommand('twigline.open', vscode.Uri.file(model.root));
+        await until(() => a.panels.has(model.id));
+        // The panel reads the status, and the repository list keeps it for the row
+        await until(() => a.repos.statusOf(a.repos.otherRepositories.find((r) => r.id === model.id)!));
+      } finally {
+        a.repos.removeOther(model.root);
+      }
+      assert.ok(!a.repos.otherRepositories.some((r) => r.id === model.id));
+    } finally {
+      try {
+        rmSync(dir, { recursive: true, force: true });
+      } catch {
+        // The panel may still hold the folder (Windows)
+      }
+    }
   });
 
   it('opens a revision document through the twigline-rev scheme', async () => {

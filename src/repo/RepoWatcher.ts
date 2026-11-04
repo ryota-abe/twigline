@@ -1,6 +1,7 @@
 import * as path from 'node:path';
 import type { ChangeKind } from '../../shared/protocol';
 import { debounce, type Disposable } from '../util/event';
+import { isWorktreeChange } from './otherRepositories';
 import type { RepoModel } from './RepoModel';
 
 // Collects changes to .git for 250ms and then decides their kind.
@@ -42,13 +43,25 @@ export class RepoWatcher implements Disposable {
     this.onKinds(kinds);
   }, 250);
 
+  /**
+   * @param watchWorktree Also watch the working tree, for repositories vscode.git does not know (they get no state.onDidChange).
+   *   Used only for repositories outside the workspace: VS Code already watches the workspace.
+   */
   constructor(
     repo: RepoModel,
     private readonly onKinds: (kinds: Set<ChangeKind>) => void,
+    watchWorktree = false,
   ) {
     const dirs = new Set([repo.gitDir, repo.commonDir]);
     for (const dir of dirs) {
       this.subscriptions.push(repo.env.watch(dir, (abs) => this.onFile(dir, abs)));
+    }
+    if (watchWorktree) {
+      this.subscriptions.push(
+        repo.env.watch(repo.root, (abs) => {
+          if (isWorktreeChange(path.relative(repo.root, abs))) this.worktreeChanged();
+        }),
+      );
     }
   }
 
@@ -61,7 +74,7 @@ export class RepoWatcher implements Disposable {
     this.flush();
   }
 
-  /** Called from working tree changes (state.onDidChange of vscode.git) */
+  /** Called from working tree changes (state.onDidChange of vscode.git, or the watcher of the working tree) */
   worktreeChanged(): void {
     this.pending.add('status');
     this.flush();

@@ -19,7 +19,8 @@ export class StatusBar implements vscode.Disposable {
     const doc = vscode.window.activeTextEditor?.document;
     if (doc?.uri.scheme === 'file') {
       const r = this.repos.repositoryFor(doc.uri);
-      if (r) return r;
+      // An other repository (outside the workspace) has a HEAD to show only while its panel is open
+      if (r && (!r.other || this.repos.headOf(r).commit)) return r;
     }
     return this.repos.repositories[0];
   }

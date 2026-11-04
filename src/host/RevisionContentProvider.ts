@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { loadCore } from '../coreLoader';
+import { toRepoId } from '../repo/repoId';
 import type { RepositoryManager } from '../repo/RepositoryManager';
 import type { HostEnv } from './HostEnv';
 
@@ -32,6 +33,8 @@ export class RevisionContentProvider implements vscode.TextDocumentContentProvid
     }
     if (!q.root || typeof q.rev !== 'string') return '';
     const rel = uri.path.replace(/^\//, '');
+    // The URI can come from anywhere: do not run git in a folder outside the workspace that the user has not opened
+    if (this.repos.needsTrust(q.root) && !this.repos.existingModel(toRepoId(q.root))) return '';
     const model = await this.repos.model(q.root);
     const spec = q.rev === ':' ? `:${rel}` : `${q.rev}:${rel}`;
     if (q.rev !== ':' && !/^[0-9a-f]{4,64}$|^HEAD$/i.test(q.rev)) return '';

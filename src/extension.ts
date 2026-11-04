@@ -20,7 +20,7 @@ export interface TwiglineApi {
 export async function activate(context: vscode.ExtensionContext): Promise<TwiglineApi> {
   const env = new VscodeEnv(context);
   const helpers = new GitHelpers(context.extensionPath, env.helperExecPath);
-  const repos = new RepositoryManager(env, helpers);
+  const repos = new RepositoryManager(env, helpers, context.globalState);
   const panels = new RepoPanelManager(context, repos, env);
   env.repos = repos;
   env.panels = panels;

@@ -140,7 +140,10 @@ export class RepoPanelManager implements vscode.Disposable {
       toVscodeDisposable(model.onDidChange((kinds) => this.post(model.id, { type: 'repo/changed', repo: model.id, kinds }))),
       panel.onDidDispose(() => this.onDisposed(model.id)),
     );
-    model.startWatching(vscode.workspace.getConfiguration('twigline', vscode.Uri.file(model.root)).get<boolean>('autoRefresh', true));
+    // vscode.git does not watch an other repository (outside the workspace), so Twigline watches its working tree too
+    const other = this.repos.isOther(model.root);
+    if (other) this.repos.touchOther(model.root);
+    model.startWatching(vscode.workspace.getConfiguration('twigline', vscode.Uri.file(model.root)).get<boolean>('autoRefresh', true), { worktree: other });
     this.scheduleAutoFetch(entry);
     const lang = vscode.env.language.toLowerCase().startsWith('ja') ? 'ja' : 'en';
     panel.webview.html = renderHtml(panel.webview, this.context.extensionUri, { repo: model.id, root: model.root, lang });
