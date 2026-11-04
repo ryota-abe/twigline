@@ -280,6 +280,33 @@ describe('OpsService', () => {
     expect(old.commands).toEqual(['git push --progress --force-with-lease --end-of-options origin refs/heads/main:refs/heads/main']);
   });
 
+  it('deletes a branch whose remote branch is already gone on the remote, removing the stale remote-tracking ref', async () => {
+    const up = makeRepo({ bare: true });
+    repos.push(up);
+    const r = repo();
+    r.commit('one');
+    r.git(['remote', 'add', 'origin', up.dir]);
+    r.git(['push', '-q', 'origin', 'main']);
+    for (const b of ['feat', 'other']) {
+      r.git(['branch', b]);
+      r.git(['push', '-q', '-u', 'origin', b]);
+    }
+    // Deleted on the remote (as merging a PR does), and a fetch without --prune keeps origin/feat and origin/other
+    up.git(['branch', '-D', 'feat', 'other']);
+    r.git(['fetch', '-q', 'origin']);
+    const m = await model(r);
+
+    await m.ops.run({ kind: 'branch/delete', names: ['feat'], force: false, remoteBranches: [{ remote: 'origin', branch: 'feat' }] });
+    expect(r.git(['for-each-ref', '--format=%(refname)', 'refs/heads/feat', 'refs/remotes/origin/feat'])).toBe('');
+
+    await m.ops.run({ kind: 'remoteBranch/delete', remote: 'origin', branch: 'other' });
+    expect(r.git(['for-each-ref', '--format=%(refname)', 'refs/remotes/origin/other'])).toBe('');
+
+    // Other failures are still reported
+    r.git(['remote', 'add', 'missing', path.join(up.dir, 'nowhere')]);
+    await expect(m.ops.run({ kind: 'remoteBranch/delete', remote: 'missing', branch: 'main' })).rejects.toBeInstanceOf(GitError);
+  });
+
   it('rejects option-like refs (argument injection)', async () => {
     const r = repo();
     r.commit('one');
