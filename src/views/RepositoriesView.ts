@@ -1,12 +1,16 @@
+import * as os from 'node:os';
 import * as path from 'node:path';
 import * as vscode from 'vscode';
 import type { SequenceState } from '../../shared/protocol';
-import { countBadge, repoStatus, type RepoStatus } from '../repo/repoStatus';
-import type { RepositoryManager } from '../repo/RepositoryManager';
+import { countBadge, type RepoStatus } from '../repo/repoStatus';
+import { toRepoId } from '../repo/repoId';
+import type { RepoEntry, RepositoryManager } from '../repo/RepositoryManager';
 
 // The native TreeView is used only for the repository list in the Activity Bar.
 // Each row also shows what needs attention (an operation stopped halfway, conflicts, the number of changed files)
 // without running git: from the state of vscode.git and the files in the git directory.
+// Repositories outside the workspace that the user opened in Twigline are listed under "Other Repositories" at the end;
+// their state is shown while their panel is open (see RepositoryManager.statusOf).
 
 const t = vscode.l10n.t;
 
@@ -14,7 +18,10 @@ const t = vscode.l10n.t;
 const DECORATION_SCHEME = 'twigline-repo';
 
 /** rootUri lets the commands of the row's menus find the repository (see rootFromArg) */
-type Node = { kind: 'repo'; root: string; rootUri: vscode.Uri; name: string; submodules: string[] } | { kind: 'submodule'; root: string; rootUri: vscode.Uri };
+type Node =
+  | { kind: 'repo'; root: string; rootUri: vscode.Uri; name: string; submodules: string[]; other: boolean }
+  | { kind: 'submodule'; root: string; rootUri: vscode.Uri }
+  | { kind: 'others' };
 
 export class RepositoriesView implements vscode.TreeDataProvider<Node>, vscode.FileDecorationProvider, vscode.Disposable {
   private readonly emitter = new vscode.EventEmitter<void>();
@@ -23,7 +30,7 @@ export class RepositoriesView implements vscode.TreeDataProvider<Node>, vscode.F
   readonly onDidChangeFileDecorations = this.decorationEmitter.event;
   private readonly subs: vscode.Disposable[];
   /** Read once per change of vscode.git, shared by the rows and their decorations */
-  private readonly statuses = new Map<string, RepoStatus>();
+  private readonly statuses = new Map<string, RepoStatus | undefined>();
 
   constructor(private readonly repos: RepositoryManager) {
     this.subs = [
@@ -37,7 +44,14 @@ export class RepositoriesView implements vscode.TreeDataProvider<Node>, vscode.F
   }
 
   getTreeItem(node: Node): vscode.TreeItem {
-    const entry = this.repos.repositories.find((r) => r.root === node.root);
+    if (node.kind === 'others') {
+      const group = new vscode.TreeItem(t('Other Repositories'), vscode.TreeItemCollapsibleState.Expanded);
+      group.id = 'twigline.otherRepositories';
+      group.tooltip = t('Repositories outside the workspace opened in Twigline. Every window shows them.');
+      group.contextValue = 'twigline.otherRepositories';
+      return group;
+    }
+    const entry = this.repos.findEntry(toRepoId(node.root));
     const status = this.status(node.root);
     const item =
       node.kind === 'repo'
@@ -48,23 +62,24 @@ export class RepositoriesView implements vscode.TreeDataProvider<Node>, vscode.F
     if (node.kind === 'repo') {
       const h = entry ? this.repos.headOf(entry) : undefined;
       // HEAD is detached during a rebase: show the branch being rebased instead of the commit
-      const name = (status.sequence?.kind === 'rebase' && status.sequence.branch) || h?.branch || h?.commit?.slice(0, 7);
+      const name = (status?.sequence?.kind === 'rebase' && status.sequence.branch) || h?.branch || h?.commit?.slice(0, 7);
       head = [name, h?.ahead ? `↑${h.ahead}` : '', h?.behind ? `↓${h.behind}` : ''].filter(Boolean).join(' ');
-      item.description = head;
+      // An other repository that is not open shows where it is instead
+      item.description = head || (node.other ? tildify(path.dirname(node.root)) : '');
     } else {
       item.description = vscode.workspace.asRelativePath(node.root);
     }
-    const stopped = status.sequence ? sequenceLabel(status.sequence) : undefined;
+    const stopped = status?.sequence ? sequenceLabel(status.sequence) : undefined;
     if (stopped) item.description = [item.description, stopped].filter(Boolean).join(' · ');
 
     item.resourceUri = decorationUri(node.root);
-    item.iconPath = status.conflicts
+    item.iconPath = status?.conflicts
       ? new vscode.ThemeIcon('warning', new vscode.ThemeColor('gitDecoration.conflictingResourceForeground'))
-      : status.sequence
+      : status?.sequence
         ? new vscode.ThemeIcon('warning', new vscode.ThemeColor('list.warningForeground'))
         : new vscode.ThemeIcon(node.kind === 'repo' ? 'repo' : 'file-submodule');
     item.tooltip = tooltip(node.root, head, stopped, status);
-    item.contextValue = 'twigline.repository';
+    item.contextValue = node.kind === 'repo' && node.other ? 'twigline.repository.other' : 'twigline.repository';
     item.command = { command: 'twigline.open', title: t('Open in Twigline'), arguments: [vscode.Uri.file(node.root)] };
     return item;
   }
@@ -73,10 +88,10 @@ export class RepositoriesView implements vscode.TreeDataProvider<Node>, vscode.F
     if (!node) {
       const all = this.repos.repositories;
       const submoduleRoots = new Set(all.flatMap((r) => r.submodules.map((s) => s.toLowerCase())));
-      return all
-        .filter((r) => !submoduleRoots.has(r.root.toLowerCase()))
-        .map((r) => ({ kind: 'repo', root: r.root, rootUri: vscode.Uri.file(r.root), name: r.name, submodules: r.submodules }));
+      const rows = all.filter((r) => !submoduleRoots.has(r.root.toLowerCase())).map((r) => repoNode(r, false));
+      return this.repos.otherRepositories.length > 0 ? [...rows, { kind: 'others' }] : rows;
     }
+    if (node.kind === 'others') return this.repos.otherRepositories.map((r) => repoNode(r, true));
     if (node.kind === 'repo') return node.submodules.map((s) => ({ kind: 'submodule', root: s, rootUri: vscode.Uri.file(s) }));
     return [];
   }
@@ -84,9 +99,10 @@ export class RepositoriesView implements vscode.TreeDataProvider<Node>, vscode.F
   provideFileDecoration(uri: vscode.Uri): vscode.FileDecoration | undefined {
     if (uri.scheme !== DECORATION_SCHEME) return undefined;
     const key = uri.toString();
-    const entry = this.repos.repositories.find((r) => decorationUri(r.root).toString() === key);
+    const entry = [...this.repos.repositories, ...this.repos.otherRepositories].find((r) => decorationUri(r.root).toString() === key);
     if (!entry) return undefined;
     const s = this.status(entry.root);
+    if (!s) return undefined;
     if (s.conflicts) {
       return new vscode.FileDecoration('!', t('{0} conflicted files', s.conflicts), new vscode.ThemeColor('gitDecoration.conflictingResourceForeground'));
     }
@@ -96,13 +112,14 @@ export class RepositoriesView implements vscode.TreeDataProvider<Node>, vscode.F
     return new vscode.FileDecoration(badge, badge ? t('{0} changed files', s.changed) : undefined, color);
   }
 
-  private status(root: string): RepoStatus {
-    let s = this.statuses.get(root);
-    if (!s) {
-      s = repoStatus(root, this.repos.repositories.find((r) => r.root === root)?.gitRepo?.state);
-      this.statuses.set(root, s);
+  /** undefined for an other repository that is not open (its folder is not read: it may be on a disconnected drive) */
+  private status(root: string): RepoStatus | undefined {
+    if (!this.statuses.has(root)) {
+      const entry = this.repos.findEntry(toRepoId(root));
+      // A submodule vscode.git has not opened: from its git directory only
+      this.statuses.set(root, entry ? this.repos.statusOf(entry) : this.repos.statusOfFolder(root));
     }
-    return s;
+    return this.statuses.get(root);
   }
 
   dispose(): void {
@@ -110,6 +127,19 @@ export class RepositoriesView implements vscode.TreeDataProvider<Node>, vscode.F
     this.emitter.dispose();
     this.decorationEmitter.dispose();
   }
+}
+
+function repoNode(r: RepoEntry, other: boolean): Node {
+  return { kind: 'repo', root: r.root, rootUri: vscode.Uri.file(r.root), name: r.name, submodules: r.submodules, other };
+}
+
+/** ~/src instead of /home/me/src */
+function tildify(p: string): string {
+  const home = os.homedir();
+  if (!home) return p;
+  const rel = path.relative(home, p);
+  if (rel === '') return '~';
+  return rel.startsWith('..') || path.isAbsolute(rel) ? p : `~${path.sep}${rel}`;
 }
 
 function decorationUri(root: string): vscode.Uri {
@@ -129,9 +159,10 @@ function sequenceLabel(seq: SequenceState): string {
   }
 }
 
-function tooltip(root: string, head: string, stopped: string | undefined, s: RepoStatus): vscode.MarkdownString {
+function tooltip(root: string, head: string, stopped: string | undefined, s: RepoStatus | undefined): vscode.MarkdownString {
   const md = new vscode.MarkdownString(undefined, true);
   md.appendText(root);
+  if (!s) return md.appendMarkdown('\n\n').appendText(t('Its state is shown while it is open in Twigline.'));
   if (head) md.appendMarkdown('\n\n$(git-branch) ').appendText(head);
   if (stopped) md.appendMarkdown('\n\n$(warning) ').appendText(t('{0} (stopped; continue or abort it in Twigline)', stopped));
   const counts = [

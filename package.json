@@ -83,6 +83,12 @@
         "icon": "$(git-merge)"
       },
       {
+        "command": "twigline.openFromFolder",
+        "title": "%cmd.openFromFolder%",
+        "category": "Twigline",
+        "icon": "$(folder-opened)"
+      },
+      {
         "command": "twigline.fetch",
         "title": "%cmd.fetch%",
         "category": "Twigline",
@@ -112,6 +118,10 @@
       {
         "command": "twigline.repository.copyPath",
         "title": "%cmd.repository.copyPath%"
+      },
+      {
+        "command": "twigline.repository.removeFromList",
+        "title": "%cmd.repository.removeFromList%"
       },
       {
         "command": "twigline.fileHistory",
@@ -508,56 +518,66 @@
       ],
       "view/title": [
         {
+          "command": "twigline.openFromFolder",
+          "when": "view == twigline.repositories",
+          "group": "navigation@1"
+        },
+        {
           "command": "twigline.repositories.openSettings",
           "when": "view == twigline.repositories",
-          "group": "navigation"
+          "group": "navigation@2"
         }
       ],
       "view/item/context": [
         {
           "command": "twigline.fetch",
-          "when": "view == twigline.repositories && viewItem == twigline.repository",
+          "when": "view == twigline.repositories && viewItem =~ /^twigline\\.repository(\\.other)?$/",
           "group": "inline@1"
         },
         {
           "command": "twigline.pull",
-          "when": "view == twigline.repositories && viewItem == twigline.repository",
+          "when": "view == twigline.repositories && viewItem =~ /^twigline\\.repository(\\.other)?$/",
           "group": "inline@2"
         },
         {
           "command": "twigline.push",
-          "when": "view == twigline.repositories && viewItem == twigline.repository",
+          "when": "view == twigline.repositories && viewItem =~ /^twigline\\.repository(\\.other)?$/",
           "group": "inline@3"
         },
         {
           "command": "twigline.open",
-          "when": "view == twigline.repositories && viewItem == twigline.repository",
+          "when": "view == twigline.repositories && viewItem =~ /^twigline\\.repository(\\.other)?$/",
           "group": "1_open@1"
         },
         {
           "command": "twigline.fetch",
-          "when": "view == twigline.repositories && viewItem == twigline.repository",
+          "when": "view == twigline.repositories && viewItem =~ /^twigline\\.repository(\\.other)?$/",
           "group": "2_sync@1"
         },
         {
           "command": "twigline.pull",
-          "when": "view == twigline.repositories && viewItem == twigline.repository",
+          "when": "view == twigline.repositories && viewItem =~ /^twigline\\.repository(\\.other)?$/",
           "group": "2_sync@2"
         },
         {
           "command": "twigline.push",
-          "when": "view == twigline.repositories && viewItem == twigline.repository",
+          "when": "view == twigline.repositories && viewItem =~ /^twigline\\.repository(\\.other)?$/",
           "group": "2_sync@3"
         },
         {
           "command": "twigline.repository.openTerminal",
-          "when": "view == twigline.repositories && viewItem == twigline.repository",
+          "when": "view == twigline.repositories && viewItem =~ /^twigline\\.repository(\\.other)?$/",
           "group": "3_repository@1"
         },
         {
           "command": "twigline.repository.copyPath",
-          "when": "view == twigline.repositories && viewItem == twigline.repository",
+          "when": "view == twigline.repositories && viewItem =~ /^twigline\\.repository(\\.other)?$/",
           "group": "3_repository@2"
+        },
+        {
+          "command": "twigline.repository.removeFromList",
+          "when": "view == twigline.repositories && viewItem == twigline.repository.other",
+          "group": "4_list@1"
         }
       ],
       "webview/context": [
@@ -1190,6 +1210,10 @@
         },
         {
           "command": "twigline.repository.copyPath",
+          "when": "false"
+        },
+        {
+          "command": "twigline.repository.removeFromList",
           "when": "false"
         }
       ]

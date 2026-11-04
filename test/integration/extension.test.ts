@@ -1,5 +1,7 @@
 import * as assert from 'node:assert';
 import { execFileSync } from 'node:child_process';
+import { mkdtempSync, rmSync } from 'node:fs';
+import * as os from 'node:os';
 import * as path from 'node:path';
 import * as vscode from 'vscode';
 import { MENU_COMMANDS, PALETTE_COMMANDS, PANEL_COMMANDS, VIEW_COMMANDS } from '../../src/commands/menuCommands';
@@ -135,6 +137,58 @@ describe('Twigline extension', function () {
     await model.stage.applyLines(diff.diffId, [line.id], 'stage');
     assert.ok(git(['diff', '--cached', '--', file.path]).includes(line.text));
     await model.stage.unstagePaths([file.path]);
+  });
+
+  it('lists a repository outside the workspace under Other Repositories and opens it', async () => {
+    const a = await api();
+    const dir = mkdtempSync(path.join(os.tmpdir(), 'twigline-other-'));
+    try {
+      execFileSync('git', ['init', '-q'], { cwd: dir });
+      execFileSync('git', ['-c', 'user.name=Test', '-c', 'user.email=test@example.com', 'commit', '-q', '--allow-empty', '-m', 'init'], { cwd: dir });
+      const model = await a.repos.model(dir);
+      // Outside the workspace and unknown to vscode.git: opening it needs the user's confirmation, and nothing else reads it meanwhile
+      assert.strictEqual(a.repos.isTrusted(model.root), false);
+      const rev = await vscode.workspace.openTextDocument(
+        vscode.Uri.from({ scheme: 'twigline-rev', path: '/a.txt', query: JSON.stringify({ root: model.root, rev: 'HEAD' }) }),
+      );
+      assert.strictEqual(rev.getText(), '');
+      a.repos.addOther(model.root);
+      try {
+        assert.strictEqual(a.repos.isTrusted(model.root), true);
+        // Only that repository: one inside it is another repository with its own settings
+        assert.strictEqual(a.repos.isTrusted(path.join(model.root, 'nested')), false);
+        assert.ok(a.repos.isOther(model.root));
+        assert.ok(a.repos.otherRepositories.some((r) => r.id === model.id && r.other));
+        assert.ok(!a.repos.repositories.some((r) => r.id === model.id), 'vscode.git does not list it');
+        await vscode.commands.executeCommand('twigline.open', vscode.Uri.file(model.root));
+        await until(() => a.panels.has(model.id));
+        // The panel reads the status, and the repository list keeps it for the row
+        await until(() => a.repos.statusOf(a.repos.otherRepositories.find((r) => r.id === model.id)!));
+        // vscode.git does not report its working tree changes: a file created in VS Code makes Twigline read git status again,
+        // and the panel, told that it changed, reads the status too
+        await until(() => a.panels.rpcStats(model.id)['status/get']?.ok);
+        const before = a.panels.rpcStats(model.id)['status/get']?.ok ?? 0;
+        const edit = new vscode.WorkspaceEdit();
+        edit.createFile(vscode.Uri.file(path.join(model.root, 'new.txt')), { contents: Buffer.from('new\n') });
+        assert.ok(await vscode.workspace.applyEdit(edit));
+        await until(() => (a.panels.rpcStats(model.id)['status/get']?.ok ?? 0) > before, 15_000);
+      } finally {
+        // Close the panel, so its polling does not go on against the deleted folder
+        const tabs = vscode.window.tabGroups.all
+          .flatMap((g) => g.tabs)
+          .filter((t) => ((t.input as { viewType?: string } | undefined)?.viewType ?? '').includes('twigline.repository') && t.label === model.name);
+        await vscode.window.tabGroups.close(tabs);
+        await until(() => !a.panels.has(model.id));
+        a.repos.removeOther(model.root);
+      }
+      assert.ok(!a.repos.otherRepositories.some((r) => r.id === model.id));
+    } finally {
+      try {
+        rmSync(dir, { recursive: true, force: true });
+      } catch {
+        // The panel may still hold the folder (Windows)
+      }
+    }
   });
 
   it('opens a revision document through the twigline-rev scheme', async () => {

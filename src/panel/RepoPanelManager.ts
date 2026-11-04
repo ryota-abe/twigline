@@ -9,8 +9,11 @@ import { loadCore } from '../coreLoader';
 import type { RepositoryManager } from '../repo/RepositoryManager';
 import { renderHtml } from './html';
 import type { RpcRouter } from './RpcRouter';
+import { pollWorktree } from './worktreePolling';
 
 export const VIEW_TYPE = 'twigline.repository';
+
+const t = vscode.l10n.t;
 
 interface PanelEntry {
   panel: vscode.WebviewPanel;
@@ -20,6 +23,10 @@ interface PanelEntry {
   autoFetch?: NodeJS.Timeout;
   initialView?: ViewKind;
   initialPath?: string;
+  /** twigline.autoRefresh when the panel opened */
+  autoRefresh: boolean;
+  /** Reading git status again for working tree changes, while vscode.git does not report them (see pollWorktree) */
+  poll?: vscode.Disposable;
 }
 
 interface PanelState {
@@ -45,8 +52,22 @@ export class RepoPanelManager implements vscode.Disposable {
             panel.dispose();
             return;
           }
+          // Restoring runs git without anyone asking: only where the user trusts it. vscode.git may not have found
+          // the repositories it opened yet (a repository of a file opened from outside the workspace, say)
+          if (!this.repos.isTrusted(state.root)) await this.repos.discovered();
+          if (!this.repos.isTrusted(state.root)) {
+            panel.title = state.root.split(/[\\/]/).pop() || state.root;
+            panel.webview.html = `<!DOCTYPE html><html><body><p>${escapeHtml(
+              t('Twigline did not reopen {0}: it is outside the workspace and not in Other Repositories. Open it again with "Open Repository from Folder…".', state.root),
+            )}</p></body></html>`;
+            return;
+          }
           await this.attach(panel, state.root, {});
         },
+      }),
+      // Whether a panel needs to read git status for working tree changes can change (vscode.git opened its repository late, say)
+      this.repos.onDidChange(() => {
+        for (const entry of this.panels.values()) this.updatePolling(entry);
       }),
       vscode.workspace.onDidChangeConfiguration((e) => {
         if (!e.affectsConfiguration('twigline')) return;
@@ -118,6 +139,7 @@ export class RepoPanelManager implements vscode.Disposable {
       disposables: [],
       initialView: opts.view,
       initialPath: opts.path,
+      autoRefresh: vscode.workspace.getConfiguration('twigline', vscode.Uri.file(model.root)).get<boolean>('autoRefresh', true),
     };
     entry.router = new (loadCore().RpcRouter)(model, (msg) => void panel.webview.postMessage(msg), {
       init: async () => this.initData(entry),
@@ -140,10 +162,26 @@ export class RepoPanelManager implements vscode.Disposable {
       toVscodeDisposable(model.onDidChange((kinds) => this.post(model.id, { type: 'repo/changed', repo: model.id, kinds }))),
       panel.onDidDispose(() => this.onDisposed(model.id)),
     );
-    model.startWatching(vscode.workspace.getConfiguration('twigline', vscode.Uri.file(model.root)).get<boolean>('autoRefresh', true));
+    model.startWatching(entry.autoRefresh);
+    this.repos.panelOpened(model);
+    this.repos.touchOther(model.root);
+    this.updatePolling(entry);
     this.scheduleAutoFetch(entry);
     const lang = vscode.env.language.toLowerCase().startsWith('ja') ? 'ja' : 'en';
     panel.webview.html = renderHtml(panel.webview, this.context.extensionUri, { repo: model.id, root: model.root, lang });
+  }
+
+  /**
+   * vscode.git reports working tree changes of the repositories it knows. For the others (other repositories, a submodule of one,
+   * a workspace folder it has not opened) Twigline reads git status again itself while the panel is open.
+   */
+  private updatePolling(entry: PanelEntry): void {
+    const wanted = entry.autoRefresh && !this.repos.isKnownToGit(entry.model.id);
+    if (wanted && !entry.poll) entry.poll = pollWorktree(entry.model, entry.panel);
+    else if (!wanted && entry.poll) {
+      entry.poll.dispose();
+      entry.poll = undefined;
+    }
   }
 
   private resourceRoots(): vscode.Uri[] {
@@ -240,6 +278,7 @@ export class RepoPanelManager implements vscode.Disposable {
     if (!entry) return;
     this.panels.delete(id);
     if (entry.autoFetch) clearInterval(entry.autoFetch);
+    entry.poll?.dispose();
     entry.router.dispose();
     for (const d of entry.disposables) d.dispose();
     for (const [key, p] of this.pendingEdits) {

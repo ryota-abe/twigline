@@ -120,6 +120,11 @@ export class RepoModel implements Disposable {
     this.watcher = new RepoWatcher(this, (kinds) => this.notifyChanged(kinds));
   }
 
+  /** A write operation of Twigline is running (its result is notified when it finishes) */
+  get busy(): boolean {
+    return this.opDepth > 0;
+  }
+
   stopWatching(): void {
     this.watcher?.dispose();
     this.watcher = undefined;

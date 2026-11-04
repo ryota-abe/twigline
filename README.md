@@ -43,6 +43,13 @@ The repository list in the Activity Bar shows each repository's branch, the numb
 Hovering a row shows fetch / pull / push; right-click also offers opening it in the integrated terminal and copying its path. The gear in the title opens Twigline's settings.
 "Open in Integrated Terminal" (here or under "…" in the panel) shows a terminal already open in the repository instead of opening another. On Windows it opens Git Bash when Git for Windows is installed and no default terminal profile is chosen in VS Code. To choose the shell, set `twigline.terminal.profile` to a profile's name, or to `default` for VS Code's default profile.
 
+A repository outside the workspace can be opened with "Open Repository from Folder…" (the folder icon in the title of the list, or the Command Palette).
+Workspace Trust does not cover it, so Twigline asks before running git there the first time, naming the repository's root (the chosen folder may be inside a larger repository): git can run programs set in the repository (hooks, `core.fsmonitor` and others).
+Only that repository is trusted; a repository inside it is asked about separately.
+It is then listed under "Other Repositories" at the end of the list, in every window of the same machine (a remote window keeps its own list per host, WSL distribution or container), until "Remove from List" in its right-click menu. A window that is already open shows a repository added in another window after its list is refreshed.
+Its branch and badges are shown while its panel is open; Twigline does not run git in it until it is opened. A panel of a repository that is no longer trusted is not reopened when VS Code starts.
+vscode.git does not report changes to its files, so Twigline reads `git status` again when the window gets focus, when the panel is shown, when a file in it is saved (or created, deleted, renamed) in VS Code, and every few seconds while the panel is visible and the window has focus.
+
 When the panel opens, it shows the "Uncommitted Changes" tab if there are uncommitted changes, and the "History" tab otherwise.
 History has a single search box; a prefix selects the kind of search.
 
