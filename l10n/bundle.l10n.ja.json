@@ -38,9 +38,10 @@
   "Repositories outside the workspace opened in Twigline. Every window shows them.": "Twigline で開いた、ワークスペースの外のリポジトリです。どのウィンドウにも表示します。",
   "Reverting": "打ち消し中",
   "Staged: {0}": "ステージ済み: {0}",
-  "This folder is outside the workspace, so Workspace Trust does not cover it. Twigline runs git in it, and git can run programs named in the repository's settings (hooks, core.fsmonitor in .git/config and others). Open it only if you trust the repository.": "このフォルダーはワークスペースの外にあるので、ワークスペースの信頼の対象外です。Twigline はここで git を実行し、git はリポジトリの設定（フックや .git/config の core.fsmonitor など）に書かれたプログラムを実行することがあります。信頼できるリポジトリだけを開いてください。",
+  "This repository is outside the workspace, so Workspace Trust does not cover it. Twigline runs git in it, and git can run programs named in the repository's settings (hooks, core.fsmonitor in .git/config and others). Open it only if you trust the repository.": "このリポジトリはワークスペースの外にあるので、ワークスペースの信頼の対象外です。Twigline はここで git を実行し、git はリポジトリの設定（フックや .git/config の core.fsmonitor など）に書かれたプログラムを実行することがあります。信頼できるリポジトリだけを開いてください。",
   "To show pull requests from GitHub Enterprise Server, set github-enterprise.uri to the server URL.": "GitHub Enterprise Server のプルリクエストを表示するには、github-enterprise.uri にサーバーの URL を設定してください。",
   "Twigline could not open {0}: {1}": "Twigline で {0} を開けませんでした: {1}",
+  "Twigline did not reopen {0}: it is outside the workspace and not in Other Repositories. Open it again with \"Open Repository from Folder…\".": "{0} はワークスペースの外にあり、「その他のリポジトリ」にもないため、Twigline は開き直しませんでした。「フォルダーからリポジトリを開く…」で開き直してください。",
   "Twigline: Connect to Bitbucket": "Twigline: Bitbucket に接続",
   "Twigline: Git authentication": "Twigline: Git の認証",
   "Index": "インデックス",
@@ -78,5 +79,6 @@
   "{0} failed (exit code {1}).": "{0} が失敗しました（終了コード {1}）。",
   "{0} finished.": "{0} が完了しました。",
   "{0} has no upstream. {1}/{2} will be created and set as its upstream.": "{0} にはアップストリームがありません。{1}/{2} を作成してアップストリームに設定します。",
-  "{0} was not found. It may have been moved or deleted.": "{0} が見つかりません。移動または削除された可能性があります。"
+  "{0} is in the repository {1}. Open {1} in Twigline?": "{0} はリポジトリ {1} の中にあります。{1} を Twigline で開きますか？",
+  "{0} is not available. It may have been moved or deleted, or its drive may be disconnected.": "{0} を使えません。移動または削除されたか、ドライブが切断されている可能性があります。"
 }

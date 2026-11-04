@@ -3,6 +3,7 @@ import * as path from 'node:path';
 import * as vscode from 'vscode';
 import type { SequenceState } from '../../shared/protocol';
 import { countBadge, type RepoStatus } from '../repo/repoStatus';
+import { toRepoId } from '../repo/repoId';
 import type { RepoEntry, RepositoryManager } from '../repo/RepositoryManager';
 
 // The native TreeView is used only for the repository list in the Activity Bar.
@@ -50,7 +51,7 @@ export class RepositoriesView implements vscode.TreeDataProvider<Node>, vscode.F
       group.contextValue = 'twigline.otherRepositories';
       return group;
     }
-    const entry = this.entry(node.root);
+    const entry = this.repos.findEntry(toRepoId(node.root));
     const status = this.status(node.root);
     const item =
       node.kind === 'repo'
@@ -111,15 +112,12 @@ export class RepositoriesView implements vscode.TreeDataProvider<Node>, vscode.F
     return new vscode.FileDecoration(badge, badge ? t('{0} changed files', s.changed) : undefined, color);
   }
 
-  private entry(root: string): RepoEntry | undefined {
-    return this.repos.repositories.find((r) => r.root === root) ?? this.repos.otherRepositories.find((r) => r.root === root);
-  }
-
   /** undefined for an other repository that is not open (its folder is not read: it may be on a disconnected drive) */
   private status(root: string): RepoStatus | undefined {
     if (!this.statuses.has(root)) {
-      const entry = this.entry(root);
-      this.statuses.set(root, entry ? this.repos.statusOf(entry) : this.repos.statusOf({ id: root, root, name: '', submodules: [] }));
+      const entry = this.repos.findEntry(toRepoId(root));
+      // A submodule vscode.git has not opened: from its git directory only
+      this.statuses.set(root, entry ? this.repos.statusOf(entry) : this.repos.statusOfFolder(root));
     }
     return this.statuses.get(root);
   }

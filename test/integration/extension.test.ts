@@ -145,12 +145,18 @@ describe('Twigline extension', function () {
     try {
       execFileSync('git', ['init', '-q'], { cwd: dir });
       execFileSync('git', ['-c', 'user.name=Test', '-c', 'user.email=test@example.com', 'commit', '-q', '--allow-empty', '-m', 'init'], { cwd: dir });
-      // Outside the workspace and unknown to vscode.git: opening it needs the user's confirmation
-      assert.strictEqual(a.repos.needsTrust(dir), true);
       const model = await a.repos.model(dir);
+      // Outside the workspace and unknown to vscode.git: opening it needs the user's confirmation, and nothing else reads it meanwhile
+      assert.strictEqual(a.repos.isTrusted(model.root), false);
+      const rev = await vscode.workspace.openTextDocument(
+        vscode.Uri.from({ scheme: 'twigline-rev', path: '/a.txt', query: JSON.stringify({ root: model.root, rev: 'HEAD' }) }),
+      );
+      assert.strictEqual(rev.getText(), '');
       a.repos.addOther(model.root);
       try {
-        assert.strictEqual(a.repos.needsTrust(model.root), false);
+        assert.strictEqual(a.repos.isTrusted(model.root), true);
+        // Only that repository: one inside it is another repository with its own settings
+        assert.strictEqual(a.repos.isTrusted(path.join(model.root, 'nested')), false);
         assert.ok(a.repos.isOther(model.root));
         assert.ok(a.repos.otherRepositories.some((r) => r.id === model.id && r.other));
         assert.ok(!a.repos.repositories.some((r) => r.id === model.id), 'vscode.git does not list it');
@@ -167,6 +173,12 @@ describe('Twigline extension', function () {
         assert.ok(await vscode.workspace.applyEdit(edit));
         await until(() => (a.panels.rpcStats(model.id)['status/get']?.ok ?? 0) > before, 15_000);
       } finally {
+        // Close the panel, so its polling does not go on against the deleted folder
+        const tabs = vscode.window.tabGroups.all
+          .flatMap((g) => g.tabs)
+          .filter((t) => ((t.input as { viewType?: string } | undefined)?.viewType ?? '').includes('twigline.repository') && t.label === model.name);
+        await vscode.window.tabGroups.close(tabs);
+        await until(() => !a.panels.has(model.id));
         a.repos.removeOther(model.root);
       }
       assert.ok(!a.repos.otherRepositories.some((r) => r.id === model.id));

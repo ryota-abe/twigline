@@ -1,4 +1,6 @@
-import { existsSync } from 'node:fs';
+import { realpathSync } from 'node:fs';
+import { stat } from 'node:fs/promises';
+import * as os from 'node:os';
 import * as path from 'node:path';
 import * as vscode from 'vscode';
 import type { RepoId } from '../../shared/protocol';
@@ -7,9 +9,9 @@ import { gitPathSetting } from '../host/config';
 import type { GitHelpers } from '../ipc/helpers';
 import type { API, GitExtension, Repository } from '../types/git';
 import { loadCore } from '../coreLoader';
-import { addOther, hasOther, isSameOrInside, removeOther, sanitizeOthers, type OtherRepository } from './otherRepositories';
+import { addOther, hasOther, isTrustedRoot, othersStorageKey, removeOther, sanitizeOthers, type OtherRepository, type TrustContext } from './otherRepositories';
 import type { GitInfo, RepoModel } from './RepoModel';
-import { toRepoId } from './repoId';
+import { isSameOrInside, toRepoId } from './repoId';
 import { repoStatus, repoStatusFromWorkingTree, type RepoStatus } from './repoStatus';
 
 export interface RepoEntry {
@@ -31,17 +33,26 @@ export interface HeadState {
   commit?: string;
 }
 
-/** Key of the list of other repositories in globalState */
-const OTHERS_KEY = 'twigline.otherRepositories';
+const NO_HEAD: HeadState = { ahead: 0, behind: 0, detached: false };
+
+/** A repository with an open panel (see panelOpened) */
+interface PanelRepo {
+  model: RepoModel;
+  /** For a repository vscode.git does not know: the last state read from the panel's git status, for the list and the status bar */
+  state?: { head: HeadState; status: RepoStatus };
+  dispose(): void;
+}
 
 /**
  * Discovers repositories through the vscode.git API and manages RepoId and RepoModel.
- * Also keeps the list of other repositories (outside the workspace, opened by the user; see otherRepositories.ts).
- * vscode.git does not open those (its openRepository leaves repositories outside the workspace to its "parent folder" prompt),
- * so their state for the repository list comes from Twigline's own `git status` while their panel is open.
+ * Also keeps the list of other repositories (outside the workspace, opened by the user; see otherRepositories.ts) and decides
+ * where git may run without asking (isTrusted). vscode.git does not open repositories outside the workspace (its openRepository
+ * leaves them to its "parent folder" prompt), so the state of those for the repository list comes from Twigline's own
+ * `git status` while their panel is open.
  */
 export class RepositoryManager implements vscode.Disposable {
   private api?: API;
+  private initializing?: Promise<void>;
   private gitInfo?: Promise<GitInfo>;
   private readonly models = new Map<RepoId, Promise<RepoModel>>();
   /** When opened at a subdirectory etc.: the requested ID -> the ID of the root */
@@ -51,9 +62,9 @@ export class RepositoryManager implements vscode.Disposable {
   /** The list of repositories or HEAD changed */
   readonly onDidChange = this.changeEmitter.event;
   private readonly stateSubs = new Map<RepoId, vscode.Disposable>();
-  /** Other repositories with an open RepoModel: their last state, and the subscription that keeps it current */
-  private readonly otherStates = new Map<RepoId, { head: HeadState; status: RepoStatus }>();
-  private readonly otherSubs = new Map<RepoId, { dispose(): void }>();
+  private readonly panelRepos = new Map<RepoId, PanelRepo>();
+  /** Repositories the user confirmed for this session only (a fetch another extension asked for: not added to the list) */
+  private readonly trustedForSession = new Set<RepoId>();
 
   constructor(
     private readonly env: HostEnv,
@@ -62,7 +73,13 @@ export class RepositoryManager implements vscode.Disposable {
     private readonly memento?: vscode.Memento,
   ) {}
 
-  async initialize(): Promise<void> {
+  /** Attach to vscode.git (once; later calls wait for the first) */
+  initialize(): Promise<void> {
+    this.initializing ??= this.attachGit();
+    return this.initializing;
+  }
+
+  private async attachGit(): Promise<void> {
     const ext = vscode.extensions.getExtension<GitExtension>('vscode.git');
     if (!ext) return;
     try {
@@ -75,6 +92,22 @@ export class RepositoryManager implements vscode.Disposable {
     } catch (e) {
       console.error('[twigline] vscode.git is not available', e);
     }
+  }
+
+  /** Wait until vscode.git has discovered the repositories of the workspace, at most `timeoutMs` (it may be disabled or slow) */
+  async discovered(timeoutMs = 10_000): Promise<void> {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let sub: { dispose(): void } | undefined;
+    await new Promise<void>((resolve) => {
+      timer = setTimeout(resolve, timeoutMs);
+      void this.initialize().then(() => {
+        const api = this.api;
+        if (!api || api.state === 'initialized') return resolve();
+        sub = api.onDidChangeState((state) => state === 'initialized' && resolve());
+      });
+    });
+    clearTimeout(timer);
+    sub?.dispose();
   }
 
   private attachApi(api: API): void {
@@ -135,8 +168,14 @@ export class RepositoryManager implements vscode.Disposable {
       .sort((a, b) => a.name.localeCompare(b.name) || a.root.localeCompare(b.root));
   }
 
+  /** A repository of vscode.git or of the list of other repositories */
   findEntry(id: RepoId): RepoEntry | undefined {
     return this.repositories.find((r) => r.id === id) ?? this.otherRepositories.find((r) => r.id === id);
+  }
+
+  /** Whether vscode.git has opened the repository (it then reports its changes and state) */
+  isKnownToGit(id: RepoId): boolean {
+    return this.repositories.some((r) => r.id === id);
   }
 
   /** The repository that contains a file or folder */
@@ -148,16 +187,38 @@ export class RepositoryManager implements vscode.Disposable {
       .sort((a, b) => b.id.length - a.id.length)[0];
   }
 
-  // ---- Other repositories ----
+  // ---- Where git may run ----
 
   /**
-   * The list is kept per remote (a path means something only on its own machine): by the authority of the workspace folder
-   * (e.g. `ssh-remote+host`, `wsl+Ubuntu`), or by the kind of remote in a window without a folder.
+   * Whether git may run in the repository at `root` (its top level, as git reports it) without asking the user:
+   * inside a workspace folder, the exact root of a repository vscode.git has opened or of an other repository,
+   * or a repository with an open panel or confirmed for this session. Workspace Trust covers only the workspace folders,
+   * and git can run programs set in a repository (hooks, core.fsmonitor).
    */
+  isTrusted(root: string): boolean {
+    const id = toRepoId(root);
+    return this.panelRepos.has(id) || this.trustedForSession.has(id) || isTrustedRoot(root, this.trustContext());
+  }
+
+  /** The user confirmed a repository without adding it to the list */
+  trustForSession(root: string): void {
+    this.trustedForSession.add(toRepoId(root));
+  }
+
+  private trustContext(): TrustContext {
+    const folders = (vscode.workspace.workspaceFolders ?? []).filter((f) => f.uri.scheme === 'file').map((f) => f.uri.fsPath);
+    return {
+      // git reports the real path: a workspace folder opened through a symbolic link must match it too
+      workspaceFolders: withRealPaths(folders),
+      gitRoots: withRealPaths(this.repositories.map((r) => r.root)),
+      others: this.readOthers().map((o) => o.root),
+    };
+  }
+
+  // ---- Other repositories ----
+
   private othersKey(): string {
-    const folder = vscode.workspace.workspaceFolders?.[0]?.uri;
-    const scope = folder?.scheme === 'vscode-remote' ? folder.authority : vscode.env.remoteName;
-    return scope ? `${OTHERS_KEY}:${scope}` : OTHERS_KEY;
+    return othersStorageKey({ remoteName: vscode.env.remoteName, hostname: os.hostname(), wslDistro: process.env.WSL_DISTRO_NAME });
   }
 
   private readOthers(): OtherRepository[] {
@@ -170,24 +231,12 @@ export class RepositoryManager implements vscode.Disposable {
 
   /** Whether `root` is in the list of other repositories (and vscode.git does not have it) */
   isOther(root: string): boolean {
-    const id = toRepoId(root);
-    return hasOther(this.readOthers(), root) && !this.repositories.some((r) => r.id === id);
+    return hasOther(this.readOthers(), root) && !this.isKnownToGit(toRepoId(root));
   }
 
-  /**
-   * Whether running git in `root` needs the user's confirmation first: Workspace Trust covers only the workspace folders.
-   * Not needed inside a workspace folder, a repository vscode.git has opened, or a repository already in the list.
-   */
-  needsTrust(root: string): boolean {
-    const folders = (vscode.workspace.workspaceFolders ?? []).filter((f) => f.uri.scheme === 'file').map((f) => f.uri.fsPath);
-    const known = [...folders, ...this.repositories.map((r) => r.root), ...this.readOthers().map((o) => o.root)];
-    return !known.some((base) => isSameOrInside(root, base));
-  }
-
-  /** Add a repository the user chose (and confirmed) to the list */
+  /** Add a repository the user confirmed to the list (its root, as git reports it) */
   addOther(root: string): void {
     this.writeOthers(addOther(this.readOthers(), root, Date.now()));
-    void this.existingModel(toRepoId(root))?.then((m) => this.trackOther(m), () => undefined);
     this.changeEmitter.fire();
   }
 
@@ -198,61 +247,94 @@ export class RepositoryManager implements vscode.Disposable {
   }
 
   removeOther(root: string): void {
-    const id = toRepoId(root);
     this.writeOthers(removeOther(this.readOthers(), root));
-    this.otherSubs.get(id)?.dispose();
-    this.otherSubs.delete(id);
-    this.otherStates.delete(id);
     this.changeEmitter.fire();
   }
 
-  /** Whether the folder of a repository still exists (the list may hold a folder that was moved, deleted or is on a disconnected drive) */
-  exists(root: string): boolean {
-    return existsSync(root);
+  /**
+   * Whether the folder of a repository can be used: the list may hold a folder that was moved or deleted, or one on a drive
+   * that is disconnected (which may not answer at all, hence the time limit)
+   */
+  async isAvailable(root: string, timeoutMs = 3_000): Promise<boolean> {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<boolean>((resolve) => (timer = setTimeout(() => resolve(false), timeoutMs)));
+    try {
+      return await Promise.race([stat(root).then((s) => s.isDirectory(), () => false), timeout]);
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
-  /** Keep the state of an open other repository for the repository list: read `git status` again when the model reports changes */
-  private trackOther(model: RepoModel): void {
-    if (this.otherSubs.has(model.id) || !this.isOther(model.root)) return;
+  // ---- Panels ----
+
+  /**
+   * A panel opened for the repository (RepoPanelManager tells; `release` ends it). git may run there from now on,
+   * and for a repository vscode.git does not know, the list and the status bar show the state read from the panel's git status.
+   */
+  panelOpened(model: RepoModel): void {
+    if (this.panelRepos.has(model.id)) return;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const refresh = () => {
       if (timer) clearTimeout(timer);
-      timer = setTimeout(() => void this.readOtherState(model), 300);
+      timer = setTimeout(() => void this.readPanelState(repo), 300);
     };
     const sub = model.onDidChange(refresh);
-    this.otherSubs.set(model.id, {
+    const repo: PanelRepo = {
+      model,
       dispose: () => {
         if (timer) clearTimeout(timer);
         sub.dispose();
       },
-    });
+    };
+    this.panelRepos.set(model.id, repo);
     refresh();
   }
 
-  private async readOtherState(model: RepoModel): Promise<void> {
+  private async readPanelState(repo: PanelRepo): Promise<void> {
+    const { model } = repo;
+    // vscode.git reports the state of the repositories it knows
+    if (this.panelRepos.get(model.id) !== repo || this.isKnownToGit(model.id)) return;
     try {
       // Shares the cache with the panel, which reads the status after the same change
       const s = await model.status.getParsed();
-      if (!this.otherSubs.has(model.id)) return;
+      // The panel may have been closed (and opened again) meanwhile
+      if (this.panelRepos.get(model.id) !== repo) return;
       const b = s.branch;
-      this.otherStates.set(model.id, {
+      repo.state = {
         head: { branch: b.head ?? undefined, ahead: b.ahead, behind: b.behind, detached: !b.head && !!b.oid, commit: b.oid ?? undefined },
         status: repoStatusFromWorkingTree(model.gitDir, s),
-      });
+      };
       this.changeEmitter.fire();
     } catch {
       // Keep the last state
     }
   }
 
+  /** HEAD for the list and the status bar, without running git: the state of vscode.git, or the last one read for an open panel */
+  headOf(entry: RepoEntry): HeadState {
+    if (!entry.gitRepo) return this.panelRepos.get(entry.id)?.state?.head ?? NO_HEAD;
+    const head = entry.gitRepo.state.HEAD;
+    return {
+      branch: head?.name,
+      ahead: head?.ahead ?? 0,
+      behind: head?.behind ?? 0,
+      detached: !head?.name && !!head?.commit,
+      commit: head?.commit,
+    };
+  }
+
   /**
-   * What the repository list shows for a repository, without running git: the state of vscode.git, or for an other repository
-   * the last state read while its panel is open (undefined before that)
+   * What the list shows for a repository, without running git: from the state of vscode.git, or the last one read for an open panel.
+   * undefined for a repository vscode.git does not know whose panel is not open (its folder is not read: it may be on a disconnected drive)
    */
   statusOf(entry: RepoEntry): RepoStatus | undefined {
     if (entry.gitRepo) return repoStatus(entry.root, entry.gitRepo.state);
-    if (entry.other) return this.otherStates.get(entry.id)?.status;
-    return repoStatus(entry.root, undefined);
+    return this.panelRepos.get(entry.id)?.state?.status;
+  }
+
+  /** For a submodule vscode.git has not opened: only what the files in its git directory tell */
+  statusOfFolder(root: string): RepoStatus {
+    return repoStatus(root, undefined);
   }
 
   /** The git executable to use: twigline.gitPath (machine scope) -> the git of vscode.git -> git on PATH */
@@ -288,7 +370,6 @@ export class RepositoryManager implements vscode.Disposable {
             }
             this.models.set(model.id, Promise.resolve(model));
           }
-          this.trackOther(model);
           return model;
         });
       opening.catch(() => this.models.delete(id));
@@ -302,35 +383,37 @@ export class RepositoryManager implements vscode.Disposable {
     return this.models.get(this.aliases.get(id) ?? id);
   }
 
-  /** Close the RepoModel when the panel closes */
+  /** Close the RepoModel (when its panel closes) */
   release(id: RepoId): void {
     const m = this.models.get(id);
     this.models.delete(id);
-    this.otherSubs.get(id)?.dispose();
-    this.otherSubs.delete(id);
-    this.otherStates.delete(id);
+    const repo = this.panelRepos.get(id);
+    this.panelRepos.delete(id);
+    repo?.dispose();
     void m?.then((x) => x.dispose(), () => undefined);
-  }
-
-  /** HEAD for the status bar (uses the state of vscode.git, or the last state of an open other repository, and does not call git) */
-  headOf(entry: RepoEntry): HeadState {
-    if (!entry.gitRepo && entry.other) return this.otherStates.get(entry.id)?.head ?? { ahead: 0, behind: 0, detached: false };
-    const head = entry.gitRepo?.state.HEAD;
-    return {
-      branch: head?.name,
-      ahead: head?.ahead ?? 0,
-      behind: head?.behind ?? 0,
-      detached: !head?.name && !!head?.commit,
-      commit: head?.commit,
-    };
+    // The row and the status bar showed the state read for the panel
+    if (repo?.state) this.changeEmitter.fire();
   }
 
   dispose(): void {
     for (const d of this.disposables) d.dispose();
     for (const d of this.stateSubs.values()) d.dispose();
-    for (const d of this.otherSubs.values()) d.dispose();
+    for (const r of this.panelRepos.values()) r.dispose();
     for (const m of this.models.values()) void m.then((x) => x.dispose(), () => undefined);
     this.models.clear();
     this.changeEmitter.dispose();
   }
+}
+
+/** The paths and, when they go through a symbolic link, their real paths */
+function withRealPaths(paths: readonly string[]): string[] {
+  const out = new Set(paths);
+  for (const p of paths) {
+    try {
+      out.add(realpathSync.native(p));
+    } catch {
+      // A folder that is gone: the path itself is enough
+    }
+  }
+  return [...out];
 }

@@ -1,7 +1,10 @@
+import { realpathSync } from 'node:fs';
+import * as path from 'node:path';
 import * as vscode from 'vscode';
-import { isSameOrInside } from '../repo/otherRepositories';
+import type { ChangeKind } from '../../shared/protocol';
+import { isSameOrInside } from '../repo/repoId';
 import type { RepoModel } from '../repo/RepoModel';
-import { StatusPoller, statusFingerprint } from '../repo/statusPoller';
+import { headChanged, StatusPoller, statusFingerprint } from '../repo/statusPoller';
 
 /**
  * Working tree changes of a repository vscode.git does not know (an other repository, outside the workspace), without watching its folder.
@@ -10,21 +13,21 @@ import { StatusPoller, statusFingerprint } from '../repo/statusPoller';
  * (for programs that change files meanwhile, such as a build in the terminal). The panel is told only when the result differs.
  */
 export function pollWorktree(model: RepoModel, panel: vscode.WebviewPanel): vscode.Disposable {
-  /** The change being notified is the poller's own (not a reason to resync) */
-  let notifying = false;
   const poller = new StatusPoller({
-    read: async () => {
+    read: async ({ resync }) => {
       if (model.busy) return undefined;
-      model.status.invalidate();
+      // A resync follows a notification that already dropped the cache, and the panel reads the status for it too: share that read
+      if (!resync) model.status.invalidate();
       return statusFingerprint(model.root, model.gitDir, await model.status.getParsed());
     },
-    onChange: () => {
-      notifying = true;
-      model.notifyChanged(['status']);
+    onChange: (previous, current) => {
+      // HEAD moved (a commit or checkout in a terminal, which the .git watcher can miss on a network drive): the history too
+      const kinds: ChangeKind[] = headChanged(previous, current) ? ['head', 'refs', 'status'] : ['status'];
+      model.notifyChanged(kinds);
     },
   });
   const update = () => poller.setActive(panel.visible && vscode.window.state.focused);
-  const touches = (uris: readonly vscode.Uri[]) => uris.some((u) => u.scheme === 'file' && isSameOrInside(u.fsPath, model.root));
+  const touches = (uris: readonly vscode.Uri[]) => uris.some((u) => u.scheme === 'file' && isSameOrInside(realPath(u.fsPath), model.root));
   const poke = (uris: readonly vscode.Uri[]) => touches(uris) && poller.poke();
   const subs: { dispose(): void }[] = [
     panel.onDidChangeViewState(update),
@@ -33,11 +36,9 @@ export function pollWorktree(model: RepoModel, panel: vscode.WebviewPanel): vsco
     vscode.workspace.onDidCreateFiles((e) => poke(e.files)),
     vscode.workspace.onDidDeleteFiles((e) => poke(e.files)),
     vscode.workspace.onDidRenameFiles((e) => poke(e.files.flatMap((f) => [f.oldUri, f.newUri]))),
+    // Changes the panel was told about some other way (Twigline's operations, the .git watcher, this poller): the new baseline.
+    // The read shares the cache with the panel, so it runs no extra git
     model.onDidChange((kinds) => {
-      if (notifying) {
-        notifying = false;
-        return;
-      }
       if (kinds.includes('status') || kinds.includes('head') || kinds.includes('sequence')) poller.resync();
     }),
   ];
@@ -48,4 +49,16 @@ export function pollWorktree(model: RepoModel, panel: vscode.WebviewPanel): vsco
     poller.dispose();
     for (const s of subs) s.dispose();
   });
+}
+
+/**
+ * The path with its folder's symbolic links resolved: git reports the real path of the root, and a file may be opened through a link
+ * (the folder, not the file: a deleted file has none)
+ */
+function realPath(p: string): string {
+  try {
+    return path.join(realpathSync.native(path.dirname(p)), path.basename(p));
+  } catch {
+    return p;
+  }
 }

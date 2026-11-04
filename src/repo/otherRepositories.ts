@@ -1,10 +1,10 @@
 import * as path from 'node:path';
 import type { RepoId } from '../../shared/protocol';
-import { toRepoId } from './repoId';
+import { isSameOrInside, toRepoId } from './repoId';
 
-// "Other repositories": repositories outside the workspace that the user opened in Twigline with "Open Repository from Folder...".
-// The list is kept in globalState, so every window (of the same local machine or remote) shows it. It also records that the user
-// confirmed running git there: Workspace Trust does not cover folders outside the workspace.
+// "Other repositories": repositories outside the workspace that the user opened in Twigline.
+// The list is kept in globalState, so every window of the same machine shows it. It also records that the user confirmed
+// running git there: Workspace Trust does not cover folders outside the workspace.
 // (This file does not import vscode)
 
 export interface OtherRepository {
@@ -48,10 +48,33 @@ export function hasOther(list: readonly OtherRepository[], root: string): boolea
   return list.some((o) => toRepoId(o.root) === id);
 }
 
-/** Whether `target` is `base` or inside it (case-insensitive on Windows, like RepoId) */
-export function isSameOrInside(target: string, base: string): boolean {
-  const t = toRepoId(target);
-  const b = toRepoId(base);
-  if (t === b) return true;
-  return t.startsWith(b.endsWith(path.sep) ? b : b + path.sep);
+/** What decides whether git may run in a repository without asking the user (see isTrustedRoot) */
+export interface TrustContext {
+  /** Workspace folders (with their real paths when they go through a symbolic link): Workspace Trust covers everything inside */
+  workspaceFolders: readonly string[];
+  /** Roots of the repositories vscode.git has opened: it already runs git there */
+  gitRoots: readonly string[];
+  /** Roots of the other repositories: the user confirmed exactly these */
+  others: readonly string[];
+}
+
+/**
+ * Whether git may run in the repository at `root` (its top level as git reports it) without asking.
+ * Inside a workspace folder: yes. Otherwise only the exact root of a repository vscode.git has opened or the user confirmed;
+ * a repository inside one of those (a vendored repository, a test fixture) is a different repository with its own settings.
+ */
+export function isTrustedRoot(root: string, ctx: TrustContext): boolean {
+  const id = toRepoId(root);
+  return ctx.workspaceFolders.some((f) => isSameOrInside(root, f)) || [...ctx.gitRoots, ...ctx.others].some((r) => toRepoId(r) === id);
+}
+
+/**
+ * Key of the list in globalState. globalState is kept on the local machine even for a remote window, and a path means something
+ * only on its own machine, so a remote window keys the list by the machine the extension runs on (the remote host, the WSL
+ * distribution or the container; a rebuilt container starts a new list).
+ */
+export function othersStorageKey(machine: { remoteName?: string; hostname: string; wslDistro?: string }): string {
+  const base = 'twigline.otherRepositories';
+  if (!machine.remoteName) return base;
+  return [base, machine.remoteName, machine.hostname, machine.wslDistro].filter(Boolean).join(':');
 }

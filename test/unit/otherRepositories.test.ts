@@ -1,8 +1,17 @@
 import * as path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { addOther, hasOther, isSameOrInside, MAX_OTHER_REPOSITORIES, removeOther, sanitizeOthers } from '../../src/repo/otherRepositories';
+import {
+  addOther,
+  hasOther,
+  isTrustedRoot,
+  MAX_OTHER_REPOSITORIES,
+  othersStorageKey,
+  removeOther,
+  sanitizeOthers,
+} from '../../src/repo/otherRepositories';
+import { isSameOrInside } from '../../src/repo/repoId';
 import { repoStatusFromWorkingTree } from '../../src/repo/repoStatus';
-import { StatusPoller, statusFingerprint } from '../../src/repo/statusPoller';
+import { headChanged, StatusPoller, statusFingerprint } from '../../src/repo/statusPoller';
 import { makeRepo, openModel, type TempRepo } from './helpers';
 
 const abs = (...parts: string[]) => path.resolve(path.sep, ...parts);
@@ -51,6 +60,34 @@ describe('list of other repositories', () => {
     expect(isSameOrInside(abs('ws'), abs('ws', 'sub'))).toBe(false);
     expect(isSameOrInside(abs('x'), path.sep)).toBe(true);
   });
+
+  it('trusts anything inside a workspace folder, but only the exact roots of other and vscode.git repositories', () => {
+    const ctx = { workspaceFolders: [abs('ws')], gitRoots: [abs('git', 'repo')], others: [abs('home'), abs('other', 'repo')] };
+    expect(isTrustedRoot(abs('ws'), ctx)).toBe(true);
+    expect(isTrustedRoot(abs('ws', 'vendor', 'lib'), ctx)).toBe(true);
+    expect(isTrustedRoot(abs('git', 'repo'), ctx)).toBe(true);
+    expect(isTrustedRoot(abs('other', 'repo'), ctx)).toBe(true);
+    // A repository inside a trusted one is a different repository with its own settings
+    expect(isTrustedRoot(abs('home', 'downloads', 'evil'), ctx)).toBe(false);
+    expect(isTrustedRoot(abs('git', 'repo', 'fixture'), ctx)).toBe(false);
+    // A repository that contains a workspace folder is not covered by Workspace Trust
+    expect(isTrustedRoot(abs(), ctx)).toBe(false);
+    expect(isTrustedRoot(abs('elsewhere'), { workspaceFolders: [], gitRoots: [], others: [] })).toBe(false);
+  });
+
+  it.runIf(process.platform === 'win32')('compares roots without case on Windows', () => {
+    const ctx = { workspaceFolders: [], gitRoots: [], others: ['C:\\Repos\\App'] };
+    expect(isTrustedRoot('c:\\repos\\app', ctx)).toBe(true);
+    expect(isTrustedRoot('c:\\repos\\app\\sub', ctx)).toBe(false);
+  });
+
+  it('keys the list by the machine in a remote window', () => {
+    expect(othersStorageKey({ hostname: 'pc' })).toBe('twigline.otherRepositories');
+    expect(othersStorageKey({ remoteName: 'ssh-remote', hostname: 'build1' })).toBe('twigline.otherRepositories:ssh-remote:build1');
+    expect(othersStorageKey({ remoteName: 'ssh-remote', hostname: 'build2' })).not.toBe(othersStorageKey({ remoteName: 'ssh-remote', hostname: 'build1' }));
+    // WSL distributions share the host name of Windows
+    expect(othersStorageKey({ remoteName: 'wsl', hostname: 'pc', wslDistro: 'Ubuntu' })).not.toBe(othersStorageKey({ remoteName: 'wsl', hostname: 'pc', wslDistro: 'Debian' }));
+  });
 });
 
 describe('other repositories: state', () => {
@@ -72,6 +109,45 @@ describe('other repositories: state', () => {
     try {
       const s = repoStatusFromWorkingTree(model.gitDir, await model.status.getParsed());
       expect(s).toMatchObject({ conflicts: 0, staged: 1, unstaged: 2, untracked: 1, changed: 3, sequence: null });
+    } finally {
+      model.dispose();
+    }
+  });
+
+  it('counts conflicts and the stopped merge', async () => {
+    const r = makeRepo();
+    repos.push(r);
+    r.commit('init', { 'a.txt': 'a\n' });
+    r.git(['switch', '-q', '-c', 'side']);
+    r.commit('side', { 'a.txt': 'side\n' });
+    r.git(['switch', '-q', 'main']);
+    r.commit('main', { 'a.txt': 'main\n' });
+    expect(() => r.git(['merge', '-q', 'side'])).toThrow();
+    const model = await openModel(r.dir);
+    try {
+      const s = repoStatusFromWorkingTree(model.gitDir, await model.status.getParsed());
+      expect(s).toMatchObject({ conflicts: 1, changed: 1, sequence: { kind: 'merge' } });
+    } finally {
+      model.dispose();
+    }
+  });
+
+  it('tells a moved HEAD apart from a working tree change', async () => {
+    const r = makeRepo();
+    repos.push(r);
+    r.commit('init', { 'a.txt': 'a\n' });
+    const model = await openModel(r.dir);
+    try {
+      const read = async () => {
+        model.status.invalidate();
+        return statusFingerprint(model.root, model.gitDir, await model.status.getParsed());
+      };
+      const first = await read();
+      r.write('a.txt', 'changed\n');
+      const changed = await read();
+      expect(headChanged(first, changed)).toBe(false);
+      r.commit('second', { 'a.txt': 'changed\n' });
+      expect(headChanged(changed, await read())).toBe(true);
     } finally {
       model.dispose();
     }
@@ -183,6 +259,50 @@ describe('StatusPoller', () => {
     expect(read).toHaveBeenCalledTimes(2);
     expect(onChange).toHaveBeenCalledTimes(1);
     poller.dispose();
+  });
+
+  it('reports a change made during a silent read after an event', async () => {
+    // resync -> silent read of 'b' (the change the panel was told about); a save meanwhile -> 'c' must be reported
+    const { poller, read, onChange } = setup(['a', 'b', 'c'], 1_000);
+    poller.poke();
+    await vi.advanceTimersByTimeAsync(150 + 1_000);
+    poller.resync();
+    await vi.advanceTimersByTimeAsync(150 + 500);
+    poller.poke();
+    await vi.advanceTimersByTimeAsync(500 + 150 + 1_000);
+    expect(read).toHaveBeenCalledTimes(3);
+    expect(read.mock.calls.map((c) => (c as unknown as [{ resync: boolean }])[0].resync)).toEqual([false, true, false]);
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenCalledWith('b', 'c');
+    poller.dispose();
+  });
+
+  it('keeps a resync silent while a periodic read is pending, but not an event that came before it', async () => {
+    const { poller, read, onChange } = setup(['a', 'b', 'c']);
+    poller.setActive(true);
+    await vi.advanceTimersByTimeAsync(150);
+    // The periodic read is due in 5s; a resync replaces it with a silent read
+    poller.resync();
+    await vi.advanceTimersByTimeAsync(150);
+    expect(onChange).not.toHaveBeenCalled();
+    // An event, then a resync before it is read: the read stays a normal one
+    poller.poke();
+    poller.resync();
+    await vi.advanceTimersByTimeAsync(150);
+    expect(read).toHaveBeenCalledTimes(3);
+    expect(onChange).toHaveBeenCalledWith('b', 'c');
+    poller.dispose();
+  });
+
+  it('ignores a read that finishes after dispose', async () => {
+    const { poller, onChange } = setup(['a', 'b'], 1_000);
+    poller.poke();
+    await vi.advanceTimersByTimeAsync(150 + 1_000);
+    poller.poke();
+    await vi.advanceTimersByTimeAsync(150 + 500);
+    poller.dispose();
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(onChange).not.toHaveBeenCalled();
   });
 
   it('skips a read that returns nothing and takes a new baseline silently on resync', async () => {
