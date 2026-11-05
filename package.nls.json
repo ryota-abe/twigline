@@ -1,6 +1,6 @@
 {
   "displayName": "Twigline",
-  "description": "A Git client inside VS Code: branches, commit graph, file status with line staging and diffs in one panel.",
+  "description": "A Git client with the commit graph, branches, line staging and diffs in one editor tab, and pull request badges from GitHub and Bitbucket Cloud on each branch.",
   "cmd.open": "Open Repository in Twigline",
   "cmd.openFromFolder": "Open Repository from Folder…",
   "cmd.fetch": "Fetch",

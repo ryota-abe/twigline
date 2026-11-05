@@ -1,6 +1,6 @@
 {
   "displayName": "Twigline",
-  "description": "VS Code の中の Git クライアント。ブランチ一覧・コミットグラフ・行単位ステージ付きのファイルステータスと差分を 1 つのパネルで扱います。",
+  "description": "Git クライアント。コミットグラフ・ブランチ・行単位ステージと差分を 1 つのエディタタブで扱い、GitHub・Bitbucket Cloud のプルリクエストをブランチごとに表示します。",
   "cmd.open": "Twigline でリポジトリを開く",
   "cmd.openFromFolder": "フォルダーからリポジトリを開く…",
   "cmd.fetch": "フェッチ",
