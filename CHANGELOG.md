@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.0.0-beta.1
+
+A pre-release of 1.0.0: repositories outside the workspace, and fetching from the sidebar.
+
+- "Open Repository from Folder…" (title of the repository list, Command Palette, and the repository picker) opens any folder. A repository outside the workspace is opened only after a confirmation naming its root, because Workspace Trust does not cover it and git can run programs set in the repository (hooks, `core.fsmonitor`)
+- Repositories opened that way are listed under "Other Repositories" at the end of the repository list in every window, with "Remove from List"; a folder that is gone is not opened and can be removed from the list. Their changes are noticed by reading `git status` while their panel is open (on focus, on save, and every few seconds while visible) instead of watching the folder
+- The Remotes heading in the sidebar has a fetch button (all remotes), each remote row has one for that remote, and right-clicking a remote gives Fetch, Fetch... and Edit Remote...; these fetches prune deleted remote branches
+- Fixed: deleting a branch "from the remote too" failed with "remote ref does not exist" when the branch had already been deleted on the remote (e.g. by merging its PR); it now counts as done and removes the stale remote-tracking branch
+- The description and the README say what Twigline is and what sets it apart
+
 ## 0.7.0
 
 Opening a terminal for the repository, and a check before creating a pull request.
