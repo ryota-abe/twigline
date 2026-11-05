@@ -1,18 +1,34 @@
 # Twigline
 
-A Git client inside VS Code: branches, the commit graph, file status with line-level staging, and diffs in one panel.
+A Git client with the commit graph, branches, line-level staging and diffs in one editor tab, and pull request badges from GitHub and Bitbucket Cloud on each branch.
 
 [日本語](./README.ja.md)
 
 ![The History tab: the commit graph with branches, tags, remote branches and pull requests, and the selected commit's details and syntax-highlighted diff](docs/images/history.png)
 
-- Opens each repository in its own editor tab with "Uncommitted Changes | History" tabs, the history graph with branch lists, and details / diffs side by side
-- Actions sit where they apply: pull, push, merge and rebase for the current branch on the branch name in the tab row (clicking the ahead / behind counts also pushes / pulls); stash and discard inside the "Uncommitted Changes" tab; fetch, push branches, branch, tag, terminal and settings under "…" at the right end of the tab row
-- Stage / unstage / discard by file, hunk or line in the "Uncommitted Changes" tab
-- Right-click opens VS Code's own context menu
-- Actions with options open a dialog that previews the git command to be run; push, pull, merge, rebase, reset and branch deletion also show what the operation would do (ahead / behind, conflicts, force push, commits that would be lost) before it runs
-- English and Japanese UI; Japanese file names and Shift_JIS / EUC-JP files
-- Syntax highlighting in diffs, using the grammars installed in VS Code and the colors of the current color theme
+Twigline may suit you if:
+
+- you want the graph, branches, staging and diffs of a standalone Git client together, without leaving VS Code or Cursor
+- your team opens pull requests on GitHub (including GitHub Enterprise Server) or Bitbucket Cloud, and you want to see which branches have one
+- you stage parts of a file by hunk or line
+- you would rather see what an operation will do (conflicts, a force push, commits that would be lost) before running it than undo it afterwards
+- you work in Japanese, or with Shift_JIS / EUC-JP files
+
+## Features
+
+- **One repository, one editor tab.** "Uncommitted Changes | History" tabs, the history graph with lists of branches, tags, remote branches and stashes, and details / diffs side by side.
+  Actions sit where they apply: pull, push, merge and rebase for the current branch on the branch name in the tab row (clicking the ahead / behind counts also pushes / pulls); stash and discard inside the "Uncommitted Changes" tab; fetch, push branches, branch, tag, terminal and settings under "…" at the right end of the tab row.
+- **Pull requests on your branches.** Branches with a pull request on GitHub (including GitHub Enterprise Server) or Bitbucket Cloud get a `#12` badge colored by its state (open, draft, merged, closed), in the branch and remote branch lists, the history graph, the tab row and the Delete Branch dialog; click it to open the pull request. Merged pull requests are still shown after the remote branch is deleted, so you can tell which local branches are done with. Public repositories need no sign-in.
+- **Stage by file, hunk or line.** Stage, unstage or discard in the "Uncommitted Changes" tab, with the mouse or `Space` on the selected row.
+- **Rewrite history in dialogs.** Interactive rebase (reorder by dragging; pick, reword, edit, squash, fixup, drop), cherry-pick, revert, reset, amend; a rebase, merge, cherry-pick or revert that stops is shown in a banner with Continue and Abort.
+- **See the result before it runs.** Push, pull, merge, rebase, reset and branch deletion open a dialog that says what will happen: ahead / behind against the remote branch, predicted conflicts, whether a force push is needed, pushed commits a rebase would rewrite, and commits no branch, tag or remote branch would still have. Force stays off until you check it. Every action with options also previews the git command it will run.
+- **All your repositories at a glance.** The Activity Bar lists each repository's branch, number of changed files, and any operation that has stopped or has conflicts, with fetch / pull / push per row. Repositories outside the workspace can be opened too.
+- **Part of VS Code.** Right-click opens VS Code's own context menu; colors follow the current color theme; diffs are syntax-highlighted with the grammars installed in VS Code; lists and diffs work from the keyboard.
+- **English and Japanese.** The UI in both languages; Japanese file names and Shift_JIS / EUC-JP files in diffs.
+- **Free and open source** (MIT), with no account and no telemetry. Besides what git itself does, Twigline connects only to GitHub and Bitbucket to read pull requests, and that can be turned off.
+
+Not included: blame annotations in the editor, pull requests on GitLab, Azure DevOps or Bitbucket Data Center (only "Create Pull Request" opens their pages), and reviewing pull requests inside VS Code.
+Twigline works alongside VS Code's Source Control view and does not replace it.
 
 ## Installation
 
