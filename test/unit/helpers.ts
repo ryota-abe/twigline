@@ -90,7 +90,6 @@ export const TEST_CONFIG: TwiglineConfig = {
   rememberPushAfter: true,
   pullRequests: true,
   customActions: [],
-  issueLinks: { builtIn: true, rules: [] },
 };
 
 /** HostEnv for tests (runs on Node only) */
@@ -99,6 +98,8 @@ export function testEnv(overrides: Partial<HostEnv> = {}): HostEnv {
   return {
     encodingFor: () => ({ encoding: 'utf8', autoGuess: true, language: 'ja' }),
     config: () => TEST_CONFIG,
+    issueLinks: () => ({ settings: { builtIn: false, trackers: [] }, source: 'default', targets: ['user'] }),
+    saveIssueLinks: async () => undefined,
     trash: async () => undefined,
     askpass: async () => undefined,
     logCommand: () => undefined,

@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
-import type { TwiglineConfig } from '../../shared/protocol';
-import { issueLinkRules } from '../util/messageLinks';
+import type { IssueLinkSettings, IssueLinksState, SettingsTarget, TwiglineConfig } from '../../shared/protocol';
+import { issueTrackerSettings } from '../util/messageLinks';
 import type { TerminalProfile } from '../util/terminalProfile';
 
 export const DEFAULT_GRAPH_COLORS = ['#2f6bd8', '#c0397f', '#c98410', '#2c9a58', '#7a4fd0', '#d0503a', '#1a93a8', '#8a8f1f'];
@@ -41,11 +41,33 @@ export function readConfig(): TwiglineConfig {
     rememberPushAfter: c.get<boolean>('commit.rememberPushAfter', true),
     pullRequests: c.get<boolean>('pullRequests.enabled', true),
     customActions: readCustomActions().map((a) => ({ name: a.name })),
-    issueLinks: {
-      builtIn: c.get<boolean>('issueLinks.builtIn', true),
-      rules: issueLinkRules(c.get<unknown>('issueLinks.rules', [])),
-    },
   };
+}
+
+/**
+ * twigline.issueLinks.* of a repository. Read with the repository as the resource, so each folder of a multi-root workspace can have its own;
+ * also where they are set and where they can be saved (the workspace folder holding the repository, or the user settings)
+ */
+export function readIssueLinks(root: string): Pick<IssueLinksState, 'settings' | 'source' | 'targets'> {
+  const uri = vscode.Uri.file(root);
+  const c = vscode.workspace.getConfiguration('twigline', uri);
+  const inspected = [c.inspect('issueLinks.builtIn'), c.inspect('issueLinks.trackers')];
+  const inWorkspace = inspected.some((i) => i?.workspaceFolderValue !== undefined || i?.workspaceValue !== undefined);
+  const inUser = inspected.some((i) => i?.globalValue !== undefined);
+  return {
+    settings: { builtIn: c.get<boolean>('issueLinks.builtIn', false) === true, trackers: issueTrackerSettings(c.get<unknown>('issueLinks.trackers', [])) },
+    source: inWorkspace ? 'workspace' : inUser ? 'user' : 'default',
+    targets: vscode.workspace.getWorkspaceFolder(uri) ? ['workspace', 'user'] : ['user'],
+  };
+}
+
+export async function saveIssueLinks(root: string, settings: IssueLinkSettings, target: SettingsTarget): Promise<void> {
+  const uri = vscode.Uri.file(root);
+  if (target === 'workspace' && !vscode.workspace.getWorkspaceFolder(uri)) throw new Error('The repository is not in a workspace folder.');
+  const c = vscode.workspace.getConfiguration('twigline', uri);
+  const t = target === 'workspace' ? vscode.ConfigurationTarget.WorkspaceFolder : vscode.ConfigurationTarget.Global;
+  await c.update('issueLinks.builtIn', settings.builtIn, t);
+  await c.update('issueLinks.trackers', settings.trackers, t);
 }
 
 export function readCustomActions(): CustomAction[] {

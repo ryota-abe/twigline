@@ -1,4 +1,4 @@
-import type { TwiglineConfig, HostEvent, PullRequestProvider, RepoId, SyntaxLanguage, SyntaxTheme, UiAction } from '../../shared/protocol';
+import type { TwiglineConfig, HostEvent, IssueLinkSettings, IssueLinksState, PullRequestProvider, RepoId, SettingsTarget, SyntaxLanguage, SyntaxTheme, UiAction } from '../../shared/protocol';
 import type { EncodingPrefs } from '../git/encoding';
 import type { CommandLogEntry } from '../git/GitRunner';
 import type { Disposable } from '../util/event';
@@ -13,6 +13,9 @@ export interface HostEnv {
   encodingFor(absPath: string): EncodingPrefs;
   /** Twigline settings */
   config(): TwiglineConfig;
+  /** Settings of links in commit messages for the repository at root, where they are set and where they can be saved */
+  issueLinks(root: string): Pick<IssueLinksState, 'settings' | 'source' | 'targets'>;
+  saveIssueLinks(root: string, settings: IssueLinkSettings, target: SettingsTarget): Promise<void>;
   /** Move an untracked file to the OS trash */
   trash(absPaths: string[]): Promise<void>;
   /** Authentication prompt (askpass). Returning undefined cancels authentication */

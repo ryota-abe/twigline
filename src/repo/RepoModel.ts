@@ -15,6 +15,7 @@ import { RebaseService } from '../services/RebaseService';
 import { CompareService } from '../services/CompareService';
 import { CommitService } from '../services/CommitService';
 import { PullRequestService } from '../services/PullRequestService';
+import { LinkService } from '../services/LinkService';
 import { RepoWatcher } from './RepoWatcher';
 import { toRepoId } from './repoId';
 
@@ -43,6 +44,7 @@ export class RepoModel implements Disposable {
   readonly compare: CompareService;
   readonly commit: CommitService;
   readonly pullRequests: PullRequestService;
+  readonly links: LinkService;
   readonly features: { stashStaged: boolean; updateRefs: boolean; pullAutostash: boolean; mergeTree: boolean; aheadBehind: boolean; worktreePath: boolean; forceIfIncludes: boolean };
 
   private readonly changeEmitter = new Emitter<ChangeKind[]>();
@@ -84,6 +86,7 @@ export class RepoModel implements Disposable {
     this.compare = new CompareService(this);
     this.commit = new CommitService(this);
     this.pullRequests = new PullRequestService(this);
+    this.links = new LinkService(this);
   }
 
   get name(): string {

@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs';
 import { unlink, writeFile } from 'node:fs/promises';
 import * as path from 'node:path';
 import * as vscode from 'vscode';
-import type { DiffTarget, TwiglineConfig, HostEvent, PullRequestProvider, RepoId, SyntaxLanguage, SyntaxTheme, UiAction } from '../../shared/protocol';
+import type { DiffTarget, TwiglineConfig, HostEvent, IssueLinkSettings, PullRequestProvider, RepoId, SettingsTarget, SyntaxLanguage, SyntaxTheme, UiAction } from '../../shared/protocol';
 import { loadCore } from '../coreLoader';
 import type { EncodingPrefs } from '../git/encoding';
 import type { CommandLogEntry } from '../git/GitRunner';
@@ -14,7 +14,7 @@ import type { Disposable } from '../util/event';
 import { hostedRemotes, pullRequestUrl } from '../util/hosting';
 import { pullRequestSource, type PullRequestCredential } from '../util/pullRequests';
 import { resolveTerminalProfile, type ShellLaunch } from '../util/terminalProfile';
-import { readConfig, readCustomActions, terminalProfileSetting, terminalProfiles } from './config';
+import { readConfig, readCustomActions, readIssueLinks, saveIssueLinks, terminalProfileSetting, terminalProfiles } from './config';
 import type { SyntaxRegistry, ThemeKind } from '../syntax/SyntaxRegistry';
 import type { HostEnv, SyntaxProvider } from './HostEnv';
 import { revUri } from './RevisionContentProvider';
@@ -69,6 +69,14 @@ export class VscodeEnv implements HostEnv {
 
   config(): TwiglineConfig {
     return readConfig();
+  }
+
+  issueLinks(root: string): ReturnType<HostEnv['issueLinks']> {
+    return readIssueLinks(root);
+  }
+
+  saveIssueLinks(root: string, settings: IssueLinkSettings, target: SettingsTarget): Promise<void> {
+    return saveIssueLinks(root, settings, target);
   }
 
   async trash(absPaths: string[]): Promise<void> {
@@ -321,7 +329,7 @@ export class VscodeEnv implements HostEnv {
         return this.pullRequestSignIn(model, action.provider);
       case 'openLink': {
         // Like openPullRequest, the URL is not taken from the webview as is: it is opened only if the host finds it in the commit's message
-        const link = (await model.diff.messageLinks(action.sha)).find((l) => l.url === action.url);
+        const link = (await model.links.linksOf(action.sha)).find((l) => l.url === action.url);
         if (!link) {
           void vscode.window.showWarningMessage(t('This link was not found in the commit message.'));
           return;

@@ -1,12 +1,12 @@
-// Links in a commit message: URLs, references to issues and pull requests by the conventions of the hosting service of the remote,
-// and patterns the user defines (twigline.issueLinks.rules, e.g. Jira or Backlog keys).
-// Only builds URLs; nothing is read from the hosting service.
+// Links in a commit message: URLs, the issue trackers the user sets (twigline.issueLinks.trackers: Jira, Backlog, ...),
+// and references to issues and pull requests by the conventions of the hosting service of the remote (twigline.issueLinks.builtIn).
+// Only builds URLs; nothing is read from the services.
 
-import type { IssueLinkSettings, MessageLink, RemoteInfo } from '../../shared/protocol';
+import type { IssueLinkSettings, IssueTrackerSetting, IssueTrackerType, MessageLink, RemoteInfo } from '../../shared/protocol';
 import { parseRemoteUrl } from './hosting';
 
 /** Where `#123` and the like point to, decided from a remote URL */
-export type IssueTracker =
+export type RemoteTracker =
   | { kind: 'github' | 'gitlab' | 'bitbucket'; /** https://host */ base: string; /** owner/repo (GitLab: group/subgroup/project) */ path: string }
   | { kind: 'azure'; base: string; org: string; project: string; repo: string };
 
@@ -16,7 +16,7 @@ const MAX_LINKS = 200;
 
 const encodePath = (p: string) => p.split('/').map(encodeURIComponent).join('/');
 
-export function issueTrackerOf(url: string | undefined): IssueTracker | undefined {
+export function remoteTrackerOf(url: string | undefined): RemoteTracker | undefined {
   if (!url) return undefined;
   const loc = parseRemoteUrl(url);
   if (!loc) return undefined;
@@ -48,12 +48,12 @@ export function issueTrackerOf(url: string | undefined): IssueTracker | undefine
  * The tracker of the repository: `upstream` first (in a fork, the issues are usually there), then `origin`, then the other remotes in order.
  * Remotes whose service is not known are skipped.
  */
-export function issueTrackerOfRemotes(remotes: readonly RemoteInfo[]): IssueTracker | undefined {
+export function remoteTrackerOfRemotes(remotes: readonly RemoteInfo[]): { remote: string; tracker: RemoteTracker } | undefined {
   const rank = (name: string) => (name === 'upstream' ? 0 : name === 'origin' ? 1 : 2);
   const ordered = [...remotes].sort((a, b) => rank(a.name) - rank(b.name));
   for (const r of ordered) {
-    const tracker = issueTrackerOf(r.fetchUrl ?? r.pushUrl);
-    if (tracker) return tracker;
+    const tracker = remoteTrackerOf(r.fetchUrl ?? r.pushUrl);
+    if (tracker) return { remote: r.name, tracker };
   }
   return undefined;
 }
@@ -69,7 +69,7 @@ const B = '(?<![A-Za-z0-9_&/#!@.\\-])';
 const E = '(?![A-Za-z0-9_])';
 
 /** Built-in rules of each service. Only ASCII digits: full-width `＃１２` is not a link on the services either */
-export function builtInRules(tracker: IssueTracker): Rule[] {
+export function builtInRules(tracker: RemoteTracker): Rule[] {
   const rx = (source: string, flags = 'g') => new RegExp(source, flags);
   switch (tracker.kind) {
     case 'github': {
@@ -141,58 +141,151 @@ export function safeUrl(url: string): string | undefined {
   }
 }
 
+const TRACKER_TYPES: readonly IssueTrackerType[] = ['jira', 'backlog', 'redmine', 'youtrack', 'linear', 'azureBoards', 'github', 'custom'];
+
+/** Keys of Jira, Backlog, YouTrack and Linear: an upper-case letter, then upper-case letters, digits or _ */
+const KEY = /^[A-Z][A-Z0-9_]*$/;
+/** Any key, when none is given (two characters or more, like Jira) */
+const ANY_KEY = '[A-Z][A-Z0-9_]+';
+// A key reference does not start inside a word, a path, a branch name or a URL fragment (`xPROJ-1`, `feature/PROJ-1`, `#PROJ-1`)
+const KB = '(?<![A-Za-z0-9_&/#!@.\\-])';
+
+/** The well-formed entries of twigline.issueLinks.trackers (keys upper-cased, unknown keys and fields dropped) */
+export function issueTrackerSettings(value: unknown): IssueTrackerSetting[] {
+  if (!Array.isArray(value)) return [];
+  const out: IssueTrackerSetting[] = [];
+  for (const v of value as unknown[]) {
+    if (!v || typeof v !== 'object') continue;
+    const r = v as Record<string, unknown>;
+    if (!TRACKER_TYPES.includes(r.type as IssueTrackerType)) continue;
+    const t: IssueTrackerSetting = { type: r.type as IssueTrackerType };
+    for (const f of ['url', 'workspace', 'org', 'project', 'repo', 'host', 'pattern'] as const) if (typeof r[f] === 'string') t[f] = (r[f] as string).trim();
+    if (Array.isArray(r.keys)) t.keys = r.keys.filter((k): k is string => typeof k === 'string').map((k) => k.trim().toUpperCase()).filter((k) => KEY.test(k));
+    out.push(t);
+  }
+  return out;
+}
+
+/** An http(s) URL without a trailing slash, or undefined */
+function baseUrl(url: string | undefined): string | undefined {
+  const u = url && safeUrl(url.trim());
+  return u?.replace(/\/+$/, '');
+}
+
+function keyRule(keys: string[] | undefined, url: (key: string) => string): Rule {
+  const list = (keys ?? []).filter((k) => KEY.test(k));
+  const alt = list.length > 0 ? `(?:${list.join('|')})` : ANY_KEY;
+  return { re: new RegExp(`${KB}(${alt}-[0-9]+)${E}`, 'g'), url: (m) => url(m[1]) };
+}
+
+/** The rule of an issue tracker, or undefined while a field it needs is missing or invalid */
+export function trackerRule(t: IssueTrackerSetting): Rule | undefined {
+  const enc = encodeURIComponent;
+  switch (t.type) {
+    case 'jira':
+    case 'backlog':
+    case 'youtrack': {
+      const base = baseUrl(t.url);
+      if (!base) return undefined;
+      const page = t.type === 'jira' ? 'browse' : t.type === 'backlog' ? 'view' : 'issue';
+      return keyRule(t.keys, (key) => `${base}/${page}/${key}`);
+    }
+    case 'linear': {
+      const ws = t.workspace?.trim();
+      if (!ws || !/^[A-Za-z0-9_-]+$/.test(ws)) return undefined;
+      return keyRule(t.keys, (key) => `https://linear.app/${ws}/issue/${key}`);
+    }
+    case 'redmine': {
+      const base = baseUrl(t.url);
+      if (!base) return undefined;
+      return { re: new RegExp(`${B}#([0-9]+)${E}`, 'g'), url: (m) => `${base}/issues/${m[1]}` };
+    }
+    case 'azureBoards': {
+      const org = t.org?.trim();
+      const project = t.project?.trim();
+      if (!org || !project) return undefined;
+      // AB#123, as GitHub repositories connected to Azure Boards write work items
+      return { re: new RegExp(`${B}AB#([0-9]+)${E}`, 'g'), url: (m) => `https://dev.azure.com/${enc(org)}/${enc(project)}/_workitems/edit/${m[1]}` };
+    }
+    case 'github': {
+      const repo = t.repo?.trim();
+      const host = (t.host?.trim() || 'github.com').toLowerCase();
+      if (!repo || !/^[A-Za-z0-9-]+\/[A-Za-z0-9._-]+$/.test(repo) || !/^[a-z0-9.-]+(:[0-9]+)?$/.test(host)) return undefined;
+      return { re: new RegExp(`${B}(?:#|GH-)([0-9]+)${E}`, 'g'), url: (m) => `https://${host}/${repo}/issues/${m[1]}` };
+    }
+    case 'custom':
+      return t.pattern && t.url ? customRule(t.pattern, t.url) : undefined;
+  }
+}
+
 /**
- * A user's rule: `pattern` is a regular expression and `url` a URL in which `$0` (the whole match) and `$1`...`$9` (groups) are replaced
- * by the matched text, URL-encoded. An invalid pattern is skipped
+ * A rule of your own: `pattern` is a regular expression and `url` a URL in which `$0` (the whole match) and `$1`...`$9` (groups)
+ * are replaced by the matched text, URL-encoded. undefined for an invalid pattern or a URL that is not http(s)
  */
-export function userRule(rule: { pattern: string; url: string }): Rule | undefined {
-  if (typeof rule?.pattern !== 'string' || typeof rule.url !== 'string' || !rule.pattern) return undefined;
+export function customRule(pattern: string, url: string): Rule | undefined {
   let re: RegExp;
   try {
-    re = new RegExp(rule.pattern, 'g');
+    re = new RegExp(pattern, 'g');
   } catch {
     return undefined;
   }
-  return { re, url: (m) => rule.url.replace(/\$([0-9])/g, (_, n: string) => encodeURIComponent(m[Number(n)] ?? '')) };
+  if (!safeUrl(url.replace(/\$[0-9]/g, 'x'))) return undefined;
+  return { re, url: (m) => url.replace(/\$([0-9])/g, (_, n: string) => encodeURIComponent(m[Number(n)] ?? '')) };
 }
 
-/** The well-formed entries of twigline.issueLinks.rules */
-export function issueLinkRules(value: unknown): { pattern: string; url: string }[] {
-  if (!Array.isArray(value)) return [];
-  return value
-    .filter((r): r is { pattern: string; url: string } => !!r && typeof r.pattern === 'string' && typeof r.url === 'string' && r.pattern !== '')
-    .map((r) => ({ pattern: r.pattern, url: r.url }));
+/** A link and what made it: a URL in the text, a tracker (its index in settings.trackers), or the built-in references */
+export interface FoundLink extends MessageLink {
+  source: 'url' | 'builtIn' | number;
 }
 
-/** The links in a message, in order. Offsets are UTF-16 indexes into message (as JavaScript strings count) */
-export function messageLinks(message: string, remotes: readonly RemoteInfo[], settings: IssueLinkSettings): MessageLink[] {
+/** The links in a message, in order, with what made each. Offsets are UTF-16 indexes into message (as JavaScript strings count) */
+export function findLinks(message: string, remotes: readonly RemoteInfo[], settings: IssueLinkSettings): FoundLink[] {
   const text = message.length > MAX_SCAN ? message.slice(0, MAX_SCAN) : message;
-  const rules: { rule: Rule; trim?: boolean }[] = [{ rule: URL_RULE, trim: true }];
-  for (const r of settings.rules) {
-    const rule = userRule(r);
-    if (rule) rules.push({ rule });
-  }
-  const tracker = settings.builtIn ? issueTrackerOfRemotes(remotes) : undefined;
-  if (tracker) for (const rule of builtInRules(tracker)) rules.push({ rule });
+  const rules: { rule: Rule; source: FoundLink['source'] }[] = [{ rule: URL_RULE, source: 'url' }];
+  settings.trackers.forEach((t, i) => {
+    const rule = trackerRule(t);
+    if (rule) rules.push({ rule, source: i });
+  });
+  const found = settings.builtIn ? remoteTrackerOfRemotes(remotes) : undefined;
+  if (found) for (const rule of builtInRules(found.tracker)) rules.push({ rule, source: 'builtIn' });
 
-  // Earlier rules win where matches overlap: a URL over a reference inside it, the user's rules over the built-in ones
-  const links: MessageLink[] = [];
+  // Earlier rules win where matches overlap: a URL over a reference inside it, the trackers over the built-in references
+  const links: FoundLink[] = [];
   const overlaps = (start: number, end: number) => links.some((l) => start < l.end && l.start < end);
-  for (const { rule, trim } of rules) {
+  for (const { rule, source } of rules) {
     const re = new RegExp(rule.re.source, rule.re.flags.includes('g') ? rule.re.flags : rule.re.flags + 'g');
     for (let m = re.exec(text); m && links.length < MAX_LINKS; m = re.exec(text)) {
       if (m[0].length === 0) {
         re.lastIndex++;
         continue;
       }
-      const matched = trim ? trimUrl(m[0]) : m[0];
+      const matched = source === 'url' ? trimUrl(m[0]) : m[0];
       const start = m.index;
       const end = start + matched.length;
       if (matched.length === 0 || overlaps(start, end)) continue;
-      const raw = trim ? matched : rule.url(m);
-      const url = raw === undefined ? undefined : safeUrl(raw);
-      if (url) links.push({ start, end, url });
+      const url = safeUrl(source === 'url' ? matched : rule.url(m) ?? '');
+      if (url) links.push({ start, end, url, source });
     }
   }
   return links.sort((a, b) => a.start - b.start);
+}
+
+/** The links in a message, in order */
+export function messageLinks(message: string, remotes: readonly RemoteInfo[], settings: IssueLinkSettings): MessageLink[] {
+  return findLinks(message, remotes, settings).map(({ start, end, url }) => ({ start, end, url }));
+}
+
+/** Keys like PROJ in PROJ-123 in messages, most used first (counted once per message) */
+export function keyCandidates(messages: readonly string[], limit = 12): { key: string; count: number }[] {
+  const counts = new Map<string, number>();
+  const re = new RegExp(`${KB}(${ANY_KEY})-[0-9]+${E}`, 'g');
+  for (const message of messages) {
+    const keys = new Set<string>();
+    for (const m of message.slice(0, MAX_SCAN).matchAll(re)) keys.add(m[1]);
+    for (const k of keys) counts.set(k, (counts.get(k) ?? 0) + 1);
+  }
+  return [...counts]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, limit)
+    .map(([key, count]) => ({ key, count }));
 }

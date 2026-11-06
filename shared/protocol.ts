@@ -417,15 +417,64 @@ export interface TwiglineConfig {
   /** Show the pull requests linked to branches (twigline.pullRequests.enabled) */
   pullRequests: boolean;
   customActions: { name: string }[];
-  /** Links in commit messages (twigline.issueLinks.*) */
-  issueLinks: IssueLinkSettings;
 }
+
+// ---------------------------------------------------------------------------
+// Links in commit messages (twigline.issueLinks.*, read per repository)
+// ---------------------------------------------------------------------------
 
 export interface IssueLinkSettings {
   /** Link `#123` and the like by the conventions of the hosting service of the remote (GitHub, GitLab, Bitbucket Cloud, Azure DevOps) */
   builtIn: boolean;
-  /** The user's patterns (a regular expression and a URL with $0-$9), tried before the built-in ones */
-  rules: { pattern: string; url: string }[];
+  /** Issue trackers, tried in order before the built-in references */
+  trackers: IssueTrackerSetting[];
+}
+
+export type IssueTrackerType = 'jira' | 'backlog' | 'redmine' | 'youtrack' | 'linear' | 'azureBoards' | 'github' | 'custom';
+
+/** One issue tracker. Which fields are used depends on type */
+export interface IssueTrackerSetting {
+  type: IssueTrackerType;
+  /** jira, backlog, redmine, youtrack: the server's URL. custom: the URL to open, with $0-$9 */
+  url?: string;
+  /** jira, backlog, youtrack, linear: project (team) keys such as PROJ. Empty: any key */
+  keys?: string[];
+  /** linear: the workspace in linear.app/<workspace> */
+  workspace?: string;
+  /** azureBoards: organization and project on dev.azure.com */
+  org?: string;
+  project?: string;
+  /** github: owner/repo whose issues #123 opens, and its host (github.com when omitted) */
+  repo?: string;
+  host?: string;
+  /** custom: regular expression */
+  pattern?: string;
+}
+
+/** Where the settings are saved: the workspace folder holding the repository (.vscode/settings.json), or the user settings */
+export type SettingsTarget = 'workspace' | 'user';
+
+/** links/get: the settings of the repository and what the dialog needs to edit them */
+export interface IssueLinksState {
+  settings: IssueLinkSettings;
+  /** Where the current settings come from (default: set nowhere) */
+  source: SettingsTarget | 'default';
+  /** Where they can be saved (no workspace for a repository outside the workspace) */
+  targets: SettingsTarget[];
+  /** The remote whose conventions the built-in references follow */
+  remote?: { name: string; service: 'github' | 'gitlab' | 'bitbucket' | 'azure'; path: string };
+  /** Keys like PROJ in PROJ-123 in recent commit messages, most used first */
+  keys: { key: string; count: number }[];
+}
+
+/** links/preview: what settings being edited would link */
+export interface IssueLinksPreview {
+  /** Number of recent commits looked at */
+  commits: number;
+  /** One group per tracker (same order), then the built-in references (tracker: null) */
+  groups: { tracker: number | null; valid: boolean; count: number; examples: { text: string; url: string }[] }[];
+  /** The selected commit's message and its links */
+  selected?: { message: string; links: MessageLink[] };
 }
 
 export interface InitData {
@@ -598,6 +647,10 @@ export interface RpcMethods {
     loaded: string[];
   }) => SyntaxLanguage | null;
   'syntax/theme': (p: Record<string, never>) => SyntaxTheme | null;
+  'links/get': (p: { repo: RepoId }) => IssueLinksState;
+  /** Links the given settings would make, in recent commits and in the commit sha */
+  'links/preview': (p: { repo: RepoId; settings: IssueLinkSettings; sha?: Sha }) => IssueLinksPreview;
+  'links/save': (p: { repo: RepoId; settings: IssueLinkSettings; target: SettingsTarget }) => void;
 }
 
 export type RpcMethod = keyof RpcMethods;
@@ -622,6 +675,8 @@ export type HostEvent =
   | { type: 'syntax/changed' }
   /** The GitHub / Bitbucket sign-in state changed. The webview re-fetches PRs */
   | { type: 'pr/changed' }
+  /** The settings of links in commit messages changed for this repository. The webview re-reads the commit details */
+  | { type: 'links/changed' }
   | { type: 'ui/command'; command: UiCommand }
   | { type: 'ui/showView'; view: ViewKind; path?: string; focusSearch?: boolean }
   | { type: 'ui/editMessage'; requestId: string; title: string; initial: string };

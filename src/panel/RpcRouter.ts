@@ -69,6 +69,9 @@ export class RpcRouter {
       'ui/editMessageReply': async (p) => hooks.onEditMessageReply(p.requestId, p.message),
       'syntax/language': async (p) => (r.env.syntax ? r.env.syntax.language(r.resolvePath(p.path), p.loaded) : null),
       'syntax/theme': async () => (r.env.syntax ? r.env.syntax.theme() : null),
+      'links/get': () => r.links.state(),
+      'links/preview': (p) => r.links.preview(p.settings, p.sha),
+      'links/save': (p) => r.links.save(p.settings, p.target),
     };
   }
 

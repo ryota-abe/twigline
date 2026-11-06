@@ -1422,37 +1422,89 @@
         },
         "twigline.issueLinks.builtIn": {
           "type": "boolean",
-          "default": true,
-          "scope": "window",
+          "default": false,
+          "scope": "resource",
           "markdownDescription": "%config.issueLinks.builtIn%"
         },
-        "twigline.issueLinks.rules": {
+        "twigline.issueLinks.trackers": {
           "type": "array",
           "default": [],
-          "scope": "window",
-          "markdownDescription": "%config.issueLinks.rules%",
+          "scope": "resource",
+          "markdownDescription": "%config.issueLinks.trackers%",
           "items": {
             "type": "object",
             "required": [
-              "pattern",
-              "url"
+              "type"
             ],
             "properties": {
-              "pattern": {
+              "type": {
                 "type": "string",
-                "markdownDescription": "%config.issueLinks.rules.pattern%"
+                "enum": [
+                  "jira",
+                  "backlog",
+                  "redmine",
+                  "youtrack",
+                  "linear",
+                  "azureBoards",
+                  "github",
+                  "custom"
+                ],
+                "markdownEnumDescriptions": [
+                  "%config.issueLinks.trackers.type.jira%",
+                  "%config.issueLinks.trackers.type.backlog%",
+                  "%config.issueLinks.trackers.type.redmine%",
+                  "%config.issueLinks.trackers.type.youtrack%",
+                  "%config.issueLinks.trackers.type.linear%",
+                  "%config.issueLinks.trackers.type.azureBoards%",
+                  "%config.issueLinks.trackers.type.github%",
+                  "%config.issueLinks.trackers.type.custom%"
+                ]
               },
               "url": {
                 "type": "string",
-                "markdownDescription": "%config.issueLinks.rules.url%"
+                "markdownDescription": "%config.issueLinks.trackers.url%"
+              },
+              "keys": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "markdownDescription": "%config.issueLinks.trackers.keys%"
+              },
+              "workspace": {
+                "type": "string",
+                "markdownDescription": "%config.issueLinks.trackers.workspace%"
+              },
+              "org": {
+                "type": "string",
+                "markdownDescription": "%config.issueLinks.trackers.org%"
+              },
+              "project": {
+                "type": "string",
+                "markdownDescription": "%config.issueLinks.trackers.project%"
+              },
+              "repo": {
+                "type": "string",
+                "markdownDescription": "%config.issueLinks.trackers.repo%"
+              },
+              "host": {
+                "type": "string",
+                "markdownDescription": "%config.issueLinks.trackers.host%"
+              },
+              "pattern": {
+                "type": "string",
+                "markdownDescription": "%config.issueLinks.trackers.pattern%"
               }
             }
           },
           "examples": [
             [
               {
-                "pattern": "\\b([A-Z][A-Z0-9_]+-[0-9]+)\\b",
-                "url": "https://example.atlassian.net/browse/$1"
+                "type": "jira",
+                "url": "https://example.atlassian.net",
+                "keys": [
+                  "PROJ"
+                ]
               }
             ]
           ]

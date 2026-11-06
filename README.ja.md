@@ -108,8 +108,21 @@ Twigline は VS Code のソース管理ビューと併用するもので、置�
 
 ## コミットメッセージのリンク
 
-コミットの詳細では、メッセージ中の URL と、課題 ・ プルリクエストへの参照がリンクになり、ブラウザで開きます。
-参照の書き方はリモートのホスティングサービスに合わせます（リモートは `upstream`、`origin` の順に使います）:
+コミットの詳細では、メッセージ中の URL がリンクになり、ブラウザで開きます。
+課題 ・ プルリクエストへの参照は、どこを指すかを設定するとリンクになります:
+
+- **課題管理システム**（`twigline.issueLinks.trackers`）: Jira ・ Backlog ・ Redmine ・ YouTrack ・ Linear ・ Azure Boards（GitHub から使う `AB#123`）・ 別の GitHub リポジトリの課題、または独自の正規表現。
+  `UTF-8` のような文字列を課題と取り違えないよう、プロジェクトのキー（`PROJ-123` の `PROJ`）を指定します。
+
+  ```json
+  "twigline.issueLinks.trackers": [
+    { "type": "jira", "url": "https://example.atlassian.net", "keys": ["PROJ", "UI"] },
+    { "type": "custom", "pattern": "wiki:(\\S+)", "url": "https://wiki.example.com/$1" }
+  ]
+  ```
+
+- **リモートのホスティングサービスの書き方の参照**（`twigline.issueLinks.builtIn`）。課題を別の場所で管理しているプロジェクトでは `#123` が的外れなリンクになるため、既定はオフです。
+  リモートは `upstream`、`origin` の順に使います。課題管理システムを先に試します。
 
 | サービス | リンクになるもの |
 | --- | --- |
@@ -118,17 +131,9 @@ Twigline は VS Code のソース管理ビューと併用するもので、置�
 | Bitbucket Cloud | `#123`（課題）、「pull request #123」（PR。Bitbucket のマージコミットの書き方） |
 | Azure DevOps | `#123`（作業項目）、`!123`・「Merged PR 123」（PR） |
 
-- Jira ・ Backlog ・ Redmine などは `twigline.issueLinks.rules` に追加します。正規表現と URL の組で、URL の `$0`（一致した全体）と `$1`〜`$9`（グループ）を置き換えます。
-  組み込みの参照より先に試します。組み込みの参照は `twigline.issueLinks.builtIn` でオフにできます。
-
-  ```json
-  "twigline.issueLinks.rules": [
-    { "pattern": "\\b([A-Z][A-Z0-9_]+-[0-9]+)\\b", "url": "https://example.atlassian.net/browse/$1" }
-  ]
-  ```
-
+- 設定はリポジトリごとに読むので、マルチルートのワークスペースではフォルダーごとに設定できます（`.vscode/settings.json`）。
 - サービスはリモート URL のホスト名で見分けます（`github.com` と `github.*`、`gitlab.com` と `gitlab.*`、`bitbucket.org`、`dev.azure.com`）。
-  別の名前の自社サーバーや、`~/.ssh/config` のホストの別名を使うときは、ルールを追加してください。
+  別の名前の自社サーバーや、`~/.ssh/config` のホストの別名を使うときは、代わりに課題管理システムを追加してください。
 - 開くのは `http` と `https` の URL で、そのコミットのメッセージに Twigline が改めて見つけたリンクだけです。リンクを作るためにサービスへ問い合わせることはありません。
 
 ## 開発に参加する

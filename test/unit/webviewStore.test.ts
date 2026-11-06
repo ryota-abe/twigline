@@ -39,7 +39,6 @@ const config: TwiglineConfig = {
   rememberPushAfter: true,
   pullRequests: true,
   customActions: [],
-  issueLinks: { builtIn: true, rules: [] },
 };
 
 const snapshot: RepoSnapshot = {
