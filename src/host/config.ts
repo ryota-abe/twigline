@@ -65,6 +65,12 @@ export async function saveIssueLinks(root: string, settings: IssueLinkSettings, 
   const uri = vscode.Uri.file(root);
   if (target === 'workspace' && !vscode.workspace.getWorkspaceFolder(uri)) throw new Error('The repository is not in a workspace folder.');
   const c = vscode.workspace.getConfiguration('twigline', uri);
+  // VS Code refuses to write a setting it has not registered ("... is not a registered configuration"). That happens when the window
+  // still has the settings of an earlier Twigline, e.g. after updating Twigline (or rebuilding it) without reloading the window:
+  // the new code runs, but the settings it added are known only after a reload. Every registered setting has a default
+  if (['issueLinks.builtIn', 'issueLinks.trackers'].some((k) => c.inspect(k)?.defaultValue === undefined)) {
+    throw new Error(vscode.l10n.t('This window does not know the settings of this version of Twigline yet. Run "Developer: Reload Window" and save again.'));
+  }
   const t = target === 'workspace' ? vscode.ConfigurationTarget.WorkspaceFolder : vscode.ConfigurationTarget.Global;
   await c.update('issueLinks.builtIn', settings.builtIn, t);
   await c.update('issueLinks.trackers', settings.trackers, t);
