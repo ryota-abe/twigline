@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.0.0-beta.2
+
+A pre-release of 1.0.0: links in commit messages.
+
+- In the commit details, http(s) URLs in the message open in the browser
+- References to issues and pull requests can be links too, following the conventions of the remote's hosting service (upstream first, then origin): `#123`, `GH-123` and `owner/repo#123` on GitHub, `#123` and `!123` on GitLab, `#123` and "pull request #123" on Bitbucket Cloud, `#123` (work item), `!123` and "Merged PR 123" on Azure DevOps. They are off by default (`twigline.issueLinks.builtIn`), because `#123` points to the wrong place when a project tracks issues elsewhere
+- New setting `twigline.issueLinks.trackers`: issue trackers by type, tried before the built-in references: Jira, Backlog, YouTrack and Linear (keys like `PROJ` in `PROJ-123`), Redmine (`#123`), Azure Boards (`AB#123`), the issues of another GitHub repository, or a custom regular expression and URL. The settings can differ for each folder of a multi-root workspace
+- "Commit Message Links…" sets these up without writing regular expressions: add a tracker by type, enter its URL, and pick project keys from those used in recent commits (with how often they appear, so text like `UTF-8` is easy to leave out). It shows how many links each tracker makes in recent commits, and what the selected commit's message would link, before saving to the workspace folder (`.vscode/settings.json`) or the user settings. It opens from "…" in the panel, the Command Palette, Repository Settings, and a link button shown when the pointer is over a commit message
+- Nothing is read from the hosting service; the host finds the links in the commit's message again and opens only http(s) URLs among them
+
 ## 1.0.0-beta.1
 
 A pre-release of 1.0.0: repositories outside the workspace, and fetching from the sidebar.
