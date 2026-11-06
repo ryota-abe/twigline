@@ -874,8 +874,11 @@ function onHostEvent(e: HostEvent): void {
     case 'config/changed': {
       const orderChanged = e.config.historyOrder !== get().config?.historyOrder;
       const prChanged = e.config.pullRequests !== get().config?.pullRequests;
+      const linksChanged = JSON.stringify(e.config.issueLinks) !== JSON.stringify(get().config?.issueLinks);
       set({ config: e.config });
       if (prChanged) void loadPullRequests(true);
+      // The links in the message are found by the host when it reads the details
+      if (linksChanged && get().detail) void loadDetail(get().detail?.parentIndex);
       // The order is changed only through settings, not on screen
       if (orderChanged) setQuery({ order: e.config.historyOrder });
       else recomputeGraph();

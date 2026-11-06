@@ -215,6 +215,16 @@ export interface CommitDetail {
   compareTo?: Sha;
   /** Parent being compared for a merge commit (0-based) */
   parentIndex: number;
+  /** Links in message (URLs, issues and pull requests), in order */
+  links: MessageLink[];
+}
+
+/** A part of a commit message that opens a URL: message.slice(start, end) */
+export interface MessageLink {
+  start: number;
+  end: number;
+  /** http or https */
+  url: string;
 }
 
 export type DiffTarget =
@@ -407,6 +417,15 @@ export interface TwiglineConfig {
   /** Show the pull requests linked to branches (twigline.pullRequests.enabled) */
   pullRequests: boolean;
   customActions: { name: string }[];
+  /** Links in commit messages (twigline.issueLinks.*) */
+  issueLinks: IssueLinkSettings;
+}
+
+export interface IssueLinkSettings {
+  /** Link `#123` and the like by the conventions of the hosting service of the remote (GitHub, GitLab, Bitbucket Cloud, Azure DevOps) */
+  builtIn: boolean;
+  /** The user's patterns (a regular expression and a URL with $0-$9), tried before the built-in ones */
+  rules: { pattern: string; url: string }[];
 }
 
 export interface InitData {
@@ -458,6 +477,8 @@ export type UiAction =
   | { kind: 'openPullRequest'; ref: string }
   /** Sign in to read PRs (GitHub: the VS Code account; Bitbucket: an API token) */
   | { kind: 'pullRequestSignIn'; provider: PullRequestProvider }
+  /** Open a link in a commit message. The host opens it only if it finds the same link in that commit's message itself */
+  | { kind: 'openLink'; sha: Sha; url: string }
   | { kind: 'customAction'; sha?: Sha; path?: string; ref?: string }
   /** Show a terminal in the repository root (an open one there is reused) */
   | { kind: 'openTerminal' }

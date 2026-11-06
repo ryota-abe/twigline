@@ -80,5 +80,6 @@
   "{0} finished.": "{0} が完了しました。",
   "{0} has no upstream. {1}/{2} will be created and set as its upstream.": "{0} にはアップストリームがありません。{1}/{2} を作成してアップストリームに設定します。",
   "{0} is in the repository {1}. Open {1} in Twigline?": "{0} はリポジトリ {1} の中にあります。{1} を Twigline で開きますか？",
-  "{0} is not available. It may have been moved or deleted, or its drive may be disconnected.": "{0} を使えません。移動または削除されたか、ドライブが切断されている可能性があります。"
+  "{0} is not available. It may have been moved or deleted, or its drive may be disconnected.": "{0} を使えません。移動または削除されたか、ドライブが切断されている可能性があります。",
+  "This link was not found in the commit message.": "このリンクはコミットメッセージに見つかりませんでした。"
 }

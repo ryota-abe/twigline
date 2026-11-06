@@ -54,6 +54,7 @@ const config: TwiglineConfig = {
   rememberPushAfter: true,
   pullRequests: true,
   customActions: [],
+  issueLinks: { builtIn: true, rules: [] },
 };
 
 const clients = new Set<http.ServerResponse>();
@@ -121,6 +122,10 @@ const env: HostEnv = {
     console.log(`[ui] ${JSON.stringify(action).slice(0, 300)}`);
     if (action.kind === 'saveUiState') uiState.set(model.id, { ...(uiState.get(model.id) ?? {}), ...action.state });
     if (action.kind === 'openPullRequest') console.log(`[pr] ${model.pullRequests.last?.byRef[action.ref]?.url ?? '(no pull request)'}`);
+    if (action.kind === 'openLink') {
+      const found = (await model.diff.messageLinks(action.sha)).some((l) => l.url === action.url);
+      console.log(`[link] ${found ? action.url : '(not in the commit message)'}`);
+    }
     if (action.kind === 'pullRequestSignIn') {
       const vars = action.provider === 'github' ? 'GITHUB_TOKEN (or GH_TOKEN)' : 'BITBUCKET_EMAIL and BITBUCKET_API_TOKEN';
       console.log(`[pr] set ${vars} and restart the dev server to read private repositories`);

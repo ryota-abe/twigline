@@ -1420,6 +1420,43 @@
           "scope": "window",
           "markdownDescription": "%config.pullRequests.enabled%"
         },
+        "twigline.issueLinks.builtIn": {
+          "type": "boolean",
+          "default": true,
+          "scope": "window",
+          "markdownDescription": "%config.issueLinks.builtIn%"
+        },
+        "twigline.issueLinks.rules": {
+          "type": "array",
+          "default": [],
+          "scope": "window",
+          "markdownDescription": "%config.issueLinks.rules%",
+          "items": {
+            "type": "object",
+            "required": [
+              "pattern",
+              "url"
+            ],
+            "properties": {
+              "pattern": {
+                "type": "string",
+                "markdownDescription": "%config.issueLinks.rules.pattern%"
+              },
+              "url": {
+                "type": "string",
+                "markdownDescription": "%config.issueLinks.rules.url%"
+              }
+            }
+          },
+          "examples": [
+            [
+              {
+                "pattern": "\\b([A-Z][A-Z0-9_]+-[0-9]+)\\b",
+                "url": "https://example.atlassian.net/browse/$1"
+              }
+            ]
+          ]
+        },
         "twigline.avatars.enabled": {
           "type": "boolean",
           "default": false,

@@ -1,12 +1,13 @@
 import { randomBytes } from 'node:crypto';
 import { readFile, stat } from 'node:fs/promises';
 import * as path from 'node:path';
-import type { CommitDetail, DiffFileMode, DiffTarget, FileDiff, RpcParams, Sha } from '../../shared/protocol';
+import type { CommitDetail, DiffFileMode, DiffTarget, FileDiff, MessageLink, RpcParams, Sha } from '../../shared/protocol';
 import { chooseEncoding, decode, displayName } from '../git/encoding';
 import { GitError } from '../git/errors';
 import { parseRawDiff, type RawFileDiff } from '../git/parsers/diff';
 import { parseRawNumstat } from '../git/parsers/diffTree';
 import type { RepoModel } from '../repo/RepoModel';
+import { messageLinks } from '../util/messageLinks';
 
 export interface CachedDiff {
   raw: RawFileDiff;
@@ -93,6 +94,7 @@ export class DiffService {
         if (!seen.has(f.path)) files.push({ ...f, status: '?', untrackedIn: untracked });
       }
     }
+    const message = body.join('\0').replace(/\n+$/, '');
     return {
       sha: full,
       parents,
@@ -102,11 +104,23 @@ export class DiffService {
       committer,
       committerEmail,
       commitTime: Number(ct) || 0,
-      message: body.join('\0').replace(/\n+$/, ''),
+      message,
       files,
       compareTo,
       parentIndex,
+      links: await this.linksIn(message),
     };
+  }
+
+  /** Links in the message of a commit, found again from the commit itself (the webview's copy is not trusted for what to open) */
+  async messageLinks(sha: Sha): Promise<MessageLink[]> {
+    const show = await this.repo.runner.run(['show', '-s', '--encoding=UTF-8', '--format=%B', '--end-of-options', sha]);
+    return this.linksIn(show.stdout.toString('utf8').replace(/\n+$/, ''));
+  }
+
+  private async linksIn(message: string): Promise<MessageLink[]> {
+    const snap = await this.repo.snapshot.get();
+    return messageLinks(message, snap.remotes, this.repo.env.config().issueLinks);
   }
 
   // -------------------------------------------------------------------------

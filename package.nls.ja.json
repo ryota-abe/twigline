@@ -115,6 +115,10 @@
   "config.push.forceMode": "強制プッシュの方式。",
   "config.commit.rememberPushAfter": "コミット欄の「すぐにプッシュ」の状態を覚えます。",
   "config.pullRequests.enabled": "ブランチに紐づくプルリクエストを表示します（GitHub ・ GitHub Enterprise Server ・ Bitbucket Cloud）。公開リポジトリはサインインしなくても読めます。非公開のリポジトリは、GitHub は VS Code で GitHub へのサインイン、Bitbucket は Atlassian の API トークンが必要です。",
+  "config.issueLinks.builtIn": "コミットメッセージの参照を、リモートのホスティングサービスの書き方でリンクにします: GitHub（GitHub Enterprise Server を含む）は `#123`・`GH-123`・`owner/repo#123`、GitLab は `#123`・`!123`、Bitbucket Cloud は `#123` と「pull request #123」、Azure DevOps は `#123`（作業項目）・`!123`。リモートは `upstream`、`origin` の順に使います。メッセージ中の URL は常にリンクになります。サービスからは何も読みません。",
+  "config.issueLinks.rules": "コミットメッセージに独自のリンクを作ります（Jira や Backlog のキーなど）。各項目は正規表現（`pattern`）と開く URL（`url`）で、URL の `$0`（一致した全体）と `$1`〜`$9`（グループ）を置き換えます。組み込みの参照より先に試します。開くのは `http` と `https` の URL だけです。",
+  "config.issueLinks.rules.pattern": "メッセージから探す正規表現（JavaScript）。例: `\\b([A-Z][A-Z0-9_]+-[0-9]+)\\b`",
+  "config.issueLinks.rules.url": "開く URL。`$0` は一致した全体、`$1`〜`$9` はグループ（URL エンコードします）。例: `https://example.atlassian.net/browse/$1`",
   "config.avatars.enabled": "作成者のアバターを表示します。メールアドレスのハッシュを外部サービスに送ります（未実装）。",
   "config.customActions": "右クリックに追加するコマンド。変数 `${sha}`・`${shortSha}`・`${file}`・`${relFile}`・`${ref}`・`${repo}` は引数ごとに展開します。ユーザー設定でのみ設定できます。"
 }

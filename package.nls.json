@@ -115,6 +115,10 @@
   "config.push.forceMode": "How force push is performed.",
   "config.commit.rememberPushAfter": "Remember the \"Push immediately\" option of the commit box.",
   "config.pullRequests.enabled": "Show the pull request linked to each branch (GitHub, GitHub Enterprise Server and Bitbucket Cloud). Public repositories are read without signing in. Private GitHub repositories need a GitHub sign-in in VS Code; private Bitbucket repositories need an Atlassian API token.",
+  "config.issueLinks.builtIn": "Make references in commit messages links, by the conventions of the hosting service of the remote: `#123`, `GH-123` and `owner/repo#123` on GitHub (and GitHub Enterprise Server), `#123` and `!123` on GitLab, `#123` and \"pull request #123\" on Bitbucket Cloud, `#123` (work item) and `!123` on Azure DevOps. The remote `upstream` is used first, then `origin`. URLs in messages are always links. Nothing is read from the service.",
+  "config.issueLinks.rules": "Your own links in commit messages, e.g. keys of Jira or Backlog. Each entry has a regular expression (`pattern`) and the URL to open (`url`), in which `$0` (the whole match) and `$1`–`$9` (groups) are replaced. Tried before the built-in references. Only `http` and `https` URLs are opened.",
+  "config.issueLinks.rules.pattern": "Regular expression (JavaScript) to find in the message, e.g. `\\b([A-Z][A-Z0-9_]+-[0-9]+)\\b`.",
+  "config.issueLinks.rules.url": "URL to open. `$0` is the whole match and `$1`–`$9` the groups (URL-encoded), e.g. `https://example.atlassian.net/browse/$1`.",
   "config.avatars.enabled": "Show author avatars. Sends a hash of the email address to an external service (not implemented yet).",
   "config.customActions": "Commands added to the context menu. Variables `${sha}`, `${shortSha}`, `${file}`, `${relFile}`, `${ref}`, `${repo}` are expanded per argument. Can only be set in user settings."
 }

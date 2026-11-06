@@ -113,6 +113,7 @@ export const uiAction = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('createPullRequest'), branch: ref }),
   z.object({ kind: z.literal('openPullRequest'), ref }),
   z.object({ kind: z.literal('pullRequestSignIn'), provider: z.enum(['github', 'bitbucket']) }),
+  z.object({ kind: z.literal('openLink'), sha, url: z.string().max(8192) }),
   z.object({ kind: z.literal('customAction'), sha: sha.optional(), path: filePath.optional(), ref: ref.optional() }),
   z.object({ kind: z.literal('openTerminal') }),
   z.object({ kind: z.literal('openSettings') }),

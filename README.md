@@ -106,6 +106,31 @@ Click the badge, or "Open Pull Request" in a branch's context menu, to open it i
   `Ctrl+Shift+R` (refresh) re-reads them immediately.
 - To turn this off, disable `twigline.pullRequests.enabled` (Twigline then stops querying GitHub and Bitbucket).
 
+## Links in commit messages
+
+In the commit details, URLs and references to issues and pull requests in the message are links that open in the browser.
+References follow the conventions of the hosting service of the remote (`upstream` first, then `origin`):
+
+| Service | Links |
+| --- | --- |
+| GitHub (including GitHub Enterprise Server) | `#123`, `GH-123` and `owner/repo#123` (issues; GitHub forwards a pull request number), the pull request of "Merge pull request #123" |
+| GitLab | `#123` (issues), `!123` (merge requests), `group/project#123` and `group/project!123` |
+| Bitbucket Cloud | `#123` (issues), "pull request #123" (pull requests, as in Bitbucket's merge commits) |
+| Azure DevOps | `#123` (work items), `!123` and "Merged PR 123" (pull requests) |
+
+- Other trackers, such as Jira, Backlog or Redmine, are added with `twigline.issueLinks.rules`: a regular expression and a URL in which `$0` (the whole match) and `$1`–`$9` (groups) are replaced.
+  These are tried before the built-in references; turn those off with `twigline.issueLinks.builtIn`.
+
+  ```json
+  "twigline.issueLinks.rules": [
+    { "pattern": "\\b([A-Z][A-Z0-9_]+-[0-9]+)\\b", "url": "https://example.atlassian.net/browse/$1" }
+  ]
+  ```
+
+- The service is told from the host name of the remote URL (`github.com` and `github.*`, `gitlab.com` and `gitlab.*`, `bitbucket.org`, `dev.azure.com`).
+  For a self-hosted server with another name, or a host alias from `~/.ssh/config`, add a rule.
+- Only `http` and `https` URLs are opened, and only links Twigline finds again in the commit's message. Nothing is read from the service to make the links.
+
 ## Contributing
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md) for how to build, test and release.

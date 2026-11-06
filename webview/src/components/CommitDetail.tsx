@@ -1,4 +1,4 @@
-import type { ChangedFile, CommitDetail } from '../../../shared/protocol';
+import type { ChangedFile, CommitDetail, MessageLink } from '../../../shared/protocol';
 import { t } from '../i18n';
 import { copyText, detailFileTarget, loadDetail, saveUi, selectDetailFile, selectRow, selectWorkingFile, uiAction } from '../store/actions';
 import { useStore } from '../store/store';
@@ -69,8 +69,12 @@ function CommitMeta({ detail }: { detail: CommitDetail }) {
   const repo = useStore((s) => s.boot.repo);
   const detailFile = useStore((s) => s.detailFile);
   const refs = useRefsBySha(snapshot);
-  const [subject, ...bodyLines] = detail.message.split('\n');
-  const body = bodyLines.join('\n').trim();
+  const { message } = detail;
+  const nl = message.indexOf('\n');
+  const subject = nl < 0 ? message : message.slice(0, nl);
+  const rest = nl < 0 ? '' : message.slice(nl + 1);
+  const body = rest.trim();
+  const bodyStart = nl + 1 + (rest.length - rest.trimStart().length);
   const isStash = refs.stashes.has(detail.sha);
 
   const fileContext = (f: ChangedFile) =>
@@ -86,9 +90,13 @@ function CommitMeta({ detail }: { detail: CommitDetail }) {
         ) : (
           <>
             <div className="msg" title={detail.message}>
-              {subject}
+              <LinkedText text={subject} offset={0} sha={detail.sha} links={detail.links} />
             </div>
-            {body && <pre className="msg-body">{body}</pre>}
+            {body && (
+              <pre className="msg-body">
+                <LinkedText text={body} offset={bodyStart} sha={detail.sha} links={detail.links} />
+              </pre>
+            )}
           </>
         )}
         <dl>
@@ -162,6 +170,43 @@ function CommitMeta({ detail }: { detail: CommitDetail }) {
       </div>
     </div>
   );
+}
+
+/** text (which starts at offset in the commit message) with the links that lie inside it */
+function LinkedText({ text, offset, sha, links }: { text: string; offset: number; sha: string; links: MessageLink[] }) {
+  const parts: React.ReactNode[] = [];
+  let pos = 0;
+  for (const l of links) {
+    const start = l.start - offset;
+    const end = l.end - offset;
+    if (start < pos || end > text.length) continue;
+    if (start > pos) parts.push(text.slice(pos, start));
+    const open = () => uiAction({ kind: 'openLink', sha, url: l.url });
+    parts.push(
+      <span
+        key={start}
+        className="link"
+        role="link"
+        tabIndex={0}
+        title={l.url}
+        onClick={(e) => {
+          e.stopPropagation();
+          open();
+        }}
+        onKeyDown={(e) => {
+          if (e.key !== 'Enter') return;
+          e.preventDefault();
+          e.stopPropagation();
+          open();
+        }}
+      >
+        {text.slice(start, end)}
+      </span>,
+    );
+    pos = end;
+  }
+  if (pos < text.length) parts.push(text.slice(pos));
+  return <>{parts}</>;
 }
 
 export function FileViewToggle() {

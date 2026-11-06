@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import type { TwiglineConfig } from '../../shared/protocol';
+import { issueLinkRules } from '../util/messageLinks';
 import type { TerminalProfile } from '../util/terminalProfile';
 
 export const DEFAULT_GRAPH_COLORS = ['#2f6bd8', '#c0397f', '#c98410', '#2c9a58', '#7a4fd0', '#d0503a', '#1a93a8', '#8a8f1f'];
@@ -40,6 +41,10 @@ export function readConfig(): TwiglineConfig {
     rememberPushAfter: c.get<boolean>('commit.rememberPushAfter', true),
     pullRequests: c.get<boolean>('pullRequests.enabled', true),
     customActions: readCustomActions().map((a) => ({ name: a.name })),
+    issueLinks: {
+      builtIn: c.get<boolean>('issueLinks.builtIn', true),
+      rules: issueLinkRules(c.get<unknown>('issueLinks.rules', [])),
+    },
   };
 }
 

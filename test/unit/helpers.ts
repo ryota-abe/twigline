@@ -90,6 +90,7 @@ export const TEST_CONFIG: TwiglineConfig = {
   rememberPushAfter: true,
   pullRequests: true,
   customActions: [],
+  issueLinks: { builtIn: true, rules: [] },
 };
 
 /** HostEnv for tests (runs on Node only) */

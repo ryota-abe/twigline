@@ -319,6 +319,16 @@ export class VscodeEnv implements HostEnv {
       }
       case 'pullRequestSignIn':
         return this.pullRequestSignIn(model, action.provider);
+      case 'openLink': {
+        // Like openPullRequest, the URL is not taken from the webview as is: it is opened only if the host finds it in the commit's message
+        const link = (await model.diff.messageLinks(action.sha)).find((l) => l.url === action.url);
+        if (!link) {
+          void vscode.window.showWarningMessage(t('This link was not found in the commit message.'));
+          return;
+        }
+        await vscode.env.openExternal(vscode.Uri.parse(link.url));
+        return;
+      }
       case 'customAction':
         return this.runCustomAction(model, action);
       case 'openTerminal':

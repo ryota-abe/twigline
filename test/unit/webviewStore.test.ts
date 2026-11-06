@@ -39,6 +39,7 @@ const config: TwiglineConfig = {
   rememberPushAfter: true,
   pullRequests: true,
   customActions: [],
+  issueLinks: { builtIn: true, rules: [] },
 };
 
 const snapshot: RepoSnapshot = {
@@ -111,6 +112,7 @@ beforeEach(async () => {
       message: 'm',
       files: [],
       parentIndex: 0,
+      links: [],
     }),
     'ui/action': () => undefined,
     'commit/info': () => ({ author: {}, lastMessage, recentMessages: [lastMessage], template, pushAfter: false }),
