@@ -1,6 +1,6 @@
 import type { ChangedFile, CommitDetail, MessageLink } from '../../../shared/protocol';
 import { t } from '../i18n';
-import { copyText, detailFileTarget, loadDetail, saveUi, selectDetailFile, selectRow, selectWorkingFile, uiAction } from '../store/actions';
+import { copyText, detailFileTarget, loadDetail, openDialog, saveUi, selectDetailFile, selectRow, selectWorkingFile, uiAction } from '../store/actions';
 import { useStore } from '../store/store';
 import { UNCOMMITTED, fullDate, shortSha } from '../util/format';
 import { DiffView } from './DiffView';
@@ -89,8 +89,11 @@ function CommitMeta({ detail }: { detail: CommitDetail }) {
           <div className="msg">{t('detail.compare', shortSha(detail.compareTo), shortSha(detail.sha))}</div>
         ) : (
           <>
-            <div className="msg" title={detail.message}>
-              <LinkedText text={subject} offset={0} sha={detail.sha} links={detail.links} />
+            <div className="msg-row">
+              <div className="msg" title={detail.message}>
+                <LinkedText text={subject} offset={0} sha={detail.sha} links={detail.links} />
+              </div>
+              <IconButton icon="link" className="msg-links-btn" title={t('links.configure')} onClick={() => openDialog('issueLinks')} />
             </div>
             {body && (
               <pre className="msg-body">

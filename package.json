@@ -233,6 +233,11 @@
         "category": "Twigline"
       },
       {
+        "command": "twigline.panel.issueLinks",
+        "title": "%cmd.panel.issueLinks%",
+        "category": "Twigline"
+      },
+      {
         "command": "twigline.commit.checkout",
         "title": "%cmd.commit.checkout%"
       },
@@ -1205,6 +1210,10 @@
         },
         {
           "command": "twigline.panel.settings",
+          "when": "activeWebviewPanelId == 'twigline.repository'"
+        },
+        {
+          "command": "twigline.panel.issueLinks",
           "when": "activeWebviewPanelId == 'twigline.repository'"
         },
         {

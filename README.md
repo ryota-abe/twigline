@@ -111,6 +111,10 @@ Click the badge, or "Open Pull Request" in a branch's context menu, to open it i
 In the commit details, URLs in the message are links that open in the browser.
 References to issues and pull requests are links too once you say where they point to:
 
+"Commit Message Links…" in the "…" menu of the panel (also the link button that appears when the pointer is over a commit message, Repository Settings, and the Command Palette) sets this up:
+pick a tracker such as Jira, enter its URL, and choose your project keys from those used in recent commits.
+It shows what would become links in recent commits and in the selected commit before you save, to this workspace folder (`.vscode/settings.json`) or to the user settings.
+
 - **Issue trackers** (`twigline.issueLinks.trackers`): Jira, Backlog, Redmine, YouTrack, Linear, Azure Boards (`AB#123` from GitHub), the issues of another GitHub repository, or your own regular expression.
   Give the keys of your projects (`PROJ` for `PROJ-123`) so that text like `UTF-8` is not taken for an issue.
 

@@ -30,6 +30,7 @@
   "cmd.panel.discard": "変更を破棄…",
   "cmd.panel.openTerminal": "統合ターミナルで開く",
   "cmd.panel.settings": "リポジトリの設定…",
+  "cmd.panel.issueLinks": "コミットメッセージのリンク…",
   "cmd.commit.checkout": "チェックアウト…",
   "cmd.commit.createBranch": "ブランチを作成…",
   "cmd.commit.createTag": "タグを作成…",

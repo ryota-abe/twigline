@@ -30,6 +30,7 @@
   "cmd.panel.discard": "Discard Changes…",
   "cmd.panel.openTerminal": "Open in Integrated Terminal",
   "cmd.panel.settings": "Repository Settings…",
+  "cmd.panel.issueLinks": "Commit Message Links…",
   "cmd.commit.checkout": "Checkout…",
   "cmd.commit.createBranch": "Create Branch…",
   "cmd.commit.createTag": "Create Tag…",

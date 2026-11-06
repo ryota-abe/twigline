@@ -937,6 +937,24 @@ body.resizing-column * {
   max-height: 55%;
   overflow: auto;
 }
+.meta-head .msg-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+}
+.meta-head .msg-row .msg {
+  flex: 1;
+  min-width: 0;
+}
+/* Shown while the pointer is over the message (or the button has focus), so the details stay quiet */
+.msg-links-btn {
+  opacity: 0;
+  margin-top: -2px;
+}
+.meta-head:hover .msg-links-btn,
+.msg-links-btn:focus-visible {
+  opacity: 1;
+}
 .meta-head .msg {
   font-weight: 700;
   margin-bottom: 4px;
@@ -1889,6 +1907,57 @@ body.resizing-column * {
 }
 .remotes-table .tr {
   grid-template-columns: 120px 1fr auto;
+}
+/* Commit Message Links dialog */
+.tracker-card {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  border: 1px solid var(--twigline-border);
+  border-radius: 4px;
+}
+.tracker-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.key-candidates {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 0;
+  font-size: 11px;
+}
+.key-candidates .pill:first-of-type {
+  margin-left: 6px;
+}
+.links-examples {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 11px;
+  min-width: 0;
+}
+.links-hit {
+  color: var(--vscode-textLink-foreground, #3794ff);
+  text-decoration: underline;
+}
+.links-preview {
+  flex-shrink: 0;
+  max-height: 120px;
+  overflow: auto;
+  padding: 6px 8px;
+  border: 1px solid var(--twigline-border);
+  border-radius: 3px;
+}
+.dialog-body p.indent {
+  margin-left: 24px;
+}
+.radio.disabled {
+  opacity: 0.6;
 }
 .inline-form {
   display: flex;

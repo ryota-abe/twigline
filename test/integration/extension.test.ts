@@ -5,6 +5,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import * as vscode from 'vscode';
 import { MENU_COMMANDS, PALETTE_COMMANDS, PANEL_COMMANDS, VIEW_COMMANDS } from '../../src/commands/menuCommands';
+import { readIssueLinks, saveIssueLinks } from '../../src/host/config';
 import type { TwiglineApi } from '../../src/extension';
 
 // Integration tests: run the extension in a VS Code that has opened the fixture repository, and check the git state.
@@ -188,6 +189,27 @@ describe('Twigline extension', function () {
       } catch {
         // The panel may still hold the folder (Windows)
       }
+    }
+  });
+
+  it('saves the link settings to the workspace folder of the repository and reads them back per repository', async () => {
+    const root = fixtureRoot();
+    const config = () => vscode.workspace.getConfiguration('twigline', vscode.Uri.file(root));
+    const before = readIssueLinks(root);
+    assert.deepStrictEqual(before.settings, { builtIn: false, trackers: [] });
+    assert.deepStrictEqual(before.targets, ['workspace', 'user']);
+    const settings = { builtIn: true, trackers: [{ type: 'jira' as const, url: 'https://example.atlassian.net', keys: ['PROJ'] }] };
+    try {
+      await saveIssueLinks(root, settings, 'workspace');
+      const after = readIssueLinks(root);
+      assert.deepStrictEqual(after.settings, settings);
+      assert.strictEqual(after.source, 'workspace');
+      assert.deepStrictEqual(config().inspect('issueLinks.trackers')?.workspaceFolderValue, settings.trackers);
+      // Outside the workspace only the user settings can be saved to
+      assert.deepStrictEqual(readIssueLinks(path.join(os.tmpdir(), 'not-in-the-workspace')).targets, ['user']);
+    } finally {
+      await config().update('issueLinks.builtIn', undefined, vscode.ConfigurationTarget.WorkspaceFolder);
+      await config().update('issueLinks.trackers', undefined, vscode.ConfigurationTarget.WorkspaceFolder);
     }
   });
 

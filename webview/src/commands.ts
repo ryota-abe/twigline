@@ -99,6 +99,9 @@ export async function handleCommand(command: string, ctx: Ctx): Promise<void> {
     case 'twigline.panel.settings':
       openDialog('settings');
       return;
+    case 'twigline.panel.issueLinks':
+      openDialog('issueLinks');
+      return;
 
     // ---- commit ----
     case 'twigline.commit.checkout':

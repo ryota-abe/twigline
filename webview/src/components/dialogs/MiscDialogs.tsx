@@ -542,6 +542,9 @@ export function SettingsDialog({ editRemote }: { editRemote?: string }) {
         <Button small icon="rocket" onClick={() => uiAction({ kind: 'optimize' })}>
           {t('settings.optimize')}
         </Button>
+        <Button small icon="link" onClick={() => openDialog('issueLinks')}>
+          {t('menu.issueLinks')}
+        </Button>
         <Button small icon="settings-gear" onClick={() => uiAction({ kind: 'openSettings' })}>
           {t('settings.vscode')}
         </Button>
