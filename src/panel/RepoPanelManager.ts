@@ -74,6 +74,8 @@ export class RepoPanelManager implements vscode.Disposable {
         const config = readConfig();
         for (const [id, entry] of this.panels) {
           this.post(id, { type: 'config/changed', config });
+          // Read with the repository as the resource (each folder of a multi-root workspace can have its own)
+          if (e.affectsConfiguration('twigline.issueLinks', vscode.Uri.file(entry.model.root))) this.post(id, { type: 'links/changed' });
           this.scheduleAutoFetch(entry);
         }
       }),

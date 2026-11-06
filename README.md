@@ -106,6 +106,40 @@ Click the badge, or "Open Pull Request" in a branch's context menu, to open it i
   `Ctrl+Shift+R` (refresh) re-reads them immediately.
 - To turn this off, disable `twigline.pullRequests.enabled` (Twigline then stops querying GitHub and Bitbucket).
 
+## Links in commit messages
+
+In the commit details, URLs in the message are links that open in the browser.
+References to issues and pull requests are links too once you say where they point to:
+
+"Commit Message Links…" in the "…" menu of the panel (also the link button that appears when the pointer is over a commit message, Repository Settings, and the Command Palette) sets this up:
+pick a tracker such as Jira, enter its URL, and choose your project keys from those used in recent commits.
+It shows what would become links in recent commits and in the selected commit before you save, to this workspace folder (`.vscode/settings.json`) or to the user settings.
+
+- **Issue trackers** (`twigline.issueLinks.trackers`): Jira, Backlog, Redmine, YouTrack, Linear, Azure Boards (`AB#123` from GitHub), the issues of another GitHub repository, or your own regular expression.
+  Give the keys of your projects (`PROJ` for `PROJ-123`) so that text like `UTF-8` is not taken for an issue.
+
+  ```json
+  "twigline.issueLinks.trackers": [
+    { "type": "jira", "url": "https://example.atlassian.net", "keys": ["PROJ", "UI"] },
+    { "type": "custom", "pattern": "wiki:(\\S+)", "url": "https://wiki.example.com/$1" }
+  ]
+  ```
+
+- **References by the conventions of the remote's hosting service** (`twigline.issueLinks.builtIn`, off by default, because `#123` points to the wrong place when the project tracks issues elsewhere).
+  The remote `upstream` is used first, then `origin`. Issue trackers are tried before these.
+
+| Service | Links |
+| --- | --- |
+| GitHub (including GitHub Enterprise Server) | `#123`, `GH-123` and `owner/repo#123` (issues; GitHub forwards a pull request number), the pull request of "Merge pull request #123" |
+| GitLab | `#123` (issues), `!123` (merge requests), `group/project#123` and `group/project!123` |
+| Bitbucket Cloud | `#123` (issues), "pull request #123" (pull requests, as in Bitbucket's merge commits) |
+| Azure DevOps | `#123` (work items), `!123` and "Merged PR 123" (pull requests) |
+
+- The settings are read per repository, so each folder of a multi-root workspace can have its own (`.vscode/settings.json`).
+- The service is told from the host name of the remote URL (`github.com` and `github.*`, `gitlab.com` and `gitlab.*`, `bitbucket.org`, `dev.azure.com`).
+  For a self-hosted server with another name, or a host alias from `~/.ssh/config`, add an issue tracker instead.
+- Only `http` and `https` URLs are opened, and only links Twigline finds again in the commit's message. Nothing is read from the services to make the links.
+
 ## Contributing
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md) for how to build, test and release.

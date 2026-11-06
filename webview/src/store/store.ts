@@ -27,6 +27,7 @@ export interface Boot {
 }
 
 export type DialogKind =
+  | 'issueLinks'
   | 'pull'
   | 'push'
   | 'pushBranches'

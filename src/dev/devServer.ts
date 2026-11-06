@@ -101,9 +101,18 @@ if (vscodeExtensions) {
   console.log('[syntax] VS Code not found; diffs are shown without syntax highlighting (use --vscode-extensions <dir>)');
 }
 
+/** twigline.issueLinks.* (kept in memory; "saving" in the dialog changes it until the server stops) */
+let issueLinks: ReturnType<HostEnv['issueLinks']> = { settings: { builtIn: false, trackers: [] }, source: 'default', targets: ['workspace', 'user'] };
+
 const env: HostEnv = {
   encodingFor: () => ({ encoding: 'utf8', autoGuess: true, language: 'ja' }),
   config: () => config,
+  issueLinks: () => issueLinks,
+  saveIssueLinks: async (_root, settings, target) => {
+    issueLinks = { ...issueLinks, settings, source: target };
+    console.log(`[links] saved to ${target}: ${JSON.stringify(settings)}`);
+    broadcast({ t: 'evt', event: { type: 'links/changed' } });
+  },
   trash: async (paths) => {
     for (const p of paths) await rm(p, { recursive: true, force: true });
   },
@@ -121,6 +130,10 @@ const env: HostEnv = {
     console.log(`[ui] ${JSON.stringify(action).slice(0, 300)}`);
     if (action.kind === 'saveUiState') uiState.set(model.id, { ...(uiState.get(model.id) ?? {}), ...action.state });
     if (action.kind === 'openPullRequest') console.log(`[pr] ${model.pullRequests.last?.byRef[action.ref]?.url ?? '(no pull request)'}`);
+    if (action.kind === 'openLink') {
+      const found = (await model.links.linksOf(action.sha)).some((l) => l.url === action.url);
+      console.log(`[link] ${found ? action.url : '(not in the commit message)'}`);
+    }
     if (action.kind === 'pullRequestSignIn') {
       const vars = action.provider === 'github' ? 'GITHUB_TOKEN (or GH_TOKEN)' : 'BITBUCKET_EMAIL and BITBUCKET_API_TOKEN';
       console.log(`[pr] set ${vars} and restart the dev server to read private repositories`);

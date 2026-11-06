@@ -887,6 +887,10 @@ function onHostEvent(e: HostEvent): void {
     case 'pr/changed':
       void loadPullRequests(true);
       return;
+    case 'links/changed':
+      // The links in the message are found by the host when it reads the details
+      if (get().detail) void loadDetail(get().detail?.parentIndex);
+      return;
     case 'ui/command':
       void import('../commands').then((m) => m.handleCommand(e.command.command, e.command.context));
       return;

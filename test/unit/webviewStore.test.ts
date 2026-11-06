@@ -111,6 +111,7 @@ beforeEach(async () => {
       message: 'm',
       files: [],
       parentIndex: 0,
+      links: [],
     }),
     'ui/action': () => undefined,
     'commit/info': () => ({ author: {}, lastMessage, recentMessages: [lastMessage], template, pushAfter: false }),
@@ -182,6 +183,26 @@ describe('webview store', () => {
     const ok = await actions.runOp({ kind: 'merge', ref: 'x', noFastForward: false, squash: false, commit: true });
     expect(ok).toBe(false);
     expect(useStore.getState().view).toBe('fileStatus');
+  });
+});
+
+describe('links in commit messages', () => {
+  it('re-reads the commit details when the link settings of the repository change, keeping the parent compared', async () => {
+    actions.selectRow(sha(N - 2), {});
+    await vi.waitFor(() => expect(useStore.getState().detail?.sha).toBe(sha(N - 2)));
+    const details = () => host.calls.filter((c) => c.method === 'commit/detail').map((c) => c.params as { sha: string; parent?: number });
+    const before = details().length;
+    host.emit({ type: 'links/changed' });
+    await vi.waitFor(() => expect(details()).toHaveLength(before + 1));
+    expect(details().at(-1)).toMatchObject({ sha: sha(N - 2), parent: 0 });
+  });
+
+  it('does not read details when no commit is shown', async () => {
+    useStore.setState({ detail: null });
+    const before = host.count('commit/detail');
+    host.emit({ type: 'links/changed' });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(host.count('commit/detail')).toBe(before);
   });
 });
 

@@ -67,6 +67,7 @@ const PANEL_MENU: MenuEntry[][] = [
     { command: 'twigline.refresh', label: () => t('menu.refresh'), key: { other: 'Ctrl+Shift+R', mac: '⇧⌘R' } },
     { command: 'twigline.panel.openTerminal', label: () => t('menu.openTerminal') },
     { command: 'twigline.panel.settings', label: () => t('menu.settings') },
+    { command: 'twigline.panel.issueLinks', label: () => t('menu.issueLinks') },
   ],
 ];
 

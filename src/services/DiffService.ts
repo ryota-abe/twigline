@@ -93,6 +93,7 @@ export class DiffService {
         if (!seen.has(f.path)) files.push({ ...f, status: '?', untrackedIn: untracked });
       }
     }
+    const message = body.join('\0').replace(/\n+$/, '');
     return {
       sha: full,
       parents,
@@ -102,10 +103,11 @@ export class DiffService {
       committer,
       committerEmail,
       commitTime: Number(ct) || 0,
-      message: body.join('\0').replace(/\n+$/, ''),
+      message,
       files,
       compareTo,
       parentIndex,
+      links: await this.repo.links.linksIn(message),
     };
   }
 

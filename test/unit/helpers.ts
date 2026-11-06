@@ -98,6 +98,8 @@ export function testEnv(overrides: Partial<HostEnv> = {}): HostEnv {
   return {
     encodingFor: () => ({ encoding: 'utf8', autoGuess: true, language: 'ja' }),
     config: () => TEST_CONFIG,
+    issueLinks: () => ({ settings: { builtIn: false, trackers: [] }, source: 'default', targets: ['user'] }),
+    saveIssueLinks: async () => undefined,
     trash: async () => undefined,
     askpass: async () => undefined,
     logCommand: () => undefined,

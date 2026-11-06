@@ -233,6 +233,11 @@
         "category": "Twigline"
       },
       {
+        "command": "twigline.panel.issueLinks",
+        "title": "%cmd.panel.issueLinks%",
+        "category": "Twigline"
+      },
+      {
         "command": "twigline.commit.checkout",
         "title": "%cmd.commit.checkout%"
       },
@@ -1208,6 +1213,10 @@
           "when": "activeWebviewPanelId == 'twigline.repository'"
         },
         {
+          "command": "twigline.panel.issueLinks",
+          "when": "activeWebviewPanelId == 'twigline.repository'"
+        },
+        {
           "command": "twigline.repositories.openSettings",
           "when": "false"
         },
@@ -1419,6 +1428,95 @@
           "default": true,
           "scope": "window",
           "markdownDescription": "%config.pullRequests.enabled%"
+        },
+        "twigline.issueLinks.builtIn": {
+          "type": "boolean",
+          "default": false,
+          "scope": "resource",
+          "markdownDescription": "%config.issueLinks.builtIn%"
+        },
+        "twigline.issueLinks.trackers": {
+          "type": "array",
+          "default": [],
+          "scope": "resource",
+          "markdownDescription": "%config.issueLinks.trackers%",
+          "items": {
+            "type": "object",
+            "required": [
+              "type"
+            ],
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "jira",
+                  "backlog",
+                  "redmine",
+                  "youtrack",
+                  "linear",
+                  "azureBoards",
+                  "github",
+                  "custom"
+                ],
+                "markdownEnumDescriptions": [
+                  "%config.issueLinks.trackers.type.jira%",
+                  "%config.issueLinks.trackers.type.backlog%",
+                  "%config.issueLinks.trackers.type.redmine%",
+                  "%config.issueLinks.trackers.type.youtrack%",
+                  "%config.issueLinks.trackers.type.linear%",
+                  "%config.issueLinks.trackers.type.azureBoards%",
+                  "%config.issueLinks.trackers.type.github%",
+                  "%config.issueLinks.trackers.type.custom%"
+                ]
+              },
+              "url": {
+                "type": "string",
+                "markdownDescription": "%config.issueLinks.trackers.url%"
+              },
+              "keys": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "markdownDescription": "%config.issueLinks.trackers.keys%"
+              },
+              "workspace": {
+                "type": "string",
+                "markdownDescription": "%config.issueLinks.trackers.workspace%"
+              },
+              "org": {
+                "type": "string",
+                "markdownDescription": "%config.issueLinks.trackers.org%"
+              },
+              "project": {
+                "type": "string",
+                "markdownDescription": "%config.issueLinks.trackers.project%"
+              },
+              "repo": {
+                "type": "string",
+                "markdownDescription": "%config.issueLinks.trackers.repo%"
+              },
+              "host": {
+                "type": "string",
+                "markdownDescription": "%config.issueLinks.trackers.host%"
+              },
+              "pattern": {
+                "type": "string",
+                "markdownDescription": "%config.issueLinks.trackers.pattern%"
+              }
+            }
+          },
+          "examples": [
+            [
+              {
+                "type": "jira",
+                "url": "https://example.atlassian.net",
+                "keys": [
+                  "PROJ"
+                ]
+              }
+            ]
+          ]
         },
         "twigline.avatars.enabled": {
           "type": "boolean",

@@ -2,6 +2,7 @@ import type { Operation, RpcError } from '../../../../shared/protocol';
 import { useStore } from '../../store/store';
 import { BranchDialog, CheckoutDialog, MergeDialog, RebaseDialog, RenameBranchDialog, ResetDialog, SetUpstreamDialog } from './BranchDialogs';
 import { InteractiveRebaseDialog } from './InteractiveRebase';
+import { IssueLinksDialog } from './IssueLinksDialog';
 import {
   ConfirmDialog,
   DiscardDialog,
@@ -73,6 +74,8 @@ export function Dialogs() {
       return <EditMessageDialog key={key} requestId={p.requestId} title={p.title} initial={p.initial} />;
     case 'settings':
       return <SettingsDialog key={key} editRemote={p.editRemote} />;
+    case 'issueLinks':
+      return <IssueLinksDialog key={key} />;
     case 'interactiveRebase':
       return <InteractiveRebaseDialog key={key} base={p.base ?? null} />;
   }
