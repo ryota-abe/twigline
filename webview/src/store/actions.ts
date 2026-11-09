@@ -10,6 +10,7 @@ import type {
   LogRow,
   OpResult,
   Operation,
+  RefInfo,
   StatusFile,
   UiAction,
   ViewKind,
@@ -95,6 +96,8 @@ export async function loadSnapshot(): Promise<void> {
   try {
     const snapshot = await rpc.request('repo/snapshot', { repo: repo() });
     set({ snapshot });
+    const c = get().checkout;
+    if (c?.phase === 'pending' && !snapshot.head.detached && snapshot.head.branch === c.name) landCheckout(c.name);
   } catch (e) {
     reportError(e);
   }
@@ -708,6 +711,53 @@ export async function runOpResult(op: Operation, opts: { title?: string; success
  */
 export function fetchRemote(remote: string): Promise<boolean> {
   return runOp({ kind: 'fetch', remote, prune: true, tags: false }, { success: remote === '*' ? t('fetch.done') : t('side.fetchedFrom', remote) });
+}
+
+// ---------------------------------------------------------------------------
+// Double-click checkout (branches in the sidebar and badges in the graph)
+// ---------------------------------------------------------------------------
+
+/** How long the branch stays marked after HEAD has moved onto it */
+export const CHECKOUT_LANDED_MS = 1200;
+/** If no snapshot showing the new HEAD arrives this long after the checkout succeeded, the pending mark is cleared anyway */
+const CHECKOUT_SETTLE_MS = 5000;
+let checkoutTimer: ReturnType<typeof setTimeout> | undefined;
+
+function setCheckoutMark(mark: TwiglineState['checkout'], clearAfter?: number): void {
+  if (checkoutTimer) clearTimeout(checkoutTimer);
+  checkoutTimer = clearAfter === undefined ? undefined : setTimeout(() => set({ checkout: null }), clearAfter);
+  set({ checkout: mark });
+}
+
+function landCheckout(name: string): void {
+  setCheckoutMark({ name, phase: 'landed' }, CHECKOUT_LANDED_MS);
+}
+
+/**
+ * Check out a local branch on a double-click. A double-click gives nothing to look at by itself, so the branch is marked
+ * where it was clicked: a spinner until HEAD moves onto it, then a short flash, along with the toast the right-click menu shows.
+ * The checked-out branch, and one checked out in another worktree (git refuses it), are not run
+ */
+export async function checkoutBranch(r: RefInfo): Promise<void> {
+  if (r.kind !== 'head' || r.isHead || get().checkout?.phase === 'pending') return;
+  if (r.worktree) {
+    toast('warning', t('checkout.inWorktree', r.name, r.worktree));
+    return;
+  }
+  setCheckoutMark({ name: r.name, phase: 'pending' });
+  const ok = await runOp({ kind: 'checkout', ref: r.name }, { success: t('cmd.checkedOut', r.name) });
+  const c = get().checkout;
+  if (c?.name !== r.name || c.phase !== 'pending') return;
+  if (!ok) setCheckoutMark(null);
+  else if (get().snapshot?.head.branch === r.name) landCheckout(r.name);
+  // The HEAD mark moves when the snapshot read after the change notification arrives (loadSnapshot lands it then)
+  else setCheckoutMark(c, CHECKOUT_SETTLE_MS);
+}
+
+/** A remote branch is not checked out directly: the dialog chooses between the existing local branch and a new tracking branch */
+export function checkoutRemoteBranch(r: RefInfo): void {
+  if (r.kind !== 'remote') return;
+  openDialog('checkout', { remoteRef: r.name, remote: r.remote ?? r.name.split('/')[0] });
 }
 
 export async function previewOp(op: Operation, signal?: AbortSignal): Promise<string[]> {

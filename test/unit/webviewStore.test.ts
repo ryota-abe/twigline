@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { TwiglineConfig, LogRow, PullRequestList, RepoSnapshot, WorkingTreeStatus } from '../../shared/protocol';
+import type { TwiglineConfig, LogRow, PullRequestList, RefInfo, RepoSnapshot, WorkingTreeStatus } from '../../shared/protocol';
 import { MockHost } from '../../webview/src/rpc/MockHost';
 import { RpcClient } from '../../webview/src/rpc/RpcClient';
 import * as actions from '../../webview/src/store/actions';
@@ -381,5 +381,73 @@ describe('history search box', () => {
       const input = parseSearch(text);
       expect(input.kind === 'search' && formatSearch(input.search)).toBe(text);
     }
+  });
+});
+
+describe('double-click checkout', () => {
+  const feature: RefInfo = { kind: 'head', name: 'feature', fullName: 'refs/heads/feature', sha: sha(N - 3) };
+  let head = 'main';
+  let finish: (ok: boolean) => void;
+
+  beforeEach(() => {
+    head = 'main';
+    host = new MockHost({
+      'op/run': () =>
+        new Promise((resolve, reject) => {
+          finish = (ok) => (ok ? resolve({ commands: [] }) : reject({ category: 'dirtyWorktree', message: 'dirty' }));
+        }),
+      'repo/snapshot': () => ({ ...snapshot, head: { ...snapshot.head, branch: head } }),
+      'status/get': () => status,
+      'ui/action': () => undefined,
+    });
+    actions.setRpc(new RpcClient(host));
+    useStore.setState({ checkout: null, toasts: [], dialog: null });
+  });
+
+  it('marks the branch while it is checked out, then flashes it once HEAD has moved onto it', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      const done = actions.checkoutBranch(feature);
+      expect(useStore.getState().checkout).toEqual({ name: 'feature', phase: 'pending' });
+      // A second double-click while it runs does not start another checkout
+      void actions.checkoutBranch(feature);
+      await vi.waitFor(() => expect(host.count('op/run')).toBe(1));
+      finish(true);
+      await done;
+      expect(host.count('op/run')).toBe(1);
+      expect(useStore.getState().toasts.at(-1)?.message).toBe('feature をチェックアウトしました');
+      // The snapshot with the new HEAD has not arrived yet
+      expect(useStore.getState().checkout?.phase).toBe('pending');
+      head = 'feature';
+      await actions.loadSnapshot();
+      expect(useStore.getState().checkout).toEqual({ name: 'feature', phase: 'landed' });
+      vi.advanceTimersByTime(actions.CHECKOUT_LANDED_MS);
+      expect(useStore.getState().checkout).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('clears the mark when the checkout fails', async () => {
+    const done = actions.checkoutBranch(feature);
+    await vi.waitFor(() => expect(host.count('op/run')).toBe(1));
+    finish(false);
+    await done;
+    expect(useStore.getState().checkout).toBeNull();
+    expect(useStore.getState().dialog?.kind).toBe('error');
+  });
+
+  it('does not run git for the checked-out branch or one checked out in another worktree', async () => {
+    await actions.checkoutBranch({ ...feature, name: 'main', isHead: true });
+    await actions.checkoutBranch({ ...feature, worktree: '/wt/feature' });
+    expect(host.count('op/run')).toBe(0);
+    expect(useStore.getState().checkout).toBeNull();
+    expect(useStore.getState().toasts.at(-1)).toMatchObject({ kind: 'warning', message: expect.stringContaining('/wt/feature') });
+  });
+
+  it('opens the checkout dialog for a remote branch', () => {
+    actions.checkoutRemoteBranch({ kind: 'remote', name: 'origin/feature', fullName: 'refs/remotes/origin/feature', sha: sha(N - 3), remote: 'origin' });
+    expect(useStore.getState().dialog).toMatchObject({ kind: 'checkout', props: { remoteRef: 'origin/feature', remote: 'origin' } });
+    expect(host.count('op/run')).toBe(0);
   });
 });
