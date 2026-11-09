@@ -4,11 +4,12 @@ import type { HostEnv } from '../../src/host/HostEnv';
 import type { RepoModel } from '../../src/repo/RepoModel';
 import { branchQuery, fetchBitbucketPullRequests, parseBitbucketPullRequests, pullRequestsUrl } from '../../src/util/bitbucket';
 import { buildPullRequestQuery, fetchGitHubPullRequests, parseGraphQLPullRequests, parseRestPullRequests } from '../../src/util/github';
+import { HEADS_PER_QUERY as GITLAB_HEADS_PER_QUERY, buildMergeRequestQuery, fetchGitLabMergeRequests, parseGitLabMergeRequests } from '../../src/util/gitlab';
 import { hostedRepoOf } from '../../src/util/hosting';
 import { PullRequestError, matchPullRequests, pullRequestSource, pullRequestTargets, type FetchLike } from '../../src/util/pullRequests';
 import { TEST_CONFIG, makeRepo, openModel, testEnv, type TempRepo } from './helpers';
 
-// Pull requests linked to branches (GitHub, Bitbucket Cloud): remote detection, queries, response conversion, matching with branches, caching
+// Pull requests linked to branches (GitHub, GitLab merge requests, Bitbucket Cloud): remote detection, queries, response conversion, matching with branches, caching
 
 interface Call {
   url: string;
@@ -74,7 +75,13 @@ describe('hosted remotes', () => {
     ['ssh://git@altssh.bitbucket.org:443/team/app.git', { provider: 'bitbucket', host: 'bitbucket.org', owner: 'team', name: 'app' }],
     // Bitbucket Data Center is out of scope
     ['https://bitbucket.example.com/scm/proj/app.git', undefined],
-    ['https://gitlab.com/g/repo.git', undefined],
+    ['git@gitlab.com:g/repo.git', { provider: 'gitlab', host: 'gitlab.com', owner: 'g', name: 'repo' }],
+    // GitLab projects can be in nested groups
+    ['https://gitlab.com/g/sub/repo.git', { provider: 'gitlab', host: 'gitlab.com', owner: 'g/sub', name: 'repo' }],
+    ['ssh://git@altssh.gitlab.com:443/g/repo.git', { provider: 'gitlab', host: 'gitlab.com', owner: 'g', name: 'repo' }],
+    ['https://GitLab.example.com/team/sub/app', { provider: 'gitlab', host: 'gitlab.example.com', owner: 'team/sub', name: 'app' }],
+    ['https://gitlab.com/g', undefined],
+    ['https://git.example.com/g/repo.git', undefined],
     ['https://github.com/me', undefined],
     [undefined, undefined],
   ])('%s', (url, expected) => {
@@ -85,6 +92,7 @@ describe('hosted remotes', () => {
     const remotes: RemoteInfo[] = [
       { name: 'origin', fetchUrl: 'git@github.com:me/repo.git' },
       { name: 'gl', fetchUrl: 'git@gitlab.com:me/repo.git' },
+      { name: 'self', fetchUrl: 'https://git.example.com/me/repo.git' },
       { name: 'bb', fetchUrl: 'git@bitbucket.org:team/app.git' },
     ];
     const ref = (kind: RefInfo['kind'], name: string, extra: Partial<RefInfo> = {}): RefInfo => ({
@@ -102,11 +110,13 @@ describe('hosted remotes', () => {
       ref('head', 'same'),
       // Not pushed
       ref('head', 'local-only'),
-      // A remote that is not GitHub
       ref('head', 'gitlab', { upstream: 'gl/gitlab' }),
+      // A remote whose service is not known
+      ref('head', 'other', { upstream: 'self/other' }),
       ref('remote', 'origin/same', { remote: 'origin' }),
       ref('remote', 'origin/claude/x', { remote: 'origin' }),
       ref('remote', 'gl/gitlab', { remote: 'gl' }),
+      ref('remote', 'self/other', { remote: 'self' }),
       ref('head', 'bb-topic', { upstream: 'bb/topic' }),
       ref('tag', 'v1'),
     ];
@@ -115,11 +125,13 @@ describe('hosted remotes', () => {
       ['refs/heads/feature/a', 'me/repo', 'feature/a', true],
       ['refs/heads/topic', 'me/repo', 'renamed', true],
       ['refs/heads/same', 'me/repo', 'same', true],
+      ['refs/heads/gitlab', 'me/repo', 'gitlab', true],
       ['refs/remotes/origin/same', 'me/repo', 'same', false],
       ['refs/remotes/origin/claude/x', 'me/repo', 'claude/x', false],
+      ['refs/remotes/gl/gitlab', 'me/repo', 'gitlab', false],
       ['refs/heads/bb-topic', 'team/app', 'topic', true],
     ]);
-    expect(pullRequestTargets(refs, [remotes[1]])).toEqual([]);
+    expect(pullRequestTargets(refs, [remotes[2]])).toEqual([]);
   });
 
   it('tells whether the branch a PR would be created from is on the remote', () => {
@@ -295,6 +307,119 @@ describe('GitHub requests', () => {
     const err = await fetchGitHubPullRequests(repo, [], { token: 'tok' }, f.impl).catch((e: unknown) => e);
     expect(err).toBeInstanceOf(PullRequestError);
     expect((err as PullRequestError).kind).toBe(kind);
+  });
+});
+
+const glNode = (p: { iid: number; head: string; source?: string | null; state?: string; draft?: boolean; updated?: string }) => ({
+  iid: String(p.iid),
+  title: `MR ${p.iid}`,
+  webUrl: `https://gitlab.com/g/sub/app/-/merge_requests/${p.iid}`,
+  state: p.state ?? 'opened',
+  draft: p.draft ?? false,
+  sourceBranch: p.head,
+  targetBranch: 'main',
+  diffHeadSha: 'c'.repeat(40),
+  updatedAt: p.updated ?? '2026-09-01T00:00:00Z',
+  author: { username: 'sato' },
+  sourceProject: p.source === null ? null : { fullPath: p.source ?? 'g/sub/app' },
+});
+
+describe('GitLab', () => {
+  const repo = { provider: 'gitlab' as const, host: 'gitlab.com', owner: 'g/sub', name: 'app' };
+
+  it('builds a query for the recent merge requests and those of local branches, with the names as a variable', () => {
+    const q = buildMergeRequestQuery(['feat"x', 'b'], true);
+    expect(q.query).toContain('project(fullPath: $fullPath)');
+    expect(q.query).toContain('recent: mergeRequests(first: 100, sort: UPDATED_DESC)');
+    expect(q.query).toContain('heads: mergeRequests(sourceBranches: $heads, first: 100, sort: UPDATED_DESC)');
+    expect(q.query).not.toContain('feat');
+    expect(q.variables).toEqual({ heads: ['feat"x', 'b'] });
+    const plain = buildMergeRequestQuery([], true);
+    expect(plain.query).not.toContain('$heads');
+    expect(plain.variables).toEqual({});
+    expect(buildMergeRequestQuery(['a'], false).query).not.toContain('recent:');
+  });
+
+  it('converts merge requests and their states, and writes them as !12', () => {
+    const list = parseGitLabMergeRequests('gitlab.com', {
+      recent: {
+        nodes: [
+          glNode({ iid: 1, head: 'a' }),
+          glNode({ iid: 2, head: 'b', draft: true }),
+          glNode({ iid: 3, head: 'c', state: 'merged' }),
+          glNode({ iid: 4, head: 'd', state: 'closed' }),
+          glNode({ iid: 5, head: 'e', state: 'locked' }),
+          glNode({ iid: 6, head: 'f', source: 'me/app' }),
+          // The fork was deleted: the owner is not known
+          glNode({ iid: 7, head: 'g', source: null }),
+          { ...glNode({ iid: 8, head: 'h' }), webUrl: 'http://gitlab.com/x' },
+        ],
+      },
+      heads: { nodes: [glNode({ iid: 9, head: 'a' })] },
+    });
+    expect(list.map((c) => [c.number, c.state, c.headOwner])).toEqual([
+      [1, 'open', 'g/sub'],
+      [2, 'draft', 'g/sub'],
+      [3, 'merged', 'g/sub'],
+      [4, 'closed', 'g/sub'],
+      [5, 'open', 'g/sub'],
+      [6, 'open', 'me'],
+      [7, 'open', undefined],
+      [9, 'open', 'g/sub'],
+    ]);
+    expect(list[0]).toMatchObject({
+      url: 'https://gitlab.com/g/sub/app/-/merge_requests/1',
+      headRef: 'a',
+      baseRef: 'main',
+      headSha: 'c'.repeat(40),
+      author: 'sato',
+      updatedAt: 1788220800,
+      headHost: 'gitlab.com',
+      mergeRequest: true,
+    });
+    expect(parseGitLabMergeRequests('gitlab.com', null)).toEqual([]);
+  });
+
+  it('asks gitlab.com or the self-managed host, with the token when there is one, splitting many local branches', async () => {
+    const f = fakeFetch(() => ({ body: { data: { project: { recent: { nodes: [glNode({ iid: 1, head: 'a' })] } } } } }));
+    const list = await fetchGitLabMergeRequests(repo, ['a', 'a', 'b'], undefined, f.impl);
+    expect(list.map((c) => c.number)).toEqual([1]);
+    expect(f.calls).toHaveLength(1);
+    expect(f.calls[0]).toMatchObject({ url: 'https://gitlab.com/api/graphql', method: 'POST' });
+    expect(f.calls[0].headers.Authorization).toBeUndefined();
+    // Local branches are looked up by name without a token too
+    expect(f.calls[0].body!.variables).toEqual({ fullPath: 'g/sub/app', heads: ['a', 'b'] });
+
+    const many = Array.from({ length: GITLAB_HEADS_PER_QUERY + 1 }, (_, i) => `b${i}`);
+    const g = fakeFetch(() => ({ body: { data: { project: {} } } }));
+    await fetchGitLabMergeRequests({ ...repo, host: 'gitlab.example.com' }, many, { token: 'glpat' }, g.impl);
+    expect(g.calls.map((c) => c.url)).toEqual(['https://gitlab.example.com/api/graphql', 'https://gitlab.example.com/api/graphql']);
+    expect(g.calls[0].headers.Authorization).toBe('Bearer glpat');
+    expect(g.calls[0].body!.query).toContain('recent:');
+    expect(g.calls[1].body!.query).not.toContain('recent:');
+    expect(g.calls[1].body!.variables).toEqual({ fullPath: 'g/sub/app', heads: [`b${GITLAB_HEADS_PER_QUERY}`] });
+  });
+
+  it('reports a private project, a rejected token and GraphQL errors', async () => {
+    const run = (respond: Parameters<typeof fakeFetch>[0], token?: string) =>
+      fetchGitLabMergeRequests(repo, [], token ? { token } : undefined, fakeFetch(respond).impl).catch((e: unknown) => e as PullRequestError);
+    const hidden = await run(() => ({ body: { data: { project: null } } }));
+    expect(hidden).toBeInstanceOf(PullRequestError);
+    expect(hidden).toMatchObject({ kind: 'notFound' });
+    expect((hidden as Error).message).toContain('GitLab');
+    expect(await run(() => ({ status: 401, body: { errors: [{ message: 'Invalid token' }] } }), 'bad')).toMatchObject({ kind: 'auth', status: 401 });
+    expect(await run(() => ({ status: 429 }))).toMatchObject({ kind: 'rateLimit' });
+    expect(await run(() => ({ body: { errors: [{ message: 'Query has complexity of 300' }] } }))).toMatchObject({ kind: 'other', message: 'Query has complexity of 300' });
+  });
+
+  it('matches merge requests by namespace, so one from a fork is told apart', () => {
+    const candidates = parseGitLabMergeRequests('gitlab.com', {
+      recent: { nodes: [glNode({ iid: 1, head: 'topic', source: 'me/app' }), glNode({ iid: 2, head: 'topic', updated: '2026-08-01T00:00:00Z' })] },
+    });
+    const target = (ref: string, owner: string) => ({ ref, repo: { ...repo, owner }, headRef: 'topic', local: false });
+    const byRef = matchPullRequests([target('refs/remotes/origin/topic', 'g/sub'), target('refs/remotes/fork/topic', 'me')], candidates);
+    expect(byRef['refs/remotes/origin/topic']?.number).toBe(2);
+    expect(byRef['refs/remotes/fork/topic']).toMatchObject({ number: 1, mergeRequest: true });
   });
 });
 
@@ -497,6 +622,39 @@ describe('PullRequestService', () => {
     expect(f.calls.slice(1).map((c) => new URL(c.url).searchParams.get('q'))).toEqual([null, 'source.branch.name="feature/a"']);
   });
 
+  it('reads GitLab merge requests, and asks for a token for private projects', async () => {
+    const asked: string[] = [];
+    let token: string | undefined;
+    const m = await setup({
+      url: 'git@gitlab.example.com:team/sub/app.git',
+      env: {
+        pullRequestCredential: async (provider, host) => {
+          asked.push(`${provider}:${host}`);
+          return token ? { token } : undefined;
+        },
+      },
+    });
+    const node = (iid: number, head: string, state = 'opened') => ({ ...glNode({ iid, head, state, source: 'team/sub/app' }), webUrl: `https://gitlab.example.com/team/sub/app/-/merge_requests/${iid}` });
+    const f = fakeFetch((c) =>
+      c.headers.Authorization
+        ? { body: { data: { project: { recent: { nodes: [node(9, 'claude/x')] }, heads: { nodes: [node(4, 'feature/a', 'merged')] } } } } }
+        : { body: { data: { project: null } } },
+    );
+    m.pullRequests.fetchImpl = f.impl;
+    const denied = await m.pullRequests.list();
+    expect(denied).toMatchObject({ status: 'signIn', provider: 'gitlab' });
+    token = 'glpat';
+    const list = await m.pullRequests.list(true);
+    expect(asked).toEqual(['gitlab:gitlab.example.com', 'gitlab:gitlab.example.com']);
+    expect(list.status).toBe('ok');
+    expect(Object.fromEntries(Object.entries(list.byRef).map(([k, v]) => [k, `!${v.number}:${v.state}`]))).toEqual({
+      'refs/heads/feature/a': '!4:merged',
+      'refs/remotes/origin/feature/a': '!4:merged',
+      'refs/remotes/origin/claude/x': '!9:open',
+    });
+    expect(f.calls[1].body!.variables).toEqual({ fullPath: 'team/sub/app', heads: ['feature/a'] });
+  });
+
   it('reports an error instead of sign-in where the host cannot sign in', async () => {
     const m = await setup();
     m.pullRequests.fetchImpl = fakeFetch(() => ({ status: 404 })).impl;
@@ -504,7 +662,7 @@ describe('PullRequestService', () => {
   });
 
   it('does nothing for other hosts or when turned off', async () => {
-    const other = await setup({ url: 'git@gitlab.com:me/repo.git' });
+    const other = await setup({ url: 'git@git.example.com:me/repo.git' });
     other.pullRequests.fetchImpl = () => Promise.reject(new Error('should not fetch'));
     expect(await other.pullRequests.list()).toEqual({ status: 'unsupported', byRef: {} });
     const off = await setup({ env: { config: () => ({ ...TEST_CONFIG, pullRequests: false }) } });

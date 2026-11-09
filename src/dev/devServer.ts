@@ -5,8 +5,8 @@
 // (--vscode-extensions, otherwise looked up from TWIGLINE_VSCODE_PATH and the usual install locations).
 // Instead of postMessage, the webview -> host direction uses POST /rpc and host -> webview uses Server-Sent Events (/events).
 // Only requests to localhost / 127.0.0.1 on this port from its own page are served (no other host names or origins).
-// Pull requests are read with GITHUB_TOKEN (or GH_TOKEN) for GitHub, or BITBUCKET_EMAIL and BITBUCKET_API_TOKEN for Bitbucket Cloud,
-// if set (public repositories only otherwise).
+// Pull requests are read with GITHUB_TOKEN (or GH_TOKEN) for GitHub, GITLAB_TOKEN for GitLab, or BITBUCKET_EMAIL and BITBUCKET_API_TOKEN
+// for Bitbucket Cloud, if set (public repositories only otherwise).
 // --pull-requests answers GitHub with the pull requests in a file instead (the response of REST GET /repos/{owner}/{repo}/pulls,
 // for any GitHub repository), so pull request badges can be shown without asking GitHub (screenshots, offline work).
 
@@ -135,7 +135,7 @@ const env: HostEnv = {
       console.log(`[link] ${found ? action.url : '(not in the commit message)'}`);
     }
     if (action.kind === 'pullRequestSignIn') {
-      const vars = action.provider === 'github' ? 'GITHUB_TOKEN (or GH_TOKEN)' : 'BITBUCKET_EMAIL and BITBUCKET_API_TOKEN';
+      const vars = { github: 'GITHUB_TOKEN (or GH_TOKEN)', gitlab: 'GITLAB_TOKEN', bitbucket: 'BITBUCKET_EMAIL and BITBUCKET_API_TOKEN' }[action.provider];
       console.log(`[pr] set ${vars} and restart the dev server to read private repositories`);
     }
   },
@@ -162,12 +162,13 @@ const env: HostEnv = {
   },
   extensionPath: extRoot,
   helperExecPath: process.execPath,
-  // Credentials for reading PRs come from environment variables (github.com and bitbucket.org only)
+  // Credentials for reading PRs come from environment variables (github.com, any GitLab host and bitbucket.org)
   pullRequestCredential: async (provider, host) => {
     // The pull requests from a file are read like a public repository's (REST)
     if (pullRequestFile) return undefined;
     const e = process.env;
     if (provider === 'github' && host === 'github.com' && (e.GITHUB_TOKEN || e.GH_TOKEN)) return { token: (e.GITHUB_TOKEN || e.GH_TOKEN)! };
+    if (provider === 'gitlab' && e.GITLAB_TOKEN) return { token: e.GITLAB_TOKEN };
     if (provider === 'bitbucket' && e.BITBUCKET_EMAIL && e.BITBUCKET_API_TOKEN) return { username: e.BITBUCKET_EMAIL, password: e.BITBUCKET_API_TOKEN };
     return undefined;
   },

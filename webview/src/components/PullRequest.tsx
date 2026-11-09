@@ -6,7 +6,7 @@ import { useStore } from '../store/store';
 import { cx } from '../util/format';
 import { Icon } from './ui';
 
-// Mark for the pull request (GitHub, Bitbucket Cloud) linked to a branch. The state is also told apart by icon, not color alone (same colors as GitHub):
+// Mark for the pull request (GitHub, GitLab merge request, Bitbucket Cloud) linked to a branch. The state is also told apart by icon, not color alone (same colors as GitHub):
 // under review is a green git-pull-request, draft a gray git-pull-request-draft,
 // merged a purple git-merge, and closed without merging (including declined or superseded on Bitbucket) a red git-pull-request-closed.
 // Pressing it opens the PR in the browser. Branches whose PR is merged or closed have a dimmed name, as ones that are fine to clean up (pr-done).
@@ -17,6 +17,11 @@ const ICONS: Record<PullRequestState, string> = {
   merged: 'git-merge',
   closed: 'git-pull-request-closed',
 };
+
+/** How the service writes a reference to the PR: #12, or !12 for a GitLab merge request */
+export function prLabel(pr: PullRequestInfo): string {
+  return `${pr.mergeRequest ? '!' : '#'}${pr.number}`;
+}
 
 export function prOf(list: PullRequestList | null, ref: RefInfo): PullRequestInfo | undefined {
   return ref.kind === 'tag' ? undefined : list?.byRef[ref.fullName];
@@ -40,8 +45,8 @@ export function PrChip({ pr, refName }: { pr: PullRequestInfo; refName: string }
     <button
       type="button"
       className={cx('pr-chip', pr.state)}
-      title={t('pr.tooltip', String(pr.number), pr.title, state, pr.baseRef, pr.headRef)}
-      aria-label={`#${pr.number} ${state}`}
+      title={t('pr.tooltip', prLabel(pr), pr.title, state, pr.baseRef, pr.headRef)}
+      aria-label={`${prLabel(pr)} ${state}`}
       onMouseDown={(e) => e.button === 0 && stop(e)}
       onDoubleClick={stop}
       onClick={(e) => {
@@ -50,7 +55,7 @@ export function PrChip({ pr, refName }: { pr: PullRequestInfo; refName: string }
       }}
     >
       <Icon name={ICONS[pr.state]} />
-      {`#${pr.number}`}
+      {prLabel(pr)}
     </button>
   );
 }

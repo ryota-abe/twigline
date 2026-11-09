@@ -39,7 +39,7 @@ node dist/dev/devServer.js --repo ../twigline-demo --port 5178
 
 Syntax highlighting grammars and themes are read from the built-in extensions of an installed VS Code
 (`--vscode-extensions <dir>`; by default it looks at `TWIGLINE_VSCODE_PATH` and the usual install locations, and highlighting is off if none is found).
-Pull requests are read with the environment variable `GITHUB_TOKEN` (or `GH_TOKEN`) for GitHub, or `BITBUCKET_EMAIL` and `BITBUCKET_API_TOKEN` for Bitbucket (public repositories only if they are not set).
+Pull requests are read with the environment variable `GITHUB_TOKEN` (or `GH_TOKEN`) for GitHub, `GITLAB_TOKEN` for GitLab, or `BITBUCKET_EMAIL` and `BITBUCKET_API_TOKEN` for Bitbucket (public repositories only if they are not set).
 `--pull-requests <file>` answers GitHub with the pull requests in a file instead (the response of `GET /repos/{owner}/{repo}/pulls`),
 so pull request badges can be shown without asking GitHub.
 
@@ -70,7 +70,7 @@ src/panel/                  RepoPanelManager (one panel per repository, serializ
 src/commands/               Entry points: Command Palette, context menus, keybindings
 src/repo/                   RepositoryManager (discovers repositories through the vscode.git API), RepoModel, RepoWatcher
 src/git/                    GitRunner, LogCursor, parsers, PatchBuilder, errors, encoding
-src/services/               Snapshot, Status, Log, Diff, Stage, Ops, Rebase, Commit, PullRequest (GitHub and Bitbucket)
+src/services/               Snapshot, Status, Log, Diff, Stage, Ops, Rebase, Commit, PullRequest (GitHub, GitLab and Bitbucket)
 src/ipc/                    IpcServer (named pipe + one-time token), askpass and editor helpers
 src/host/                   HostEnv (the runtime as seen from the service layer), its VS Code implementation, and the twigline-rev: scheme for opening revisions
 src/syntax/                 SyntaxRegistry (resolves languages, grammars and color themes from extensions' contributes)

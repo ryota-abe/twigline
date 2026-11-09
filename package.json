@@ -37,6 +37,7 @@
     "stash",
     "pull request",
     "github",
+    "gitlab",
     "bitbucket",
     "japanese",
     "shift_jis"
@@ -170,6 +171,11 @@
       {
         "command": "twigline.bitbucket.signOut",
         "title": "%cmd.bitbucket.signOut%",
+        "category": "Twigline"
+      },
+      {
+        "command": "twigline.gitlab.signOut",
+        "title": "%cmd.gitlab.signOut%",
         "category": "Twigline"
       },
       {

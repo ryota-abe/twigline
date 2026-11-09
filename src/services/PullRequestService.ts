@@ -2,6 +2,7 @@ import type { PullRequestList, PullRequestProvider } from '../../shared/protocol
 import type { RepoModel } from '../repo/RepoModel';
 import { fetchBitbucketPullRequests } from '../util/bitbucket';
 import { fetchGitHubPullRequests } from '../util/github';
+import { fetchGitLabMergeRequests } from '../util/gitlab';
 import { hostedRemotes, repoKey, type HostedRepo } from '../util/hosting';
 import {
   PullRequestError,
@@ -19,10 +20,10 @@ const TTL_ANONYMOUS = 120_000;
 const TTL_FAILED = 60_000;
 const TIMEOUT = 20_000;
 
-const FETCHERS = { github: fetchGitHubPullRequests, bitbucket: fetchBitbucketPullRequests };
+const FETCHERS = { github: fetchGitHubPullRequests, gitlab: fetchGitLabMergeRequests, bitbucket: fetchBitbucketPullRequests };
 
 /**
- * Pull requests linked to branches (GitHub, Bitbucket Cloud). Reads the PRs per remote and matches them with local and remote branches.
+ * Pull requests linked to branches (GitHub, GitLab merge requests, Bitbucket Cloud). Reads the PRs per remote and matches them with local and remote branches.
  * Results are cached for a short time and re-fetched when the combination of branches changes or on force.
  * The previous result is kept even if fetching fails (it is also used for the open-PR action).
  */

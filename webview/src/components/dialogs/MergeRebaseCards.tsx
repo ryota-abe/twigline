@@ -1,5 +1,6 @@
 import type { PullRequestInfo } from '../../../../shared/protocol';
 import { t } from '../../i18n';
+import { prLabel } from '../PullRequest';
 import type { IntegrateStatus, MergeMode } from '../../util/integrate';
 import { IntegrateHints, integrateWarns } from './IntegrateParts';
 import { SummaryCard, SummaryHint, SummaryPr, type SummaryTone } from './SummaryCard';
@@ -103,7 +104,7 @@ export function RebaseStatusCard({
       <IntegrateHints status={status} rebase />
       {rewrites && <SummaryHint warn>{t('summary.rewritesPushed')}</SummaryHint>}
       <SummaryPr found={found} prs={null} remote="" />
-      {rewrites && prOpen && <SummaryHint>{t('push.pr.forceNote', String(found!.pr.number))}</SummaryHint>}
+      {rewrites && prOpen && <SummaryHint>{t('push.pr.forceNote', prLabel(found!.pr))}</SummaryHint>}
     </SummaryCard>
   );
 }

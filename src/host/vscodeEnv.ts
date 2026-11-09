@@ -49,7 +49,7 @@ export class VscodeEnv implements HostEnv {
         if (e.provider.id === 'github' || e.provider.id === 'github-enterprise') this.panels?.broadcast({ type: 'pr/changed' });
       }),
       context.secrets.onDidChange((e) => {
-        if (e.key === BITBUCKET_SECRET) this.panels?.broadcast({ type: 'pr/changed' });
+        if (e.key === BITBUCKET_SECRET || e.key === GITLAB_SECRET) this.panels?.broadcast({ type: 'pr/changed' });
       }),
     );
   }
@@ -105,6 +105,10 @@ export class VscodeEnv implements HostEnv {
   async pullRequestCredential(provider: PullRequestProvider, host: string, opts: { interactive: boolean }): Promise<PullRequestCredential | undefined> {
     if (provider === 'github') {
       const token = await this.githubToken(host, opts);
+      return token ? { token } : undefined;
+    }
+    if (provider === 'gitlab') {
+      const token = opts.interactive ? await this.askGitLabToken(host) : (await this.readGitLabTokens())[host];
       return token ? { token } : undefined;
     }
     if (host !== 'bitbucket.org') return undefined;
@@ -173,6 +177,48 @@ export class VscodeEnv implements HostEnv {
   async signOutBitbucket(): Promise<void> {
     await this.context.secrets.delete(BITBUCKET_SECRET);
     void vscode.window.showInformationMessage(t('Removed the saved Bitbucket API token.'));
+  }
+
+  /** Saved GitLab personal access tokens (SecretStorage, host -> token) */
+  private async readGitLabTokens(): Promise<Record<string, string>> {
+    try {
+      const v = JSON.parse((await this.context.secrets.get(GITLAB_SECRET)) ?? 'null') as unknown;
+      if (!v || typeof v !== 'object') return {};
+      return Object.fromEntries(Object.entries(v).filter((e): e is [string, string] => typeof e[1] === 'string'));
+    } catch {
+      return {};
+    }
+  }
+
+  /** Ask for a GitLab personal access token for the host and save it in SecretStorage */
+  private async askGitLabToken(host: string): Promise<string | undefined> {
+    const enter = t('Enter Access Token');
+    const create = t('Create Access Token');
+    const choice = await vscode.window.showInformationMessage(
+      t('Reading merge requests of a private GitLab project needs a personal access token for {0}.', host),
+      { modal: true, detail: t('Create a personal access token with the read_api scope, then enter it. It is kept in the VS Code secret storage.') },
+      enter,
+      create,
+    );
+    if (!choice) return undefined;
+    if (choice === create) await vscode.env.openExternal(vscode.Uri.parse(`https://${host}/-/user_settings/personal_access_tokens?name=Twigline&scopes=read_api`));
+    const token = await vscode.window.showInputBox({
+      title: t('Twigline: Connect to GitLab'),
+      prompt: t('Personal access token for {0} (read_api)', host),
+      password: true,
+      ignoreFocusOut: true,
+      validateInput: (v) => (v.trim() ? undefined : t('Enter a value.')),
+    });
+    if (!token) return undefined;
+    const tokens = { ...(await this.readGitLabTokens()), [host]: token.trim() };
+    await this.context.secrets.store(GITLAB_SECRET, JSON.stringify(tokens));
+    return token.trim();
+  }
+
+  /** Remove the saved GitLab tokens of all hosts (command twigline.gitlab.signOut) */
+  async signOutGitLab(): Promise<void> {
+    await this.context.secrets.delete(GITLAB_SECRET);
+    void vscode.window.showInformationMessage(t('Removed the saved GitLab access tokens.'));
   }
 
   logCommand(e: CommandLogEntry): void {
@@ -577,6 +623,8 @@ export class VscodeEnv implements HostEnv {
 const GITHUB_SCOPES = ['repo'];
 /** SecretStorage key for saving the Bitbucket Cloud email address and API token */
 const BITBUCKET_SECRET = 'twigline.bitbucket.credential';
+/** SecretStorage key for saving GitLab personal access tokens (a JSON object of host -> token) */
+const GITLAB_SECRET = 'twigline.gitlab.credential';
 /** Management page for Atlassian account API tokens */
 const ATLASSIAN_API_TOKENS = 'https://id.atlassian.com/manage-profile/security/api-tokens';
 
