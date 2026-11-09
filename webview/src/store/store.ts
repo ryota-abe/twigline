@@ -147,6 +147,8 @@ export interface TwiglineState {
   // UI
   ui: UiLayout;
   busy: BusyOp[];
+  /** A local branch checkout started by a double-click: 'pending' until HEAD moves, then 'landed' for a moment (the mark shown on the branch itself) */
+  checkout: { name: string; phase: 'pending' | 'landed' } | null;
   dialog: DialogState | null;
   toasts: Toast[];
 }
@@ -213,6 +215,7 @@ export const useStore = create<TwiglineState>(() => ({
   savedMsgBeforeAmend: null,
   ui: DEFAULT_UI,
   busy: [],
+  checkout: null,
   dialog: null,
   toasts: [],
 }));

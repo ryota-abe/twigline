@@ -899,6 +899,54 @@ body.resizing-column * {
   border-color: currentColor;
   background: transparent;
 }
+/* A branch badge that a double-click checks out: the double-click does not select its name as text */
+.ref.checkable {
+  user-select: none;
+}
+/* A branch just checked out by a double-click flashes once where it was clicked (in the sidebar and in the graph) */
+@keyframes twigline-landed-badge {
+  from {
+    box-shadow: 0 0 0 1px var(--twigline-fg) inset, 0 0 0 3px var(--twigline-focus);
+  }
+  to {
+    box-shadow: 0 0 0 1px var(--twigline-fg) inset, 0 0 0 3px transparent;
+  }
+}
+/* In the sidebar the item is usually selected by the first click of the double-click, so a ring and the HEAD mark landing are shown rather than a background */
+@keyframes twigline-landed-item {
+  from {
+    box-shadow: 0 0 0 1px var(--twigline-focus) inset;
+  }
+  to {
+    box-shadow: 0 0 0 1px transparent inset;
+  }
+}
+@keyframes twigline-landed-mark {
+  from {
+    transform: scale(1.8);
+    opacity: 0.3;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+.ref.landed {
+  animation: twigline-landed-badge 1.2s ease-out;
+}
+.side-item.landed {
+  animation: twigline-landed-item 1.2s ease-out;
+}
+.side-item.landed .head-mark {
+  animation: twigline-landed-mark 0.4s ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ref.landed,
+  .side-item.landed,
+  .side-item.landed .head-mark {
+    animation: none;
+  }
+}
 /* Branches whose PR is merged or closed (fine to clean up) have a dimmed name */
 .side-item .label.pr-done,
 .check .pr-done,

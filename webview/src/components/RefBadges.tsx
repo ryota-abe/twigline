@@ -1,8 +1,10 @@
 import { useMemo } from 'react';
 import type { RefInfo, RepoSnapshot, StashInfo } from '../../../shared/protocol';
+import { checkoutBranch, checkoutRemoteBranch } from '../store/actions';
 import { useStore } from '../store/store';
 import { cx } from '../util/format';
 import { PrChip, prDone, prOf } from './PullRequest';
+import { t } from '../i18n';
 import { Icon } from './ui';
 
 export interface RefsBySha {
@@ -36,6 +38,7 @@ export function useRefsBySha(snapshot: RepoSnapshot | null): RefsBySha {
  */
 export function RefBadges({ refs, stash, detachedHead }: { refs?: RefInfo[]; stash?: StashInfo; detachedHead?: boolean }) {
   const prs = useStore((s) => s.pullRequests);
+  const checkout = useStore((s) => s.checkout);
   if (!refs?.length && !stash && !detachedHead) return null;
   const onLocal = new Set((refs ?? []).filter((r) => r.kind === 'head').map((r) => prOf(prs, r)?.url));
   return (
@@ -48,9 +51,27 @@ export function RefBadges({ refs, stash, detachedHead }: { refs?: RefInfo[]; sta
       )}
       {(refs ?? []).map((r) => {
         const pr = prOf(prs, r);
+        // A double-click checks out a local branch, and opens the checkout dialog for a remote branch (a tag does nothing)
+        const checkable = r.kind === 'remote' || (r.kind === 'head' && !r.isHead);
+        const mark = r.kind === 'head' && checkout?.name === r.name ? checkout.phase : undefined;
         const badge = (
-          <span key={r.fullName} className={cx('ref', r.kind === 'head' ? 'local' : r.kind, r.isHead && 'is-head', prDone(pr) && 'pr-done')} title={r.fullName}>
-            {r.kind === 'tag' ? <Icon name="tag" /> : r.kind === 'remote' ? <Icon name="cloud" /> : r.isHead ? <Icon name="target" /> : <Icon name="git-branch" />}
+          <span
+            key={r.fullName}
+            className={cx('ref', r.kind === 'head' ? 'local' : r.kind, r.isHead && 'is-head', prDone(pr) && 'pr-done', checkable && 'checkable', mark === 'landed' && 'landed')}
+            title={checkable ? `${r.fullName}\n${t('checkout.dblClickHint')}` : r.fullName}
+            onDoubleClick={checkable ? () => (r.kind === 'remote' ? checkoutRemoteBranch(r) : void checkoutBranch(r)) : undefined}
+          >
+            {mark === 'pending' ? (
+              <Icon name="loading" spin />
+            ) : r.kind === 'tag' ? (
+              <Icon name="tag" />
+            ) : r.kind === 'remote' ? (
+              <Icon name="cloud" />
+            ) : r.isHead ? (
+              <Icon name="target" />
+            ) : (
+              <Icon name="git-branch" />
+            )}
             {r.name}
           </span>
         );

@@ -376,6 +376,8 @@ const ja = {
   'checkout.existing': '既存のローカルブランチ {0} をチェックアウト',
   'checkout.newLocal': '新しいローカルブランチを作ってチェックアウト',
   'checkout.trackHint': '{0} を追跡します',
+  'checkout.inWorktree': '{0} は {1} のワークツリーでチェックアウトされているため、ここではチェックアウトできません',
+  'checkout.dblClickHint': 'ダブルクリックでチェックアウト',
 
   'rename.title': '{0} の名前を変更',
   'rename.ok': '名前を変更',
@@ -1023,6 +1025,8 @@ const en: Record<Key, string> = {
   'checkout.existing': 'Checkout the existing local branch {0}',
   'checkout.newLocal': 'Create a new local branch and checkout',
   'checkout.trackHint': 'Tracks {0}',
+  'checkout.inWorktree': '{0} is checked out in the worktree at {1}, so it cannot be checked out here',
+  'checkout.dblClickHint': 'Double-click to checkout',
 
   'rename.title': 'Rename {0}',
   'rename.ok': 'Rename',

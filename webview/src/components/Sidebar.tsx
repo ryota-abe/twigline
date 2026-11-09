@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import type { RefInfo } from '../../../shared/protocol';
 import { t } from '../i18n';
-import { fetchRemote, jumpTo, runOp, selectRow, toggleCollapsed, uiAction } from '../store/actions';
+import { checkoutBranch, checkoutRemoteBranch, fetchRemote, jumpTo, selectRow, toggleCollapsed, uiAction } from '../store/actions';
 import { useStore } from '../store/store';
 import { cx } from '../util/format';
 import { matchesFilter, parseFilter } from '../util/sidebarFilter';
@@ -23,6 +23,7 @@ export function Sidebar() {
   const collapsed = useStore((s) => s.ui.collapsed);
   const repo = useStore((s) => s.boot.repo);
   const prs = useStore((s) => s.pullRequests);
+  const checkout = useStore((s) => s.checkout);
   const [filterOpen, setFilterOpen] = useState(false);
   const [filterText, setFilterText] = useState('');
   if (!snapshot) return <aside className="sidebar" />;
@@ -80,7 +81,13 @@ export function Sidebar() {
             return (
               <>
                 {/* The mark for the checked-out branch matches the double circle of HEAD in the graph (a check mark is confused with the chevron that opens and closes the tree) */}
-                {r.isHead ? <Icon name="target" className="head-mark" title={t('side.checkedOut')} /> : <Icon name="git-branch" />}
+                {checkout?.phase === 'pending' && checkout.name === r.name ? (
+                  <Icon name="loading" spin />
+                ) : r.isHead ? (
+                  <Icon name="target" className="head-mark" title={t('side.checkedOut')} />
+                ) : (
+                  <Icon name="git-branch" />
+                )}
                 <span className={cx('label', r.isHead && 'head', prDone(pr) && 'pr-done')}>{leaf(r.name)}</span>
                 <span className="side-trail">
                   {pr && <PrChip pr={pr} refName={r.fullName} />}
@@ -90,8 +97,10 @@ export function Sidebar() {
             );
           }}
           context={(r) => vsContext('branch.local', { repo, ref: r.name, twiglineIsHead: !!r.isHead, twiglineHasRemote: snapshot.remotes.length > 0, ...prContext(prOf(prs, r)) })}
+          itemClass={(r) => (checkout?.phase === 'landed' && checkout.name === r.name ? 'landed' : undefined)}
+          hint={(r) => (r.isHead ? undefined : t('checkout.dblClickHint'))}
           onClick={(r) => void revealSha(r.sha)}
-          onDoubleClick={(r) => !r.isHead && void runOp({ kind: 'checkout', ref: r.name })}
+          onDoubleClick={(r) => void checkoutBranch(r)}
         />
         <PrNotice />
       </Section>
@@ -175,9 +184,8 @@ export function Sidebar() {
                     }}
                     context={(r) => vsContext('branch.remote', { repo, ref: r.name, remote: rm.name, ...prContext(prOf(prs, r)) })}
                     onClick={(r) => void revealSha(r.sha)}
-                    onDoubleClick={(r) =>
-                      void import('../commands').then((m) => m.handleCommand('twigline.remoteBranch.checkout', { ref: r.name, remote: rm.name }))
-                    }
+                    hint={() => t('checkout.dblClickHint')}
+                    onDoubleClick={checkoutRemoteBranch}
                   />
                 </div>
               )}
@@ -299,6 +307,8 @@ function RefTree({
   idPrefix,
   render,
   context,
+  itemClass,
+  hint,
   onClick,
   onDoubleClick,
 }: {
@@ -309,6 +319,9 @@ function RefTree({
   idPrefix: string;
   render: (r: RefInfo) => ReactNode;
   context: (r: RefInfo) => string;
+  itemClass?: (r: RefInfo) => string | undefined;
+  /** Second line of the tooltip (what a double-click does) */
+  hint?: (r: RefInfo) => string | undefined;
   onClick: (r: RefInfo) => void;
   onDoubleClick: (r: RefInfo) => void;
 }) {
@@ -348,13 +361,15 @@ function RefTree({
           );
         }
         const r = node.item;
+        const extra = hint?.(r);
+        const title = r.upstream ? `${r.name} → ${r.upstream}` : r.name;
         return (
           <div
             key={r.fullName}
-            className="side-item"
+            className={cx('side-item', itemClass?.(r))}
             role="treeitem"
             style={pad}
-            title={r.upstream ? `${r.name} → ${r.upstream}` : r.name}
+            title={extra ? `${title}\n${extra}` : title}
             data-vscode-context={context(r)}
             onClick={() => onClick(r)}
             onDoubleClick={() => onDoubleClick(r)}
