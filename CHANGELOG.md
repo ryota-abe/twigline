@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.0-beta.3
+
+A pre-release of 1.0.0: GitLab merge requests, and checking out a branch from the graph.
+
+- Merge requests on GitLab (gitlab.com, and self-managed GitLab on a `gitlab.*` host, including projects in nested groups) are shown on their branches like pull requests, with a `!12` badge. Merge requests from forks are told apart. A private project asks for a personal access token (`read_api`) for that server, kept per host in the secret storage; "Disconnect from GitLab" in the Command Palette removes the saved tokens
+- The push, reset, merge / rebase and branch deletion dialogs refer to a merge request as `!12`, as the badge does
+- Double-clicking a local branch badge in the graph (or in the commit details) checks it out, as a double-click in the sidebar does; a remote branch badge opens the checkout dialog. A spinner marks the branch while the checkout runs, and the branch flashes briefly once HEAD is on it. A branch checked out in another worktree is not checked out; a toast names that worktree instead
+- Fixed: saving "Commit Message Links…" failed with "… is not a registered configuration" in a window that was not reloaded after Twigline was updated; it now says to reload the window
+
 ## 1.0.0-beta.2
 
 A pre-release of 1.0.0: links in commit messages.
