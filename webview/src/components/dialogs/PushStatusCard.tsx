@@ -1,5 +1,6 @@
 import type { PullRequestList, RefInfo } from '../../../../shared/protocol';
 import { t } from '../../i18n';
+import { prLabel } from '../PullRequest';
 import { pullRequestFor, type PushStatus } from '../../util/pushStatus';
 import { SummaryCard, SummaryHint, SummaryPr } from './SummaryCard';
 
@@ -63,10 +64,10 @@ export function PushStatusCard({
       {found && status.state !== 'upToDate' && (
         <SummaryHint warn={prDone}>
           {prDone
-            ? t(found.pr.state === 'merged' ? 'push.pr.merged' : 'push.pr.closed', String(found.pr.number))
+            ? t(found.pr.state === 'merged' ? 'push.pr.merged' : 'push.pr.closed', prLabel(found.pr))
             : force
-              ? t('push.pr.forceNote', String(found.pr.number))
-              : t('push.pr.reflect', String(found.pr.number))}
+              ? t('push.pr.forceNote', prLabel(found.pr))
+              : t('push.pr.reflect', prLabel(found.pr))}
         </SummaryHint>
       )}
     </SummaryCard>

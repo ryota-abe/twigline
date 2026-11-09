@@ -1,6 +1,6 @@
 # Twigline
 
-A Git client with the commit graph, branches, line-level staging and diffs in one editor tab, and pull request badges from GitHub and Bitbucket Cloud on each branch.
+A Git client with the commit graph, branches, line-level staging and diffs in one editor tab, and pull request badges from GitHub, GitLab and Bitbucket Cloud on each branch.
 
 [日本語](./README.ja.md)
 
@@ -9,7 +9,7 @@ A Git client with the commit graph, branches, line-level staging and diffs in on
 Twigline may suit you if:
 
 - you want the graph, branches, staging and diffs of a standalone Git client together, without leaving VS Code or Cursor
-- your team opens pull requests on GitHub (including GitHub Enterprise Server) or Bitbucket Cloud, and you want to see which branches have one
+- your team opens pull requests on GitHub (including GitHub Enterprise Server), merge requests on GitLab, or pull requests on Bitbucket Cloud, and you want to see which branches have one
 - you stage parts of a file by hunk or line
 - you would rather see what an operation will do (conflicts, a force push, commits that would be lost) before running it than undo it afterwards
 - you work in Japanese, or with Shift_JIS / EUC-JP files
@@ -18,16 +18,16 @@ Twigline may suit you if:
 
 - **One repository, one editor tab.** "Uncommitted Changes | History" tabs, the history graph with lists of branches, tags, remote branches and stashes, and details / diffs side by side.
   Actions sit where they apply: pull, push, merge and rebase for the current branch on the branch name in the tab row (clicking the ahead / behind counts also pushes / pulls); stash and discard inside the "Uncommitted Changes" tab; fetch, push branches, branch, tag, terminal and settings under "…" at the right end of the tab row.
-- **Pull requests on your branches.** Branches with a pull request on GitHub (including GitHub Enterprise Server) or Bitbucket Cloud get a `#12` badge colored by its state (open, draft, merged, closed), in the branch and remote branch lists, the history graph, the tab row and the Delete Branch dialog; click it to open the pull request. Merged pull requests are still shown after the remote branch is deleted, so you can tell which local branches are done with. Public repositories need no sign-in.
+- **Pull requests on your branches.** Branches with a pull request on GitHub (including GitHub Enterprise Server) or Bitbucket Cloud, or a merge request on GitLab, get a `#12` (GitLab: `!12`) badge colored by its state (open, draft, merged, closed), in the branch and remote branch lists, the history graph, the tab row and the Delete Branch dialog; click it to open the pull request. Merged pull requests are still shown after the remote branch is deleted, so you can tell which local branches are done with. Public repositories need no sign-in.
 - **Stage by file, hunk or line.** Stage, unstage or discard in the "Uncommitted Changes" tab, with the mouse or `Space` on the selected row.
 - **Rewrite history in dialogs.** Interactive rebase (reorder by dragging; pick, reword, edit, squash, fixup, drop), cherry-pick, revert, reset, amend; a rebase, merge, cherry-pick or revert that stops is shown in a banner with Continue and Abort.
 - **See the result before it runs.** Push, pull, merge, rebase, reset and branch deletion open a dialog that says what will happen: ahead / behind against the remote branch, predicted conflicts, whether a force push is needed, pushed commits a rebase would rewrite, and commits no branch, tag or remote branch would still have. Force stays off until you check it. Every action with options also previews the git command it will run.
 - **All your repositories at a glance.** The Activity Bar lists each repository's branch, number of changed files, and any operation that has stopped or has conflicts, with fetch / pull / push per row. Repositories outside the workspace can be opened too.
 - **Part of VS Code.** Right-click opens VS Code's own context menu; colors follow the current color theme; diffs are syntax-highlighted with the grammars installed in VS Code; lists and diffs work from the keyboard.
 - **English and Japanese.** The UI in both languages; Japanese file names and Shift_JIS / EUC-JP files in diffs.
-- **Free and open source** (MIT), with no account and no telemetry. Besides what git itself does, Twigline connects only to GitHub and Bitbucket to read pull requests, and that can be turned off.
+- **Free and open source** (MIT), with no account and no telemetry. Besides what git itself does, Twigline connects only to GitHub, GitLab and Bitbucket to read pull requests, and that can be turned off.
 
-Not included: blame annotations in the editor, pull requests on GitLab, Azure DevOps or Bitbucket Data Center (only "Create Pull Request" opens their pages), and reviewing pull requests inside VS Code.
+Not included: blame annotations in the editor, pull requests on Azure DevOps or Bitbucket Data Center (only "Create Pull Request" opens their pages), and reviewing pull requests inside VS Code.
 Twigline works alongside VS Code's Source Control view and does not replace it.
 
 ## Installation
@@ -83,7 +83,8 @@ File history has a "Follow renames" toggle. When on, history continues past rena
 
 ## Pull requests
 
-If the remote is on GitHub (including GitHub Enterprise Server) or Bitbucket Cloud (bitbucket.org), pull requests for branches are shown with a `#12` badge
+If the remote is on GitHub (including GitHub Enterprise Server), GitLab (gitlab.com, or a self-managed server whose host name starts with `gitlab.`) or Bitbucket Cloud (bitbucket.org),
+pull requests for branches are shown with a `#12` badge (`!12` for a GitLab merge request)
 (in the branch and remote branch lists, on branch badges in history and details, on the current branch in the tab row, and in the list of the Delete Branch dialog).
 Click the badge, or "Open Pull Request" in a branch's context menu, to open it in the browser. "Create Pull Request" is not offered for branches with an open pull request.
 
@@ -97,14 +98,18 @@ Click the badge, or "Open Pull Request" in a branch's context menu, to open it i
 - Local branches are matched by the name of their upstream branch (merged pull requests are still shown after the upstream branch is deleted on the remote).
   If several pull requests share a branch name, an open one wins, otherwise the most recently updated one. Pull requests from forks are told apart by the remote's owner.
 - Public repositories are read without signing in (from the most recently updated pull requests: 100 on GitHub, 50 on Bitbucket; both limited to 60 requests per hour).
+  On GitLab, the 100 most recently updated merge requests and those of local branches by name are read in one request, with or without a token.
 - For a private GitHub repository, click "Sign in to GitHub to show pull requests" at the end of the branch list and sign in with your GitHub account in VS Code (scope `repo`).
   Once signed in, older pull requests of local branches are also found by name. For GitHub Enterprise Server, set `github-enterprise.uri` to the server URL.
 - For a private Bitbucket repository, click "Connect to Bitbucket to show pull requests" and enter your Atlassian account email and an API token (scope `read:pullrequest:bitbucket`).
   The token is stored in VS Code's secret storage, and older pull requests of local branches are also found by name.
   Remove the saved token with the command `Twigline: Disconnect from Bitbucket (Remove Saved API Token)`. Bitbucket Data Center (self-hosted) is not supported.
+- For a private GitLab project, click "Connect to GitLab to show merge requests" and enter a personal access token (scope `read_api`) for the server.
+  Tokens are stored in VS Code's secret storage for each server; remove them with the command `Twigline: Disconnect from GitLab (Remove Saved Access Tokens)`.
+  A self-managed server with another host name, or one reached through a host alias in `~/.ssh/config`, is not recognized.
 - Results are reused for a while (30 seconds when signed in, 2 minutes otherwise) and re-read after fetch / push, when you return to the panel, and every 3 minutes while it is visible.
   `Ctrl+Shift+R` (refresh) re-reads them immediately.
-- To turn this off, disable `twigline.pullRequests.enabled` (Twigline then stops querying GitHub and Bitbucket).
+- To turn this off, disable `twigline.pullRequests.enabled` (Twigline then stops querying GitHub, GitLab and Bitbucket).
 
 ## Links in commit messages
 

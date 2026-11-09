@@ -7,7 +7,7 @@ import { deleteInfo, safeToDelete, type DeleteInfo } from '../../util/branchDele
 import { cx, shortSha } from '../../util/format';
 import { integrateStatus, makesMergeCommit, mergeRequirement, mergeStashPaths, rebaseRequirement, type MergeMode } from '../../util/integrate';
 import { resetStatus, type ResetMode } from '../../util/resetStatus';
-import { PrChip, prDone, prOf } from '../PullRequest';
+import { PrChip, prDone, prLabel, prOf } from '../PullRequest';
 import { Button, Checkbox, Select } from '../ui';
 import { Advanced, DialogShell, Field, ModeRadios, Requirement, RequirementActions, Warning, useAheadBehind, useRefCompare, useRefNameValidation, useRequest } from './Dialog';
 import { AutostashCheckbox, StashRequirement } from './IntegrateParts';
@@ -143,7 +143,7 @@ export function BranchDialog({ tab: initialTab, start: initial, names }: { tab?:
               t('branch.deleteConfirm', String(chosen.length), list),
               remoteBranches?.length ? t('branch.deleteRemoteToo', remoteBranches.map((r) => `${r.remote}/${r.branch}`).join(', ')) : '',
               force && atRisk.length > 0 ? t('branch.deleteAtRisk', countsOf(atRisk, (i) => i.atRisk)) : '',
-              closingPrs.length > 0 ? t('branch.prWillClose', closingPrs.map((pr) => `#${pr.number}`).join(', ')) : '',
+              closingPrs.length > 0 ? t('branch.prWillClose', closingPrs.map(prLabel).join(', ')) : '',
             ]
               .filter(Boolean)
               .join('\n'),
@@ -225,7 +225,7 @@ export function BranchDialog({ tab: initialTab, start: initial, names }: { tab?:
             </Requirement>
           )}
           <Checkbox checked={withRemote} onChange={setWithRemote} label={t('branch.withRemote')} />
-          {closingPrs.length > 0 && <SummaryHint warn>{t('branch.prWillClose', closingPrs.map((pr) => `#${pr.number}`).join(', '))}</SummaryHint>}
+          {closingPrs.length > 0 && <SummaryHint warn>{t('branch.prWillClose', closingPrs.map(prLabel).join(', '))}</SummaryHint>}
           {needForce.length === 0 && (
             <Advanced>
               <Checkbox checked={force} onChange={setForce} label={t('branch.force')} />

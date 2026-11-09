@@ -104,11 +104,11 @@ export interface RepoSnapshot {
 }
 
 // ---------------------------------------------------------------------------
-// Pull requests (PRs linked to branches: GitHub, GitHub Enterprise Server, Bitbucket Cloud)
+// Pull requests (PRs linked to branches: GitHub, GitHub Enterprise Server, GitLab merge requests, Bitbucket Cloud)
 // ---------------------------------------------------------------------------
 
-/** Service the PRs are read from (Bitbucket means Bitbucket Cloud only) */
-export type PullRequestProvider = 'github' | 'bitbucket';
+/** Service the PRs are read from (GitLab: gitlab.com and self-managed GitLab on a gitlab.* host; Bitbucket means Bitbucket Cloud only) */
+export type PullRequestProvider = 'github' | 'gitlab' | 'bitbucket';
 
 /** open and draft are under review; merged and closed are finished (closed means closed without merging) */
 export type PullRequestState = 'open' | 'draft' | 'merged' | 'closed';
@@ -130,18 +130,20 @@ export interface PullRequestInfo {
   author?: string;
   /** UNIX seconds */
   updatedAt: number;
+  /** A GitLab merge request (written !12 rather than #12) */
+  mergeRequest?: true;
 }
 
 export interface PullRequestList {
   /**
-   * ok: fetched, unsupported: no GitHub / Bitbucket remote, disabled: turned off by the setting (twigline.pullRequests.enabled),
+   * ok: fetched, unsupported: no GitHub / GitLab / Bitbucket remote, disabled: turned off by the setting (twigline.pullRequests.enabled),
    * signIn: sign-in is required (private repository or unauthenticated rate limit), error: could not fetch (the reason is in message)
    */
   status: 'ok' | 'unsupported' | 'disabled' | 'signIn' | 'error';
   /** Which service, for signIn and error */
   provider?: PullRequestProvider;
   message?: string;
-  /** Names of the remotes PRs can be read from (GitHub, Bitbucket Cloud). Tells "no PR" apart from "not a hosted remote" */
+  /** Names of the remotes PRs can be read from (GitHub, GitLab, Bitbucket Cloud). Tells "no PR" apart from "not a hosted remote" */
   hostedRemotes?: string[];
   /** Full ref name (refs/heads/x, refs/remotes/origin/x) -> the PR of that branch. The previous result is kept on error */
   byRef: Record<string, PullRequestInfo>;
@@ -524,7 +526,7 @@ export type UiAction =
   | { kind: 'createPullRequest'; branch: string }
   /** Open the PR linked to a ref (full name) in the browser. The host looks up the URL from the previous fetch result */
   | { kind: 'openPullRequest'; ref: string }
-  /** Sign in to read PRs (GitHub: the VS Code account; Bitbucket: an API token) */
+  /** Sign in to read PRs (GitHub: the VS Code account; GitLab: a personal access token; Bitbucket: an API token) */
   | { kind: 'pullRequestSignIn'; provider: PullRequestProvider }
   /** Open a link in a commit message. The host opens it only if it finds the same link in that commit's message itself */
   | { kind: 'openLink'; sha: Sha; url: string }
@@ -673,7 +675,7 @@ export type HostEvent =
   | { type: 'config/changed'; config: TwiglineConfig }
   /** The color theme, token color settings or extensions changed. The webview re-reads the theme and languages */
   | { type: 'syntax/changed' }
-  /** The GitHub / Bitbucket sign-in state changed. The webview re-fetches PRs */
+  /** The GitHub / GitLab / Bitbucket sign-in state changed. The webview re-fetches PRs */
   | { type: 'pr/changed' }
   /** The settings of links in commit messages changed for this repository. The webview re-reads the commit details */
   | { type: 'links/changed' }

@@ -1,11 +1,11 @@
-// The parts of branch-linked pull requests that do not depend on the service (GitHub, Bitbucket):
+// The parts of branch-linked pull requests that do not depend on the service (GitHub, GitLab, Bitbucket):
 // deciding which branches to look PRs up for, matching fetched PRs with branches, and HTTP requests and failure classification.
 // Does not import vscode. Credentials come from the caller (HostEnv.pullRequestCredential), and fetch can be replaced (for tests).
 
 import type { PullRequestInfo, PullRequestState, RefInfo, RemoteInfo } from '../../shared/protocol';
 import { hostedRemotes, type HostedRepo } from './hosting';
 
-/** Credentials passed to a service (a token for GitHub, an email address and API token for Bitbucket) */
+/** Credentials passed to a service (a token for GitHub and GitLab, an email address and API token for Bitbucket) */
 export type PullRequestCredential = { token: string } | { username: string; password: string };
 
 /** A branch to look a PR up for */
@@ -88,7 +88,7 @@ export function pullRequestSource(refs: readonly RefInfo[], remotes: readonly Re
 
 /** A fetched PR and the information used to match it with a branch */
 export interface PullRequestCandidate extends PullRequestInfo {
-  /** Host and owner of the repository where the PR's source branch lives (tells PRs from forks apart) */
+  /** Host and owner (GitLab: the namespace) of the repository where the PR's source branch lives (tells PRs from forks apart) */
   headHost: string;
   headOwner?: string;
 }

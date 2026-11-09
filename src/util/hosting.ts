@@ -1,6 +1,6 @@
 // Decides the repository on a hosting service from a remote URL.
 // It gives the URL of the pull request creation page (opening GitHub, GitLab, Bitbucket and Azure DevOps URLs) and
-// the repository to read PRs linked to branches from (GitHub, Bitbucket Cloud).
+// the repository to read PRs linked to branches from (GitHub, GitLab, Bitbucket Cloud).
 
 import type { PullRequestProvider } from '../../shared/protocol';
 
@@ -46,22 +46,29 @@ export function parseRemoteUrl(url: string): RepoLocation | undefined {
 /** A repository PRs can be read from */
 export interface HostedRepo {
   provider: PullRequestProvider;
-  /** Host name of github.com, GitHub Enterprise Server, or bitbucket.org (lowercase) */
+  /** Host name of github.com, GitHub Enterprise Server, gitlab.com, self-managed GitLab, or bitbucket.org (lowercase) */
   host: string;
-  /** GitHub owner or Bitbucket workspace */
+  /** GitHub owner, GitLab namespace (group/subgroup) or Bitbucket workspace */
   owner: string;
   name: string;
 }
 
-/** The location if the remote URL is a GitHub or Bitbucket Cloud repository (Bitbucket Data Center is not supported) */
+/**
+ * The location if the remote URL is a GitHub, GitLab or Bitbucket Cloud repository (Bitbucket Data Center is not supported).
+ * Self-managed GitLab is told by a host name that starts with gitlab. (like GitHub Enterprise Server by github.)
+ */
 export function hostedRepoOf(url: string | undefined): HostedRepo | undefined {
   if (!url) return undefined;
   const loc = parseRemoteUrl(url);
   if (!loc) return undefined;
   const parts = loc.path.split('/');
-  if (parts.length !== 2 || !parts[0] || !parts[1]) return undefined;
-  const [owner, name] = parts;
+  if (parts.length < 2 || parts.some((p) => !p)) return undefined;
   const host = loc.host.toLowerCase();
+  // GitLab projects can be in nested groups (group/subgroup/project). altssh.gitlab.com is the host used to connect SSH over port 443
+  const gitlab = host === 'gitlab.com' || host === 'www.gitlab.com' || host === 'altssh.gitlab.com' ? 'gitlab.com' : host.startsWith('gitlab.') ? host : undefined;
+  if (gitlab) return { provider: 'gitlab', host: gitlab, owner: parts.slice(0, -1).join('/'), name: parts[parts.length - 1] };
+  if (parts.length !== 2) return undefined;
+  const [owner, name] = parts;
   // ssh.github.com and altssh.bitbucket.org are the hosts used to connect SSH over port 443
   if (host === 'github.com' || host === 'www.github.com' || host === 'ssh.github.com') return { provider: 'github', host: 'github.com', owner, name };
   if (host.startsWith('github.')) return { provider: 'github', host, owner, name };

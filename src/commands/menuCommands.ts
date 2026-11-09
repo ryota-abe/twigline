@@ -129,4 +129,5 @@ export const PALETTE_COMMANDS = [
   'twigline.optimize',
   'twigline.showOutput',
   'twigline.bitbucket.signOut',
+  'twigline.gitlab.signOut',
 ] as const;

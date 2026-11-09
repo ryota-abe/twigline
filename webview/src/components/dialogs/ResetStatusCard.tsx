@@ -1,5 +1,6 @@
 import type { PullRequestInfo } from '../../../../shared/protocol';
 import { t } from '../../i18n';
+import { prLabel } from '../PullRequest';
 import type { ResetMode, ResetStatus } from '../../util/resetStatus';
 import { SummaryCard, SummaryHint, SummaryPr, type SummaryTone } from './SummaryCard';
 
@@ -55,7 +56,7 @@ export function ResetStatusCard({
       {orphaned > 0 && <SummaryHint warn>{t('reset.orphaned', String(orphaned))}</SummaryHint>}
       {status.pushedRemoved > 0 && <SummaryHint warn>{t('reset.pushedRemoved', String(status.pushedRemoved))}</SummaryHint>}
       <SummaryPr found={found} prs={null} remote="" />
-      {status.pushedRemoved > 0 && prOpen && <SummaryHint>{t('push.pr.forceNote', String(found!.pr.number))}</SummaryHint>}
+      {status.pushedRemoved > 0 && prOpen && <SummaryHint>{t('push.pr.forceNote', prLabel(found!.pr))}</SummaryHint>}
     </SummaryCard>
   );
 }

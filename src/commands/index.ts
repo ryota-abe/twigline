@@ -58,6 +58,7 @@ export function registerCommands(context: vscode.ExtensionContext, deps: Deps): 
   reg('twigline.view.search', () => panels.activeRepo && panels.post(panels.activeRepo, { type: 'ui/showView', view: 'history', focusSearch: true }));
   reg('twigline.showOutput', () => env.output.show(true));
   reg('twigline.bitbucket.signOut', () => env.signOutBitbucket());
+  reg('twigline.gitlab.signOut', () => env.signOutGitLab());
   reg('twigline.optimize', async () => {
     const model = await pickModel(repos, panels);
     if (!model) return;

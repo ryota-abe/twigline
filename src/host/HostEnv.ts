@@ -38,7 +38,7 @@ export interface HostEnv {
   /** Show a message editing dialog in the webview and wait for the result (squash in an interactive rebase, etc.) */
   editMessage(repo: RepoId, title: string, initial: string): Promise<string | null>;
   /**
-   * Credentials for reading PRs (a token for GitHub, an email address and API token for Bitbucket Cloud).
+   * Credentials for reading PRs (a token for GitHub, a personal access token for GitLab, an email address and API token for Bitbucket Cloud).
    * If interactive, asks for sign-in / input as needed. undefined when unavailable; omitted in environments that cannot provide it
    */
   pullRequestCredential?(provider: PullRequestProvider, host: string, opts: { interactive: boolean }): Promise<PullRequestCredential | undefined>;
