@@ -344,6 +344,9 @@ body.resizing-column * {
 .header .tabs {
   display: flex;
   align-self: stretch;
+  /* When the header wraps (narrow panel), stretch only fills the first line, which can be shorter than a single-line header.
+     Keep the tabs as tall as a single-line header (min-height minus the border) so their height does not change with the view */
+  min-height: 33px;
   /* To the right of the tabs are search and other contents of the tab. A divider shows the difference in level */
   padding-right: 8px;
   margin-right: 4px;
