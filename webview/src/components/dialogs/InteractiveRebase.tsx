@@ -5,9 +5,9 @@ import { useEffect, useState } from 'react';
 import type { Operation, RebaseCommit, TodoAction } from '../../../../shared/protocol';
 import { t } from '../../i18n';
 import { closeDialog, getRpc, runOp } from '../../store/actions';
-import { get } from '../../store/store';
+import { get, useStore } from '../../store/store';
 import { cx, shortSha } from '../../util/format';
-import { Empty, IconButton, Select, Spinner } from '../ui';
+import { Empty, IconButton, Spinner } from '../ui';
 import { DialogShell, Warning } from './Dialog';
 
 // Interactive rebase: reordering, pick / reword / edit / squash / fixup / drop, and message editing
@@ -23,6 +23,7 @@ export function InteractiveRebaseDialog({ base }: { base: string | null }) {
   const [items, setItems] = useState<Item[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const headName = useStore((s) => s.snapshot?.head.branch) ?? 'HEAD';
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
 
   useEffect(() => {
@@ -80,26 +81,34 @@ export function InteractiveRebaseDialog({ base }: { base: string | null }) {
       {items && items.length > 0 && (
         <>
           <p className="dim">{t('irebase.help')}</p>
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
-            <SortableContext items={items.map((i) => i.sha)} strategy={verticalListSortingStrategy}>
-              <div className="irebase-list" role="list">
-                {items.map((item, index) => (
-                  <SortableRow
-                    key={item.sha}
-                    item={item}
-                    expanded={expanded === item.sha}
-                    onToggle={() => setExpanded(expanded === item.sha ? null : item.sha)}
-                    onAction={(action) => {
-                      update(item.sha, { action, newMessage: action === 'reword' && item.newMessage === undefined ? item.message : item.newMessage });
-                      if (action === 'reword' || action === 'squash') setExpanded(item.sha);
-                    }}
-                    onMessage={(m) => update(item.sha, { newMessage: m })}
-                    onMove={(d) => move(index, d)}
-                  />
-                ))}
-              </div>
-            </SortableContext>
-          </DndContext>
+          {/* The list keeps git's order (oldest first). A faint line from the base down to the new tip shows which way it is applied */}
+          <div className="irebase-flow">
+            <div className="irebase-end base">
+              {base && <span className="mono">{shortSha(base)}</span>}
+              <span>{t(base ? 'irebase.base' : 'irebase.baseRoot')}</span>
+            </div>
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+              <SortableContext items={items.map((i) => i.sha)} strategy={verticalListSortingStrategy}>
+                <div className="irebase-list" role="list">
+                  {items.map((item, index) => (
+                    <SortableRow
+                      key={item.sha}
+                      item={item}
+                      expanded={expanded === item.sha}
+                      onToggle={() => setExpanded(expanded === item.sha ? null : item.sha)}
+                      onAction={(action) => {
+                        update(item.sha, { action, newMessage: action === 'reword' && item.newMessage === undefined ? item.message : item.newMessage });
+                        if (action === 'reword' || action === 'squash') setExpanded(item.sha);
+                      }}
+                      onMessage={(m) => update(item.sha, { newMessage: m })}
+                      onMove={(d) => move(index, d)}
+                    />
+                  ))}
+                </div>
+              </SortableContext>
+            </DndContext>
+            <div className="irebase-end tip">{t('irebase.tip', headName)}</div>
+          </div>
           {items[0] && (items[0].action === 'squash' || items[0].action === 'fixup') && <Warning danger>{t('irebase.firstSquash')}</Warning>}
           {items.some((i) => i.action === 'squash' && !i.newMessage?.trim()) && <p className="dim">{t('irebase.squashLater')}</p>}
         </>
@@ -125,20 +134,40 @@ function SortableRow({
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.sha });
   const style = { transform: CSS.Transform.toString(transform), transition };
+  const [choosing, setChoosing] = useState(false);
   const editable = item.action === 'reword' || item.action === 'squash';
   return (
-    <div ref={setNodeRef} style={style} className={cx('irebase-row', isDragging && 'dragging', item.action === 'drop' && 'dropped')} role="listitem">
+    <div ref={setNodeRef} style={style} className={cx('irebase-row', isDragging && 'dragging', item.action === 'drop' && 'dropped', (item.action === 'squash' || item.action === 'fixup') && 'joins')} role="listitem">
       <div className="irebase-main">
         <span className="drag-handle" {...attributes} {...listeners} title={t('irebase.drag')}>
           ⠿
         </span>
-        <Select value={item.action} onChange={onAction} options={ACTIONS.map((a) => ({ value: a, label: t(`irebase.action.${a}`) }))} />
+        {/* Only the names while closed; what each one does is shown in the open list (and in the tooltip) */}
+        <select
+          className="select irebase-action"
+          value={item.action}
+          title={t(`irebase.actionHint.${item.action}`)}
+          aria-label={t('irebase.action')}
+          onMouseDown={() => setChoosing(true)}
+          onBlur={() => setChoosing(false)}
+          onKeyDown={(e) => e.key === 'Escape' && setChoosing(false)}
+          onChange={(e) => {
+            setChoosing(false);
+            onAction(e.target.value as TodoAction);
+          }}
+        >
+          {ACTIONS.map((a) => (
+            <option key={a} value={a}>
+              {choosing ? t(`irebase.actionHint.${a}`) : a}
+            </option>
+          ))}
+        </select>
         <span className="mono dim">{shortSha(item.sha)}</span>
         <span className="subject" title={item.message}>
           {item.action === 'reword' && item.newMessage ? item.newMessage.split('\n')[0] : item.subject}
         </span>
-        <IconButton icon="arrow-up" title={t('irebase.up')} onClick={() => onMove(-1)} />
-        <IconButton icon="arrow-down" title={t('irebase.down')} onClick={() => onMove(1)} />
+        <IconButton className="irebase-move" icon="arrow-up" title={t('irebase.up')} onClick={() => onMove(-1)} />
+        <IconButton className="irebase-move" icon="arrow-down" title={t('irebase.down')} onClick={() => onMove(1)} />
         {editable && <IconButton icon={expanded ? 'chevron-up' : 'edit'} title={t('irebase.editMessage')} onClick={onToggle} />}
       </div>
       {editable && expanded && (
