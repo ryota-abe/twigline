@@ -2149,6 +2149,15 @@ body.resizing-column * {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* The move buttons appear on the row under the pointer or with keyboard focus; they keep their place so the subject does not shift */
+.irebase-move {
+  opacity: 0;
+}
+.irebase-row:hover .irebase-move,
+.irebase-row:focus-within .irebase-move,
+.irebase-row.dragging .irebase-move {
+  opacity: 1;
+}
 .irebase-row .textarea {
   display: block;
   margin: 0 6px 6px;

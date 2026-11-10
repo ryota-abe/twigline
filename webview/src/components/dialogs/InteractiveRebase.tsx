@@ -166,8 +166,8 @@ function SortableRow({
         <span className="subject" title={item.message}>
           {item.action === 'reword' && item.newMessage ? item.newMessage.split('\n')[0] : item.subject}
         </span>
-        <IconButton icon="arrow-up" title={t('irebase.up')} onClick={() => onMove(-1)} />
-        <IconButton icon="arrow-down" title={t('irebase.down')} onClick={() => onMove(1)} />
+        <IconButton className="irebase-move" icon="arrow-up" title={t('irebase.up')} onClick={() => onMove(-1)} />
+        <IconButton className="irebase-move" icon="arrow-down" title={t('irebase.down')} onClick={() => onMove(1)} />
         {editable && <IconButton icon={expanded ? 'chevron-up' : 'edit'} title={t('irebase.editMessage')} onClick={onToggle} />}
       </div>
       {editable && expanded && (
