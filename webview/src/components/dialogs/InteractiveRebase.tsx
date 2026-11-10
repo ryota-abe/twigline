@@ -7,7 +7,7 @@ import { t } from '../../i18n';
 import { closeDialog, getRpc, runOp } from '../../store/actions';
 import { get, useStore } from '../../store/store';
 import { cx, shortSha } from '../../util/format';
-import { Empty, IconButton, Select, Spinner } from '../ui';
+import { Empty, IconButton, Spinner } from '../ui';
 import { DialogShell, Warning } from './Dialog';
 
 // Interactive rebase: reordering, pick / reword / edit / squash / fixup / drop, and message editing
@@ -134,6 +134,7 @@ function SortableRow({
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.sha });
   const style = { transform: CSS.Transform.toString(transform), transition };
+  const [choosing, setChoosing] = useState(false);
   const editable = item.action === 'reword' || item.action === 'squash';
   return (
     <div ref={setNodeRef} style={style} className={cx('irebase-row', isDragging && 'dragging', item.action === 'drop' && 'dropped', (item.action === 'squash' || item.action === 'fixup') && 'joins')} role="listitem">
@@ -141,7 +142,26 @@ function SortableRow({
         <span className="drag-handle" {...attributes} {...listeners} title={t('irebase.drag')}>
           ⠿
         </span>
-        <Select value={item.action} onChange={onAction} options={ACTIONS.map((a) => ({ value: a, label: t(`irebase.action.${a}`) }))} />
+        {/* Only the names while closed; what each one does is shown in the open list (and in the tooltip) */}
+        <select
+          className="select irebase-action"
+          value={item.action}
+          title={t(`irebase.actionHint.${item.action}`)}
+          aria-label={t('irebase.action')}
+          onMouseDown={() => setChoosing(true)}
+          onBlur={() => setChoosing(false)}
+          onKeyDown={(e) => e.key === 'Escape' && setChoosing(false)}
+          onChange={(e) => {
+            setChoosing(false);
+            onAction(e.target.value as TodoAction);
+          }}
+        >
+          {ACTIONS.map((a) => (
+            <option key={a} value={a}>
+              {choosing ? t(`irebase.actionHint.${a}`) : a}
+            </option>
+          ))}
+        </select>
         <span className="mono dim">{shortSha(item.sha)}</span>
         <span className="subject" title={item.message}>
           {item.action === 'reword' && item.newMessage ? item.newMessage.split('\n')[0] : item.subject}
