@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+- Fixed: rewording or squashing in an interactive rebase dropped the lines of the message that start with `#` (a subject like `#123 Fix login` vanished, or the rebase stopped on an empty message). A rebase started in Twigline now keeps them
+- Fixed: an interactive rebase whose first kept commit was squash or fixup (after dropped ones) started and was left in progress with an error; it is now refused in the dialog
+- Fixed: when the push after a commit failed, the commit looked failed too and its message stayed in the box. The commit is now reported as made and the push failure by itself; nothing is pushed from a detached HEAD or without a remote
+- Fixed: the "push after commit" box was unchecked again after switching tabs; with `twigline.commit.rememberPushAfter` the choice is saved when it is made
+- Fixed: a history search that failed kept showing the previous list; the error is shown instead
+- `content:` searches changes for the text as typed instead of as a regular expression, so `content:validate(` works
+- Fixed: with stashes shown, scrolling further down the history after a pause repeated some commits
+- Fixed: "Use Current" / "Use Incoming" failed on conflicts where only one side has the file (a file renamed differently on each side)
+- The comment lines of a commit template (`commit.template`) are no longer committed, lines you wrote that start with `#` are kept, and the template is filled in again after each commit
+- "Add to .gitignore…" escapes `[`, `*`, `?`, `\` and trailing spaces in the suggested patterns, and is offered only for untracked files
+- "Restore This Version…" is not offered for a file the commit deleted
+
 ## 1.0.0-beta.4
 
 A pre-release of 1.0.0: a clearer interactive rebase dialog.

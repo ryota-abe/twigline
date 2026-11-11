@@ -479,9 +479,10 @@ export class OpsService {
         for (const p of op.paths) {
           const rel = this.repo.relPath(p);
           const c = status.conflicted.find((f) => f.path === rel)?.conflict ?? 'UU';
-          // DU: deleted on our side / UD: deleted on their side. If the chosen side is a deletion, use git rm
-          const deletedOnChosenSide = useOurs ? c[0] === 'D' : c[1] === 'D';
-          (deletedOnChosenSide ? remove : checkout).push(rel);
+          // The chosen side has no file: it deleted the file (DU, UD, DD: ours, theirs, both), or only the other side
+          // added it (UA, AU: e.g. each side renamed the file differently). git checkout --ours / --theirs fails there, so use git rm
+          const missingOnChosenSide = c === 'DD' || c === (useOurs ? 'DU' : 'UD') || c === (useOurs ? 'UA' : 'AU');
+          (missingOnChosenSide ? remove : checkout).push(rel);
         }
         if (checkout.length > 0) {
           steps.push(w(['checkout', useOurs ? '--ours' : '--theirs', '--', ...checkout]));
@@ -561,7 +562,8 @@ export class OpsService {
         if (action === 'skip') throw new GitError('invalid', 'A merge cannot be skipped');
         return message?.trim() ? [w(['commit', '-F', '-'], { stdin: message })] : [w(['commit', '--no-edit'])];
       case 'rebase':
-        return [w(['rebase', `--${action}`], { rebaseEditor: action === 'continue' && !!seq.interactive })];
+        // Skipping goes on with the rest of the todo too, which may reword or squash
+        return [w([...this.repo.rebase.configArgs(), 'rebase', `--${action}`], { rebaseEditor: action !== 'abort' && !!seq.interactive })];
       case 'cherry-pick':
       case 'revert': {
         const steps: Step[] = [];

@@ -841,3 +841,151 @@ describe.skipIf(!distReady)('askpass and editor helpers', () => {
     expect(r.git(['show', 'HEAD~1:a.txt'])).toBe('edited\n');
   });
 });
+
+describe('messages and searches with characters git treats specially', () => {
+  it.skipIf(!distReady)('keeps lines that start with # through reword and squash', async () => {
+    const r = repo();
+    const base = r.commit('base');
+    const a = r.commit('A', { 'a.txt': 'a\n' });
+    const b = r.commit('#10 first', { 'b.txt': 'b\n' });
+    const c = r.commit('#11 second', { 'c.txt': 'c\n' });
+    let shown = '';
+    const m = await model(
+      r,
+      testEnv({
+        editMessage: async (_repo, _title, initial) => {
+          shown = initial;
+          return initial;
+        },
+      }),
+    );
+    const res = await m.ops.run({
+      kind: 'rebase/interactive',
+      base,
+      todo: [
+        { action: 'reword', sha: a, subject: 'A', message: '#123 ログイン修正\n\n本文\n#456 も直す' },
+        { action: 'pick', sha: b, subject: '#10 first' },
+        // No message given: the webview is asked, with git's combined message
+        { action: 'squash', sha: c, subject: '#11 second' },
+      ],
+    });
+    expect(res.stopped).toBeUndefined();
+    expect(res.commands).toEqual([`git rebase -i --end-of-options ${base}`]);
+    expect(m.snapshot.readSequence()).toBeNull();
+    // The dialog shows the messages without git's hints, and with their own # lines
+    expect(shown.split('\n').filter(Boolean)).toEqual(['#10 first', '#11 second']);
+    expect(r.git(['log', '-1', '--format=%B']).trim()).toBe('#10 first\n\n#11 second');
+    expect(r.git(['log', '-1', '--format=%B', 'HEAD~1']).trim()).toBe('#123 ログイン修正\n\n本文\n#456 も直す');
+  });
+
+  it.skipIf(!distReady)('keeps # lines when a rebase started here stops on a conflict and is continued', async () => {
+    const r = repo();
+    const base = r.commit('base', { 'f.txt': '1\n' });
+    const a = r.commit('A', { 'f.txt': '2\n' });
+    const b = r.commit('#7 B', { 'f.txt': '3\n' });
+    const m = await model(r);
+    // Dropping A makes B conflict
+    await expect(
+      m.ops.run({ kind: 'rebase/interactive', base, todo: [{ action: 'drop', sha: a, subject: 'A' }, { action: 'reword', sha: b, subject: '#7 B', message: '#7 B（書き換え）' }] }),
+    ).rejects.toMatchObject({ category: 'conflict' });
+    expect(m.snapshot.readSequence()).toMatchObject({ kind: 'rebase', interactive: true });
+    r.write('f.txt', '3\n');
+    await m.stage.stagePaths(['f.txt']);
+    const steps = await m.ops.run({ kind: 'sequence/control', action: 'continue' }, { dryRun: true });
+    expect(steps.commands).toEqual(['git rebase --continue']);
+    await m.ops.run({ kind: 'sequence/control', action: 'continue' });
+    expect(m.snapshot.readSequence()).toBeNull();
+    expect(r.git(['log', '-1', '--format=%B']).trim()).toBe('#7 B（書き換え）');
+  });
+
+  it('rejects a todo whose first kept commit is squashed, before git starts the rebase', async () => {
+    const r = repo();
+    const base = r.commit('base');
+    const a = r.commit('A', { 'a.txt': 'a\n' });
+    const b = r.commit('B', { 'b.txt': 'b\n' });
+    const m = await model(r);
+    await expect(
+      m.ops.run({ kind: 'rebase/interactive', base, todo: [{ action: 'drop', sha: a, subject: 'A' }, { action: 'squash', sha: b, subject: 'B' }] }),
+    ).rejects.toMatchObject({ category: 'invalid' });
+    expect(m.snapshot.readSequence()).toBeNull();
+  });
+
+  it('searches changes for the text as typed, not as a regular expression', async () => {
+    const r = repo();
+    r.commit('one', { 'a.txt': 'validate(x)\n' });
+    r.commit('two', { 'b.txt': 'a.c [1] ^x$ {2} a|b \\d\n' });
+    r.commit('three', { 'c.txt': 'abc\n' });
+    const m = await model(r);
+    const found = async (text: string) =>
+      (await m.log.page({ branches: 'all', includeRemotes: true, includeStashes: false, order: 'date', search: { mode: 'content', text } }, undefined, 0, 50)).rows.map((x) => x.subject);
+    expect(await found('validate(')).toEqual(['one']);
+    expect(await found('a.c')).toEqual(['two']);
+    expect(await found('[1] ^x$ {2}')).toEqual(['two']);
+    expect(await found('a|b \\d')).toEqual(['two']);
+    expect(await found('.*')).toEqual([]);
+  });
+
+  it('pages through a history with stashes without repeating rows after the cursor is lost', async () => {
+    const r = repo();
+    for (let i = 0; i < 6; i++) r.commit(`c${i}`, { 'f.txt': `${i}\n` });
+    r.write('f.txt', 'x\n');
+    r.write('u.txt', 'u\n');
+    r.git(['stash', 'push', '-u', '-q', '-m', 'wip']);
+    const m = await model(r);
+    const q = { branches: 'all' as const, includeRemotes: true, includeStashes: true, order: 'date' as const };
+    const p1 = await m.log.page(q, undefined, 0, 3);
+    const p2 = await m.log.page(q, 'missing', 3, 3);
+    const p3 = await m.log.page(q, p2.cursor ?? undefined, 6, 3);
+    expect([...p1.rows, ...p2.rows, ...p3.rows].map((x) => x.subject)).toEqual(['On main: wip', 'c5', 'c4', 'c3', 'c2', 'c1', 'c0']);
+    expect(p3.done).toBe(true);
+  });
+});
+
+describe('conflicts where one side has no file', () => {
+  it('resolves files renamed differently on each side by taking either side', async () => {
+    for (const side of ['current', 'incoming'] as const) {
+      const r = repo();
+      r.commit('base', { 'f.txt': '1\n2\n3\n4\n5\n' });
+      r.git(['checkout', '-q', '-b', 'x']);
+      r.git(['mv', 'f.txt', 'x.txt']);
+      r.commit('x');
+      r.git(['checkout', '-q', 'main']);
+      r.git(['mv', 'f.txt', 'm.txt']);
+      r.commit('m');
+      expect(() => r.git(['merge', 'x'])).toThrow();
+      const m = await model(r);
+      const st = await m.status.getParsed();
+      expect(st.conflicted.map((f) => `${f.conflict} ${f.path}`)).toEqual(['DD f.txt', 'AU m.txt', 'UA x.txt']);
+      await m.ops.run({ kind: 'conflict/resolve', paths: st.conflicted.map((f) => f.path), side });
+      expect((await m.status.getParsed()).conflicted).toEqual([]);
+      expect(r.git(['ls-files']).trim()).toBe(side === 'current' ? 'm.txt' : 'x.txt');
+    }
+  });
+});
+
+describe('commit followed by a push that fails', () => {
+  it('reports the commit as made and the push failure by itself', async () => {
+    const r = repo();
+    r.commit('base', { 'f.txt': '1\n' });
+    r.git(['remote', 'add', 'origin', path.join(r.dir, 'nowhere.git')]);
+    r.write('f.txt', '2\n');
+    r.git(['add', '-A']);
+    const m = await model(r);
+    const res = await m.commit.create({ message: 'second', amend: false, signoff: false, noVerify: false, pushAfter: true });
+    expect(res.pushed).toBe(false);
+    expect(res.pushError?.message).toContain('nowhere.git');
+    expect(r.git(['rev-parse', 'HEAD']).trim()).toBe(res.sha);
+    expect(r.git(['log', '-1', '--format=%s']).trim()).toBe('second');
+  });
+
+  it('does not try to push where there is nothing to push to', async () => {
+    const r = repo();
+    const c = r.commit('base', { 'f.txt': '1\n' });
+    r.git(['remote', 'add', 'origin', path.join(r.dir, 'nowhere.git')]);
+    r.git(['checkout', '-q', '--detach', c]);
+    r.write('f.txt', '2\n');
+    r.git(['add', '-A']);
+    const m = await model(r);
+    expect(await m.commit.create({ message: 'x', amend: false, signoff: false, noVerify: false, pushAfter: true })).toEqual({ sha: expect.any(String), pushed: false });
+  });
+});

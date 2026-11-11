@@ -2,6 +2,7 @@ import type { StatusFile } from '../../../shared/protocol';
 import { t } from '../i18n';
 import {
   canPushAfterCommit,
+  setPushAfter,
   commit,
   commitBlockedReason,
   commitBoxExpanded,
@@ -321,7 +322,7 @@ export function CommitBox() {
         {expanded && (
           <Checkbox
             checked={pushAfter}
-            onChange={(v) => setStore({ pushAfter: v })}
+            onChange={setPushAfter}
             label={pushTarget ? t('commit.pushTo', pushTarget) : t('commit.pushAfter')}
             disabled={!canPush}
           />

@@ -97,7 +97,7 @@ const ja = {
   'search.clear': '検索を解除',
   'search.placeholder': '検索（author: ・ content: ・ path: ・ SHA）',
   'search.help':
-    'Enter でメッセージを検索します。\nauthor:名前 … 作成者\ncontent:文字列 … 変更内容（git log -G）\npath:パス … そのパスの履歴\nSHA（7 文字以上）・ sha:ブランチ名 … そのコミットへ移動\nEsc で検索を解除',
+    'Enter でメッセージを検索します。\nauthor:名前 … 作成者\ncontent:文字列 … 変更内容（入力した文字列そのまま）\npath:パス … そのパスの履歴\nSHA（7 文字以上）・ sha:ブランチ名 … そのコミットへ移動\nEsc で検索を解除',
 
   'detail.none': 'コミットを選ぶと詳細を表示します',
   'detail.multi': '{0} 件のコミットを選択中',
@@ -491,7 +491,7 @@ const ja = {
   'irebase.base': '基点',
   'irebase.baseRoot': '履歴の最初',
   'irebase.tip': '{0} の新しい先端',
-  'irebase.firstSquash': '先頭のコミットは squash ・ fixup にできません',
+  'irebase.firstSquash': '残すコミットのうち先頭のものは squash ・ fixup にできません（まとめる先がありません）',
   'irebase.squashLater': 'メッセージを入力しなかった squash は、実行中に結合メッセージを尋ねます',
   'irebase.squashPlaceholder': '結合後のメッセージ（空なら実行中に尋ねます）',
   'irebase.drag': 'ドラッグで並べ替え',
@@ -750,7 +750,7 @@ const en: Record<Key, string> = {
   'search.clear': 'Clear search',
   'search.placeholder': 'Search (author:, content:, path:, SHA)',
   'search.help':
-    'Press Enter to search commit messages.\nauthor:name … author\ncontent:text … changes (git log -G)\npath:path … history of that path\nSHA (7+ chars) or sha:branch … jump to that commit\nEsc clears the search',
+    'Press Enter to search commit messages.\nauthor:name … author\ncontent:text … changes (the text as typed)\npath:path … history of that path\nSHA (7+ chars) or sha:branch … jump to that commit\nEsc clears the search',
 
   'detail.none': 'Select a commit to see its details',
   'detail.multi': '{0} commits selected',
@@ -1144,7 +1144,7 @@ const en: Record<Key, string> = {
   'irebase.base': 'base',
   'irebase.baseRoot': 'start of history',
   'irebase.tip': 'new tip of {0}',
-  'irebase.firstSquash': 'The first commit cannot be squashed or fixed up',
+  'irebase.firstSquash': 'The first commit that is kept cannot be squashed or fixed up (there is nothing before it to join)',
   'irebase.squashLater': 'For squashes without a message you will be asked for the combined message while rebasing',
   'irebase.squashPlaceholder': 'Combined message (leave empty to be asked while rebasing)',
   'irebase.drag': 'Drag to reorder',

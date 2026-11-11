@@ -836,7 +836,7 @@
         },
         {
           "command": "twigline.file.ignore",
-          "when": "webviewId == 'twigline.repository' && webviewSection == 'file.unstaged'",
+          "when": "webviewId == 'twigline.repository' && webviewSection == 'file.unstaged' && untracked",
           "group": "2_ignore@1"
         },
         {
@@ -891,7 +891,7 @@
         },
         {
           "command": "twigline.commitFile.restore",
-          "when": "webviewId == 'twigline.repository' && webviewSection == 'file.commit'",
+          "when": "webviewId == 'twigline.repository' && webviewSection == 'file.commit' && !twiglineDeleted",
           "group": "4_restore@1"
         },
         {

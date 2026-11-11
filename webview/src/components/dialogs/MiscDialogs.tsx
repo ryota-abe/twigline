@@ -3,6 +3,7 @@ import type { Operation, RpcError as RpcErrorShape } from '../../../../shared/pr
 import { t } from '../../i18n';
 import { closeDialog, confirm, getRpc, openDialog, resolveConfirm, runOp, runOpResult, uiAction } from '../../store/actions';
 import { get, useStore } from '../../store/store';
+import { escapeGitignore } from '../../util/commitMessage';
 import { basename, dirname, shortSha } from '../../util/format';
 import { Button, Checkbox, Icon, Select } from '../ui';
 import { initialStart, startOptions } from './BranchDialogs';
@@ -240,12 +241,13 @@ export function IgnoreDialog({ path }: { path: string }) {
   const ext = dot > 0 ? name.slice(dot) : '';
   const dir = dirname(path);
   const choices = [
-    { value: `/${path}`, label: t('ignore.file', path) },
-    ...(ext ? [{ value: `*${ext}`, label: t('ignore.ext', ext) }] : []),
-    ...(dir ? [{ value: `/${dir}/`, label: t('ignore.dir', dir) }] : []),
+    { value: `/${escapeGitignore(path)}`, label: t('ignore.file', path) },
+    ...(ext ? [{ value: `*${escapeGitignore(ext)}`, label: t('ignore.ext', ext) }] : []),
+    ...(dir ? [{ value: `/${escapeGitignore(dir)}/`, label: t('ignore.dir', dir) }] : []),
   ];
   const [pattern, setPattern] = useState(choices[0].value);
-  const op: Operation | null = pattern.trim() ? { kind: 'gitignore/add', pattern: pattern.trim() } : null;
+  // Spaces at the end are kept: escaped ones ("\ ") are part of the name
+  const op: Operation | null = pattern.trim() ? { kind: 'gitignore/add', pattern: pattern.trimStart() } : null;
   return (
     <DialogShell
       title={t('ignore.title')}

@@ -635,7 +635,8 @@ export interface RpcMethods {
     signoff: boolean;
     noVerify: boolean;
     pushAfter: boolean;
-  }) => { sha: Sha; pushed: boolean };
+    /** pushError: the commit was made but the push after it failed (pushed is false) */
+  }) => { sha: Sha; pushed: boolean; pushError?: RpcError };
   'op/run': (p: { repo: RepoId; op: Operation; dryRun?: boolean }) => OpResult; // dryRun is for previewing the command
   'rebase/commits': (p: { repo: RepoId; base: Sha | null }) => RebaseCommit[];
   /** PR linked to a branch. The host caches it for a short time (force re-fetches) */
