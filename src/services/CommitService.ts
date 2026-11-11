@@ -1,8 +1,8 @@
 import { readFile } from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import type { CommitInfo, Sha } from '../../shared/protocol';
-import { GitError } from '../git/errors';
+import type { CommitInfo, RpcError, Sha } from '../../shared/protocol';
+import { GitError, toRpcError } from '../git/errors';
 import { parseConfigZ } from '../git/parsers/refs';
 import { ALL_KINDS, type RepoModel } from '../repo/RepoModel';
 
@@ -69,7 +69,7 @@ export class CommitService {
     }
   }
 
-  async create(p: CreateCommitParams): Promise<{ sha: Sha; pushed: boolean }> {
+  async create(p: CreateCommitParams): Promise<{ sha: Sha; pushed: boolean; pushError?: RpcError }> {
     if (!p.message.trim()) throw new GitError('invalid', 'The commit message is empty');
     if (this.repo.env.config().rememberPushAfter) this.repo.env.setState(this.repo.id, { pushAfter: p.pushAfter });
     const args = ['commit', '-F', '-'];
@@ -83,7 +83,15 @@ export class CommitService {
       return head.stdout.toString('utf8').trim();
     });
     if (!p.pushAfter) return { sha, pushed: false };
-    await this.pushCurrent();
+    // The choice is remembered per repository, and may be left on where there is nothing to push to (the box is disabled there)
+    const snap = await this.repo.snapshot.get();
+    if (!snap.head.branch || snap.remotes.length === 0) return { sha, pushed: false };
+    try {
+      await this.pushCurrent();
+    } catch (e) {
+      // The commit is made: report the push as a failure of its own, not of the commit
+      return { sha, pushed: false, pushError: toRpcError(e) };
+    }
     return { sha, pushed: true };
   }
 

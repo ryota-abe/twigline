@@ -80,7 +80,7 @@ function CommitMeta({ detail }: { detail: CommitDetail }) {
   const fileContext = (f: ChangedFile) =>
     f.untrackedIn
       ? vsContext('file.commit', { repo, path: f.path, sha: f.untrackedIn, oldPath: '', compareTo: '', parent: 0 })
-      : vsContext('file.commit', { repo, path: f.path, sha: detail.sha, oldPath: f.oldPath ?? '', compareTo: detail.compareTo ?? '', parent: detail.parentIndex });
+      : vsContext('file.commit', { repo, path: f.path, sha: detail.sha, oldPath: f.oldPath ?? '', compareTo: detail.compareTo ?? '', parent: detail.parentIndex, twiglineDeleted: f.status === 'D' });
 
   return (
     <div className="meta">

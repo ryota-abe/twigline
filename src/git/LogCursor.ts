@@ -31,6 +31,8 @@ export class LogCursor {
     readonly queryKey: string,
     private readonly filter?: RowFilter,
     skip = 0,
+    /** Rows to drop after the filter, when git could not skip them itself (see LogService.page) */
+    private drop = 0,
   ) {
     this.consumed = skip;
   }
@@ -67,7 +69,9 @@ export class LogCursor {
     const row = parseLogRecord(rec);
     if (!row) return;
     const filtered = this.filter ? this.filter(row) : row;
-    if (filtered) this.buffered.push(filtered);
+    if (!filtered) return;
+    if (this.drop > 0) this.drop--;
+    else this.buffered.push(filtered);
   }
 
   private wake(): void {

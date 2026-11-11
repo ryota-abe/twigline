@@ -73,7 +73,7 @@ Twigline は VS Code のソース管理ビューと併用するもので、置�
 | --- | --- |
 | `ログイン` | メッセージを検索 |
 | `author:鈴木` | 作成者で検索 |
-| `content:validate(` | 変更内容で検索（`git log -G`） |
+| `content:validate(` | 変更内容を入力した文字列そのままで検索（`git log -G`） |
 | `path:src/auth` | そのパスの履歴（グラフ付き） |
 | `a1c93e0`（7 文字以上の 16 進数）・ `sha:feature/login` | そのコミットへ移動 |
 

@@ -276,6 +276,10 @@ body.resizing-column * {
   padding: 16px;
   color: var(--twigline-muted);
 }
+.list-empty.error {
+  color: var(--vscode-errorForeground, #f48771);
+  white-space: pre-wrap;
+}
 .list-empty.small {
   padding: 6px 12px;
   font-size: 12px;

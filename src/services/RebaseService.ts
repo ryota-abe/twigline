@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 import { readFile, writeFile } from 'node:fs/promises';
 import * as path from 'node:path';
 import type { OpResult, RebaseCommit, Sha, TodoItem } from '../../shared/protocol';
@@ -18,6 +19,16 @@ interface RebaseContext {
 
 const TODO_ACTIONS = new Set(['pick', 'reword', 'edit', 'squash', 'fixup', 'drop']);
 
+/**
+ * git strips the lines that start with the comment character ('#') from a message that went through the editor, which is
+ * every reworded or squashed message: a subject like "#123 Fix login" would vanish. A rebase Twigline starts therefore runs
+ * with a comment character nobody types, so git's own hints are still stripped and every line of the message stays.
+ */
+const COMMENT_CHAR = '\x01';
+const COMMENT_CONFIG = ['-c', `core.commentChar=${COMMENT_CHAR}`];
+/** Marks a rebase started with COMMENT_CHAR, so that continuing it uses the same one (git removes it with rebase-merge) */
+const COMMENT_MARKER = 'twigline-comment-char';
+
 export function buildTodo(todo: TodoItem[]): string {
   const lines: string[] = [];
   for (const item of todo) {
@@ -26,17 +37,19 @@ export function buildTodo(todo: TodoItem[]): string {
     const subject = item.subject.replace(/[\r\n]+/g, ' ');
     lines.push(`${item.action} ${item.sha} ${subject}`);
   }
-  if (todo.length > 0 && (todo[0].action === 'squash' || todo[0].action === 'fixup')) {
-    throw new GitError('invalid', 'The first commit cannot be squashed or fixed up');
+  // git fails on this after it has started the rebase, and leaves it in progress with a todo it cannot run
+  const first = todo.find((i) => i.action !== 'drop');
+  if (first && (first.action === 'squash' || first.action === 'fixup')) {
+    throw new GitError('invalid', 'The first commit that is kept cannot be squashed or fixed up');
   }
   return lines.join('\n') + '\n';
 }
 
 /** The message without comment lines (same as the strip git does after editing) */
-export function stripComments(text: string): string {
+export function stripComments(text: string, commentChar = '#'): string {
   return text
     .split(/\r?\n/)
-    .filter((l) => !l.startsWith('#'))
+    .filter((l) => !l.startsWith(commentChar))
     .join('\n')
     .replace(/^\n+|\n+$/g, '');
 }
@@ -94,7 +107,8 @@ export class RebaseService {
       if ((item.action === 'reword' || item.action === 'squash') && item.message?.trim()) messages.set(item.sha, item.message);
     }
     this.context = { todoText, messages };
-    const args = ['rebase', '-i', ...(base ? ['--end-of-options', base] : ['--root'])];
+    const shown = ['rebase', '-i', ...(base ? ['--end-of-options', base] : ['--root'])];
+    const args = [...COMMENT_CONFIG, ...shown];
     return this.repo.runOp(ALL_KINDS, async () => {
       const ed = await this.editorEnv(true);
       try {
@@ -104,8 +118,18 @@ export class RebaseService {
         if (!this.repo.snapshot.readSequence()) this.context = undefined;
       }
       const stopped = this.repo.snapshot.readSequence() !== null;
-      return { commands: [`git ${args.join(' ')}`], stopped: stopped || undefined };
+      return { commands: [`git ${shown.join(' ')}`], stopped: stopped || undefined };
     });
+  }
+
+  /** Whether the rebase in progress was started by Twigline, with its own comment character */
+  private ownsRebase(): boolean {
+    return existsSync(path.join(this.repo.gitDir, 'rebase-merge', COMMENT_MARKER));
+  }
+
+  /** Options that go before `rebase` to continue the rebase in progress the way it was started */
+  configArgs(): string[] {
+    return this.ownsRebase() ? COMMENT_CONFIG : [];
   }
 
   /** Environment variables that make GIT_EDITOR (and GIT_SEQUENCE_EDITOR at the start) the editor helper */
@@ -118,6 +142,7 @@ export class RebaseService {
     if (base === 'git-rebase-todo') {
       if (!this.context) return false; // Abort if there is no prepared todo
       await writeFile(file, this.context.todoText, 'utf8');
+      await writeFile(path.join(path.dirname(file), COMMENT_MARKER), '', 'utf8');
       return true;
     }
     // Editing commit messages (reword, squash, amend after edit)
@@ -163,7 +188,7 @@ export class RebaseService {
   }
 
   private async askWebview(file: string, title: string, content: string): Promise<boolean> {
-    const edited = await this.repo.env.editMessage(this.repo.id, title, stripComments(content));
+    const edited = await this.repo.env.editMessage(this.repo.id, title, stripComments(content, this.ownsRebase() ? COMMENT_CHAR : '#'));
     if (edited === null) return true; // If cancelled, go on with git's default message
     await writeFile(file, edited.trimEnd() + '\n', 'utf8');
     return true;

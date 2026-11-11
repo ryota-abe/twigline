@@ -6,6 +6,7 @@ import * as actions from '../../webview/src/store/actions';
 import { DEFAULT_QUERY, DEFAULT_UI, useStore } from '../../webview/src/store/store';
 import { createLaneState } from '../../webview/src/graph/layout';
 import { UNCOMMITTED } from '../../webview/src/util/format';
+import { effectiveCommitMessage, escapeGitignore } from '../../webview/src/util/commitMessage';
 import { formatSearch, parseSearch } from '../../webview/src/util/search';
 
 // Verify the webview state management with MockHost (paging, the virtual "Uncommitted Changes" row, selection, change notifications)
@@ -449,5 +450,67 @@ describe('double-click checkout', () => {
     actions.checkoutRemoteBranch({ kind: 'remote', name: 'origin/feature', fullName: 'refs/remotes/origin/feature', sha: sha(N - 3), remote: 'origin' });
     expect(useStore.getState().dialog).toMatchObject({ kind: 'checkout', props: { remoteRef: 'origin/feature', remote: 'origin' } });
     expect(host.count('op/run')).toBe(0);
+  });
+});
+
+describe('fixes found in review', () => {
+  const handlers = () => (host as unknown as { handlers: Record<string, (p: never) => unknown> }).handlers;
+  const last = (method: string) => host.calls.filter((c) => c.method === method).at(-1)?.params;
+
+  it('shows the error of a history query that failed instead of the rows of the previous one', async () => {
+    expect(useStore.getState().rows.length).toBeGreaterThan(0);
+    handlers()['log/page'] = () => Promise.reject({ category: 'unknown', message: 'fatal: invalid regex' });
+    actions.setQuery({ search: { mode: 'content', text: 'x' } });
+    await vi.waitFor(() => expect(useStore.getState().logError).toBe('fatal: invalid regex'));
+    const s = useStore.getState();
+    expect(s.rows).toEqual([]);
+    expect(s.graphRows).toEqual([]);
+    expect(s.showUncommitted).toBe(false);
+    expect(s.logLoading).toBe(false);
+  });
+
+  it('keeps the push after commit choice when the commit info is read again, and saves it when it is remembered', async () => {
+    await actions.loadCommitInfo();
+    actions.setPushAfter(true);
+    await vi.waitFor(() => expect(last('ui/action')).toMatchObject({ action: { kind: 'saveUiState', state: { pushAfter: true } } }));
+    await actions.loadCommitInfo();
+    expect(useStore.getState().pushAfter).toBe(true);
+  });
+
+  it('commits without the comment lines of the template, and starts the next message from the template', async () => {
+    template = '\n# 件名: 50 文字以内\n# 本文\n';
+    useStore.setState({ commitInfo: null, commitMsg: '', amend: false, status: { ...status, staged: [{ path: 'a.txt', status: 'M' }] } });
+    await actions.loadCommitInfo();
+    expect(useStore.getState().commitMsg).toBe(template);
+    // Only the template: nothing to commit yet
+    expect(actions.commitBlockedReason(useStore.getState())).toBe('コミットメッセージを入力してください');
+    handlers()['commit/create'] = () => ({ sha: 'abc1234', pushed: false });
+    useStore.setState({ commitMsg: `#12 修正${template}` });
+    await actions.commit();
+    expect(last('commit/create')).toMatchObject({ message: '#12 修正' });
+    await vi.waitFor(() => expect(useStore.getState().commitMsg).toBe(template));
+  });
+
+  it('clears the box and reports the push when the push after a commit fails', async () => {
+    handlers()['commit/create'] = () => ({ sha: 'abc1234', pushed: false, pushError: { category: 'network', message: 'Could not resolve host' } });
+    useStore.setState({ commitMsg: 'message', amend: true });
+    await actions.commit();
+    const s = useStore.getState();
+    expect(s.commitMsg).toBe('');
+    expect(s.amend).toBe(false);
+    expect(s.dialog).toMatchObject({ kind: 'error', props: { error: { category: 'network', message: 'Could not resolve host' } } });
+  });
+
+  it('removes only the comment lines the template has', () => {
+    expect(effectiveCommitMessage('#1 fix\n# keep', undefined)).toBe('#1 fix\n# keep');
+    expect(effectiveCommitMessage('#1 fix\n\n# hint  \n# mine\n', '\n# hint\n')).toBe('#1 fix\n\n# mine');
+    expect(effectiveCommitMessage('\n# hint\n', '\n# hint\n')).toBe('');
+    expect(effectiveCommitMessage('a\n', 'no comments')).toBe('a\n');
+  });
+
+  it('escapes what .gitignore would read as a pattern', () => {
+    expect(escapeGitignore('docs/[draft] a*b?.txt')).toBe('docs/\\[draft] a\\*b\\?.txt');
+    expect(escapeGitignore('a\\b  ')).toBe('a\\\\b\\ \\ ');
+    expect(escapeGitignore('#memo.txt')).toBe('#memo.txt');
   });
 });

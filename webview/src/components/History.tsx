@@ -294,7 +294,7 @@ function CommitList() {
             );
           })}
         </div>
-        {count === 0 && !logLoading && <div className="list-empty">{logError ?? t('history.empty')}</div>}
+        {!logLoading && (logError || count === 0) && <div className={logError ? 'list-empty error' : 'list-empty'}>{logError ?? t('history.empty')}</div>}
       </div>
       {logLoading && (
         <div className="list-loading">

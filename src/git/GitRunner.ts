@@ -87,7 +87,8 @@ export function maskCredentials(s: string): string {
 
 function stripCommonArgs(args: readonly string[]): string[] {
   const out = [...args];
-  while (out[0] === '-c' && COMMON_ARGS.includes(out[1] ?? '')) out.splice(0, 2);
+  // core.commentChar is how Twigline keeps '#' lines of a message through an interactive rebase (see RebaseService), not part of the command
+  while (out[0] === '-c' && (COMMON_ARGS.includes(out[1] ?? '') || (out[1] ?? '').startsWith('core.commentChar='))) out.splice(0, 2);
   return out;
 }
 

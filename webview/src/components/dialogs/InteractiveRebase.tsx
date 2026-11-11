@@ -35,7 +35,10 @@ export function InteractiveRebaseDialog({ base }: { base: string | null }) {
       );
   }, [base]);
 
-  const valid = !!items && items.length > 0 && items.some((i) => i.action !== 'drop') && items[0].action !== 'squash' && items[0].action !== 'fixup';
+  // The first commit that is kept has nothing before it to be squashed into (dropped ones do not count)
+  const firstKept = items?.find((i) => i.action !== 'drop');
+  const firstJoins = firstKept?.action === 'squash' || firstKept?.action === 'fixup';
+  const valid = !!items && !!firstKept && !firstJoins;
   const op: Operation | null =
     items && valid
       ? {
@@ -109,7 +112,7 @@ export function InteractiveRebaseDialog({ base }: { base: string | null }) {
             </DndContext>
             <div className="irebase-end tip">{t('irebase.tip', headName)}</div>
           </div>
-          {items[0] && (items[0].action === 'squash' || items[0].action === 'fixup') && <Warning danger>{t('irebase.firstSquash')}</Warning>}
+          {firstJoins && <Warning danger>{t('irebase.firstSquash')}</Warning>}
           {items.some((i) => i.action === 'squash' && !i.newMessage?.trim()) && <p className="dim">{t('irebase.squashLater')}</p>}
         </>
       )}

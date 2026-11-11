@@ -18,6 +18,7 @@ import type {
 import { createLaneState, layoutRows, type GraphRow } from '../graph/layout';
 import { opTitle, setLang, t } from '../i18n';
 import { RpcError, isCancelled, type RpcClient } from '../rpc/RpcClient';
+import { effectiveCommitMessage } from '../util/commitMessage';
 import { UNCOMMITTED, shortSha } from '../util/format';
 import { DEFAULT_UI, get, set, type Boot, type DialogKind, type FsGroup, type TwiglineState, type Toast, type UiLayout } from './store';
 
@@ -169,6 +170,14 @@ export function commitBoxExpanded(s: TwiglineState): boolean {
   return s.commitMsg !== '' || s.amend || (s.status?.staged.length ?? 0) > 0 || s.snapshot?.sequence?.kind === 'merge';
 }
 
+/** Choose push after commit. Saved right away when the choice is remembered (twigline.commit.rememberPushAfter), not only by the next commit */
+export function setPushAfter(pushAfter: boolean): void {
+  set({ pushAfter });
+  if (get().config?.rememberPushAfter) {
+    rpc.request('ui/action', { repo: repo(), action: { kind: 'saveUiState', state: { pushAfter } } }).catch(() => undefined);
+  }
+}
+
 /** Whether push after commit can be chosen (there is a remote and we are on a branch) */
 export function canPushAfterCommit(s: TwiglineState): boolean {
   return !!s.snapshot?.remotes.length && !!s.snapshot.head.branch;
@@ -178,9 +187,14 @@ export function canPushAfterCommit(s: TwiglineState): boolean {
 export function commitBlockedReason(s: TwiglineState): string | null {
   if ((s.status?.conflicted.length ?? 0) > 0) return t('commit.blockedConflict');
   if ((s.status?.staged.length ?? 0) === 0 && !s.amend && s.snapshot?.sequence?.kind !== 'merge') return t('commit.blockedNothing');
-  if (!s.commitMsg.trim()) return t('commit.emptyMessage');
+  if (!commitMessageOf(s).trim()) return t('commit.emptyMessage');
   if (s.busy.length > 0) return t('commit.blockedBusy');
   return null;
+}
+
+/** The message that would be committed: the box without the comment lines of the commit template */
+export function commitMessageOf(s: TwiglineState): string {
+  return effectiveCommitMessage(s.commitMsg, s.commitInfo?.template);
 }
 
 /** Text of the commit button. Shows amend / push and the number of staged files so it is clear what will happen before pressing */
@@ -252,7 +266,8 @@ export async function reloadLog(opts: { keep?: boolean } = {}): Promise<void> {
     }
   } catch (e) {
     if (gen !== logGen || isCancelled(e)) return;
-    set({ logLoading: false, logError: e instanceof Error ? e.message : String(e) });
+    // Rows of the previous query would read as the result of this one (a search that failed would seem to match everything)
+    set({ rows: [], cursor: null, logDone: true, logLoading: false, logError: e instanceof Error ? e.message : String(e), ...graphFor(get(), []) });
   }
 }
 
@@ -607,7 +622,8 @@ export async function loadCommitInfo(): Promise<CommitInfo | null> {
     const s = get();
     set({
       commitInfo: info,
-      pushAfter: info.pushAfter,
+      // Only the first read sets the box: later ones (HEAD moved, the tab was shown again) must not undo what the user chose
+      pushAfter: s.commitInfo ? s.pushAfter : info.pushAfter,
       // While amending, the box waits for the previous message, so do not put the template in it
       commitMsg: s.commitMsg || (s.commitInfo || s.amend ? s.commitMsg : (info.template ?? '')),
     });
@@ -630,7 +646,8 @@ export async function setAmend(amend: boolean): Promise<void> {
     return;
   }
   set({ amend, savedMsgBeforeAmend: s.commitMsg });
-  if (s.commitMsg.trim()) return;
+  // A box holding only the commit template counts as empty
+  if (commitMessageOf(s).trim()) return;
   const info = await loadCommitInfo();
   const now = get();
   // Leave it alone if amend was toggled again or something was typed while reading
@@ -640,7 +657,7 @@ export async function setAmend(amend: boolean): Promise<void> {
 
 export async function commit(): Promise<void> {
   const s = get();
-  const message = s.commitMsg;
+  const message = commitMessageOf(s);
   if (!message.trim()) {
     toast('warning', t('commit.emptyMessage'));
     return;
@@ -657,7 +674,13 @@ export async function commit(): Promise<void> {
     });
     set({ commitMsg: '', amend: false, savedMsgBeforeAmend: null });
     toast('info', res.pushed ? t('commit.doneAndPushed', shortSha(res.sha)) : t('commit.done', shortSha(res.sha)));
-    void loadCommitInfo();
+    // The commit is made even when the push after it failed: the box is cleared, and the push is reported by itself
+    if (res.pushError) reportError(new RpcError(res.pushError));
+    // The next message starts from the commit template again, as it does in git
+    void loadCommitInfo().then((info) => {
+      const now = get();
+      if (info?.template && now.commitMsg === '' && !now.amend) set({ commitMsg: info.template });
+    });
   } catch (e) {
     reportError(e);
   } finally {

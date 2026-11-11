@@ -28,7 +28,9 @@ export class LogService {
     if (!cursor) {
       const built = await this.buildArgs(query, offset);
       if (!built) return { cursor: null, rows: [], done: true };
-      cursor = new LogCursor(this.repo.runner, built.args, key, built.filter, offset);
+      // --skip counts the commits git walks, and offset the rows shown: with a filter that hides rows they differ,
+      // so git starts from the top and the cursor drops the rows already shown
+      cursor = new LogCursor(this.repo.runner, built.args, key, built.filter, offset, built.filter ? offset : 0);
       await cursor.start();
       this.cursors.set(cursor.id, cursor);
       this.trim();
@@ -45,7 +47,7 @@ export class LogService {
   private async buildArgs(query: LogQuery, skip: number): Promise<{ args: string[]; filter?: RowFilter } | undefined> {
     const snap = await this.repo.snapshot.get();
     const args = ['log', query.order === 'topo' ? '--topo-order' : '--date-order', '-z', '--encoding=UTF-8', `--format=${LOG_FORMAT}`];
-    if (skip > 0) args.push(`--skip=${skip}`);
+    const skipAt = args.length;
 
     const revs: string[] = [];
     let filter: RowFilter | undefined;
@@ -58,7 +60,7 @@ export class LogService {
     } else {
       if (search?.mode === 'message') args.push(`--grep=${search.text}`, '--regexp-ignore-case', '--fixed-strings');
       else if (search?.mode === 'author') args.push(`--author=${search.text}`, '--regexp-ignore-case', '--fixed-strings');
-      else if (search?.mode === 'content') args.push(`-G${search.text}`);
+      else if (search?.mode === 'content') args.push(`-G${literalRegex(search.text)}`);
 
       if (query.branches === 'all') {
         args.push('--branches', '--tags');
@@ -111,6 +113,7 @@ export class LogService {
     } else {
       args.push('--end-of-options', ...revs, '--');
     }
+    if (skip > 0 && !filter) args.splice(skipAt, 0, `--skip=${skip}`);
     return { args, filter };
   }
 
@@ -144,4 +147,12 @@ export class LogService {
     for (const c of this.cursors.values()) c.dispose();
     this.cursors.clear();
   }
+}
+
+/**
+ * A regular expression that matches the text itself, for git log -G, which has no fixed-string form.
+ * Bracket expressions mean the same in basic and extended POSIX syntax, unlike a backslash before ( or {
+ */
+export function literalRegex(text: string): string {
+  return text.replace(/[.[\]{}()*+?$|^\\]/g, (c) => (c === '^' ? '\\^' : `[${c}]`));
 }
