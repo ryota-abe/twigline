@@ -1,10 +1,13 @@
 # Changelog
 
-## 1.0.0
-
-The first stable release. Since 1.0.0-beta.4 it fixes bugs found in a review of the rebase, commit, history and conflict paths, and adds copying a branch name.
+## 1.1.0
 
 - The right-click menu of a branch in the sidebar offers "Copy Branch Name"; for a remote branch the name includes the remote (`origin/feature`)
+
+## 1.0.0
+
+The first stable release. Since 1.0.0-beta.4 it fixes bugs found in a review of the rebase, commit, history and conflict paths.
+
 - Fixed: rewording or squashing in an interactive rebase dropped the lines of the message that start with `#` (a subject like `#123 Fix login` vanished, or the rebase stopped on an empty message). A rebase started in Twigline now keeps them
 - Fixed: an interactive rebase whose first kept commit was squash or fixup (after dropped ones) started and was left in progress with an error; it is now refused in the dialog
 - Fixed: when the push after a commit failed, the commit looked failed too and its message stayed in the box. The commit is now reported as made and the push failure by itself; nothing is pushed from a detached HEAD or without a remote
