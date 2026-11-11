@@ -344,6 +344,10 @@
         "title": "%cmd.branch.openPullRequest%"
       },
       {
+        "command": "twigline.branch.copyName",
+        "title": "%cmd.branch.copyName%"
+      },
+      {
         "command": "twigline.remoteBranch.checkout",
         "title": "%cmd.remoteBranch.checkout%"
       },
@@ -366,6 +370,10 @@
       {
         "command": "twigline.remoteBranch.openPullRequest",
         "title": "%cmd.remoteBranch.openPullRequest%"
+      },
+      {
+        "command": "twigline.remoteBranch.copyName",
+        "title": "%cmd.remoteBranch.copyName%"
       },
       {
         "command": "twigline.remote.fetch",
@@ -725,6 +733,11 @@
           "group": "5_pr@2"
         },
         {
+          "command": "twigline.branch.copyName",
+          "when": "webviewId == 'twigline.repository' && webviewSection == 'branch.local'",
+          "group": "6_copy@1"
+        },
+        {
           "command": "twigline.remoteBranch.checkout",
           "when": "webviewId == 'twigline.repository' && webviewSection == 'branch.remote'",
           "group": "1_checkout@1"
@@ -753,6 +766,11 @@
           "command": "twigline.remoteBranch.openPullRequest",
           "when": "webviewId == 'twigline.repository' && webviewSection == 'branch.remote' && twiglinePr",
           "group": "4_pr@1"
+        },
+        {
+          "command": "twigline.remoteBranch.copyName",
+          "when": "webviewId == 'twigline.repository' && webviewSection == 'branch.remote'",
+          "group": "5_copy@1"
         },
         {
           "command": "twigline.remote.fetch",
@@ -1007,6 +1025,10 @@
           "when": "false"
         },
         {
+          "command": "twigline.branch.copyName",
+          "when": "false"
+        },
+        {
           "command": "twigline.remoteBranch.checkout",
           "when": "false"
         },
@@ -1028,6 +1050,10 @@
         },
         {
           "command": "twigline.remoteBranch.openPullRequest",
+          "when": "false"
+        },
+        {
+          "command": "twigline.remoteBranch.copyName",
           "when": "false"
         },
         {
