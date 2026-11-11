@@ -716,6 +716,10 @@ export async function runOpResult(op: Operation, opts: { title?: string; success
     if (res.stopped) {
       toast('warning', t('op.stopped'));
       setView('fileStatus');
+    } else if (res.autostashConflict) {
+      // git exits with 0 here: without this the conflict markers left in the files would come with a "done" toast
+      toast('warning', t('op.autostashConflict'));
+      setView('fileStatus');
     } else if (opts.success) {
       toast('info', opts.success);
     }

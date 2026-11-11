@@ -44,12 +44,20 @@ export function IntegrateHints({ status, rebase, merges = true }: { status: Stat
       <SummaryFiles key="untracked-files" paths={status.untrackedOverlap} />,
     );
   }
+  if (status.ignoredOverlap.length > 0) {
+    lines.push(
+      <SummaryHint key="ignored" warn>
+        {t('summary.ignoredOverlap')}
+      </SummaryHint>,
+      <SummaryFiles key="ignored-files" paths={status.ignoredOverlap} />,
+    );
+  }
   return <>{lines}</>;
 }
 
 /** The hints above put the card in the warning tone */
 export function integrateWarns(status: Status, merges = true): boolean {
-  return !!shownConflicts(status, merges)?.length || status.untrackedOverlap.length > 0;
+  return !!shownConflicts(status, merges)?.length || status.untrackedOverlap.length > 0 || status.ignoredOverlap.length > 0;
 }
 
 /**

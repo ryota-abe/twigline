@@ -40,6 +40,7 @@ export function SequenceBanner() {
     <div className="banner" role="status">
       <Icon name="warning" />
       <b>{text}</b>
+      {seq.autostash && <span title={t('banner.autostashTitle')}>{t('banner.autostash')}</span>}
       <span className="spacer" />
       <Button small onClick={() => void abort()}>
         {seq.kind === 'merge' ? t('banner.abortMergeButton') : t('banner.abortButton')}

@@ -1,3 +1,5 @@
+import { existsSync } from 'node:fs';
+import * as path from 'node:path';
 import type { RefComparison, Sha } from '../../shared/protocol';
 import type { RepoModel } from '../repo/RepoModel';
 
@@ -27,11 +29,27 @@ export class CompareService {
       const files = splitNul(res.stdout);
       result.incomingFiles = files.slice(0, MAX_FILES);
       if (files.length > MAX_FILES) result.incomingFilesTruncated = true;
+      const ignored = await this.ignoredAmong(result.incomingFiles, signal);
+      if (ignored.length > 0) result.incomingIgnored = ignored;
     }
     if (opts.conflicts && result.ahead > 0 && result.behind > 0) {
       result.conflicts = mergeBase && this.repo.features.mergeTree ? await this.conflicts(a, b, signal) : null;
     }
     return result;
+  }
+
+  /** The paths among these that are ignored files present in the working tree */
+  private async ignoredAmong(paths: string[], signal?: AbortSignal): Promise<string[]> {
+    if (paths.length === 0) return [];
+    // Ignored directories come as one entry ("node_modules/"), so this stays small; the paths are matched here instead of
+    // being passed as pathspecs, which would not fit on a command line
+    const res = await this.repo.runner.run(['ls-files', '-z', '--others', '--ignored', '--exclude-standard', '--directory'], { signal, noThrow: true });
+    if (res.exitCode !== 0) return [];
+    const entries = splitNul(res.stdout);
+    if (entries.length === 0) return [];
+    const files = new Set(entries.filter((e) => !e.endsWith('/')));
+    const dirs = entries.filter((e) => e.endsWith('/'));
+    return paths.filter((p) => files.has(p) || (dirs.some((d) => p.startsWith(d)) && existsSync(path.join(this.repo.root, p))));
   }
 
   /**

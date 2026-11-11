@@ -61,7 +61,7 @@ export class RebaseService {
 
   /** List of commits to show in the dialog (oldest first). When base is null, from the first commit */
   async commits(base: Sha | null): Promise<RebaseCommit[]> {
-    const range = base ? [`${base}..HEAD`] : ['HEAD'];
+    if (base) await this.assertAncestor(base);
     const res = await this.repo.runner.run([
       'log',
       '--reverse',
@@ -70,7 +70,7 @@ export class RebaseService {
       '--encoding=UTF-8',
       '--format=%H%x1f%P%x1f%an%x1f%at%x1f%s%x1f%B',
       '--end-of-options',
-      ...range,
+      ...rangeOf(base),
       '--',
     ]);
     const list: RebaseCommit[] = [];
@@ -88,6 +88,29 @@ export class RebaseService {
       });
     }
     return list;
+  }
+
+  /**
+   * A base that is not an ancestor of HEAD (a commit of another branch) would not edit the commits after it: git would move
+   * the whole branch onto that commit instead
+   */
+  private async assertAncestor(base: Sha): Promise<void> {
+    const res = await this.repo.runner.run(['merge-base', '--is-ancestor', base, 'HEAD'], { noThrow: true });
+    if (res.exitCode !== 0) throw new GitError('invalid', `${base.slice(0, 7)} is not an ancestor of HEAD, so the commits after it cannot be rebased interactively`);
+  }
+
+  /**
+   * The todo must name exactly the commits after the base. When HEAD has moved since the dialog listed them (a commit made
+   * meanwhile), the commits missing from the todo would be dropped without a word
+   */
+  private async assertTodoCurrent(base: Sha | null, todo: TodoItem[]): Promise<void> {
+    if (base) await this.assertAncestor(base);
+    const res = await this.repo.runner.run(['rev-list', '--no-merges', '--end-of-options', ...rangeOf(base), '--']);
+    const now = res.stdout.toString('utf8').split('\n').filter(Boolean);
+    const listed = new Set(todo.map((i) => i.sha.toLowerCase()));
+    if (now.length !== listed.size || now.some((s) => !listed.has(s))) {
+      throw new GitError('invalid', 'The commits to rebase have changed since they were listed. Open the interactive rebase again');
+    }
   }
 
   plan(base: Sha | null, todo: TodoItem[]): Step[] {
@@ -110,6 +133,7 @@ export class RebaseService {
     const shown = ['rebase', '-i', ...(base ? ['--end-of-options', base] : ['--root'])];
     const args = [...COMMENT_CONFIG, ...shown];
     return this.repo.runOp(ALL_KINDS, async () => {
+      await this.assertTodoCurrent(base, todo);
       const ed = await this.editorEnv(true);
       try {
         await this.repo.runner.run(args, { queue: 'write', env: ed.env, signal: opts.signal });
@@ -193,6 +217,10 @@ export class RebaseService {
     await writeFile(file, edited.trimEnd() + '\n', 'utf8');
     return true;
   }
+}
+
+function rangeOf(base: Sha | null): string[] {
+  return base ? [`${base}..HEAD`] : ['HEAD'];
 }
 
 function normalizeAction(a: string | undefined): string {

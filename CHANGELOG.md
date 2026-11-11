@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+- Fixed: a branch created from a remote branch under another name (`feature` from `origin/main`) tracked that remote branch, so "push after commit" pushed to it and deleting the branch offered to delete it. Such a branch is now created without an upstream; a branch with the same name as the remote branch still tracks it
+- Applying, popping, dropping or branching from a stash is refused when the stash list has changed since the stash was chosen, instead of acting on whichever stash now has that number
+- Interactive rebase is refused from a commit that is not an ancestor of HEAD (it would have moved the whole branch onto that commit), and when commits were added after the dialog listed them (they would have been dropped)
+- When the local changes set aside by an autostash conflict as they are put back, a warning says so and that they are kept in a stash, instead of the "done" message
+- While a merge or rebase started with autostash is stopped, the banner says that the uncommitted changes are set aside
+- The pull, merge and rebase dialogs warn about ignored files (`.gitignore`) that the incoming commits would overwrite; git does not ask before overwriting them
+- "Reverse Commit" reverts every selected commit, newest first
+- Fixed: a file whose name starts with two dots (`..notes.txt`) was taken to be outside the repository
+- Fixed: "Copy Path" of a file mixed `\` and `/` on Windows
+
 ## 1.1.0
 
 - The right-click menu of a branch in the sidebar offers "Copy Branch Name"; for a remote branch the name includes the remote (`origin/feature`)

@@ -1,7 +1,7 @@
 import * as path from 'node:path';
 import type { ChangeKind } from '../../shared/protocol';
 import { debounce, type Disposable } from '../util/event';
-import type { RepoModel } from './RepoModel';
+import { isOutside, type RepoModel } from './RepoModel';
 
 // Collects changes to .git for 250ms and then decides their kind.
 
@@ -54,7 +54,7 @@ export class RepoWatcher implements Disposable {
 
   private onFile(base: string, abs: string): void {
     const rel = path.relative(base, abs);
-    if (rel.startsWith('..')) return;
+    if (isOutside(rel)) return;
     const kinds = classifyGitPath(rel);
     if (kinds.length === 0) return;
     for (const k of kinds) this.pending.add(k);
