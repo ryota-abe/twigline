@@ -144,15 +144,25 @@ export class OpsService {
     if (opts.dryRun) return { commands };
     return this.repo.runOp(kindsFor(op), async () => {
       const stashBefore = op.kind === 'stash/push' ? await this.stashTop() : undefined;
-      await this.execute(steps, opts, op);
+      if ((op.kind === 'stash/apply' || op.kind === 'stash/drop' || op.kind === 'stash/branch') && op.sha) await this.assertStashAt(op.index, op.sha);
+      const output = await this.execute(steps, opts, op);
       // A fetch that got through no longer needs the "authentication required" mark from a periodic fetch
       if (op.kind === 'fetch') {
         if (op.remote === '*') this.repo.snapshot.authRequired.clear();
         else this.repo.snapshot.authRequired.delete(op.remote);
       }
       const nothingStashed = op.kind === 'stash/push' && (await this.stashTop()) === stashBefore ? true : undefined;
-      return { commands, message: undefined, stopped: this.repo.snapshot.readSequence() !== null && isSequenceOp(op) ? true : undefined, nothingStashed };
+      const stopped = this.repo.snapshot.readSequence() !== null && isSequenceOp(op) ? true : undefined;
+      return { commands, message: undefined, stopped, nothingStashed, autostashConflict: (!stopped && autostashConflicted(output)) || undefined };
     });
+  }
+
+  /** Refuse to go on when the stash at this index is no longer the one the user chose (the indexes shift when a stash is added or dropped) */
+  private async assertStashAt(index: number, sha: string): Promise<void> {
+    const res = await this.repo.runner.run(['rev-parse', '-q', '--verify', `stash@{${Math.trunc(index)}}`], { queue: 'read', okExitCodes: [0, 1, 128], noThrow: true });
+    if (res.stdout.toString('utf8').trim() !== assertSha(sha)) {
+      throw new GitError('invalid', `stash@{${Math.trunc(index)}} is no longer the stash that was selected (the stash list has changed). Check the list and try again`);
+    }
   }
 
   /** The newest stash ('' when there is none). git stash push exits 0 without saving anything when there is nothing to stash */
@@ -174,8 +184,9 @@ export class OpsService {
     return res.stdout.toString('utf8').split('\0').filter(Boolean);
   }
 
-  /** Run the steps in order. Stop at the first failure. */
-  async execute(steps: Step[], opts: RunOpOptions, op?: Operation): Promise<void> {
+  /** Run the steps in order. Stop at the first failure. Returns what the git commands wrote to stderr */
+  async execute(steps: Step[], opts: RunOpOptions, op?: Operation): Promise<string> {
+    let output = '';
     for (const step of steps) {
       if (opts.signal?.aborted) throw new GitError('cancelled', 'Cancelled');
       if (step.type === 'fn') {
@@ -183,16 +194,17 @@ export class OpsService {
         continue;
       }
       try {
-        await this.runGitStep(step, opts, op);
+        output += await this.runGitStep(step, opts, op);
       } catch (e) {
         const instead = step.recover && e instanceof GitError ? step.recover(e) : undefined;
         if (!instead) throw e;
-        await this.execute(instead, opts, op);
+        output += await this.execute(instead, opts, op);
       }
     }
+    return output;
   }
 
-  private async runGitStep(step: GitStep, opts: RunOpOptions, op?: Operation): Promise<void> {
+  private async runGitStep(step: GitStep, opts: RunOpOptions, op?: Operation): Promise<string> {
     const env: Record<string, string> = { ...step.env };
     const disposables: { dispose(): void }[] = [];
     const interactive = opts.interactive !== false;
@@ -231,6 +243,10 @@ export class OpsService {
             : undefined,
         });
 
+      let output = '';
+      const collect = (r: { stdout: Buffer; stderr: string }) => {
+        output = `${r.stderr}\n${r.stdout.subarray(0, 4096).toString('utf8')}\n`;
+      };
       if (step.progress && interactive) {
         await this.repo.env.withProgress(step.progress, true, async (report, cancel) => {
           const ctrl = new AbortController();
@@ -238,15 +254,16 @@ export class OpsService {
           cancel.addEventListener('abort', abort);
           opts.signal?.addEventListener('abort', abort);
           try {
-            await runOnce(ctrl.signal, report);
+            collect(await runOnce(ctrl.signal, report));
           } finally {
             cancel.removeEventListener('abort', abort);
             opts.signal?.removeEventListener('abort', abort);
           }
         });
       } else {
-        await runOnce(opts.signal, step.progress ? () => undefined : undefined);
+        collect(await runOnce(opts.signal, step.progress ? () => undefined : undefined));
       }
+      return output;
     } catch (e) {
       if (e instanceof GitError && e.category === 'auth' && !interactive && op?.kind === 'fetch') {
         this.repo.snapshot.authRequired.add(op.remote);
@@ -271,10 +288,17 @@ export class OpsService {
         return [w(['switch', '--detach', '--end-of-options', assertRev(op.ref)])];
       }
 
-      case 'branch/create':
+      case 'branch/create': {
+        // git makes a branch started from a remote branch track it (branch.autoSetupMerge). Under another name that is a trap:
+        // "feature" started from origin/main would be pushed to, and deleted together with, origin/main
+        const snap = await this.repo.snapshot.get();
+        const from = snap.refs.find((r) => r.kind === 'remote' && r.name === op.start);
+        const remote = from && snap.remotes.find((r) => from.name.startsWith(r.name + '/'));
+        const noTrack = from && from.name.slice((remote?.name ?? from.name.split('/')[0]).length + 1) !== op.name ? ['--no-track'] : [];
         return op.checkout
-          ? [w(['switch', '-c', assertRef(op.name, 'branch name'), '--end-of-options', assertRev(op.start)])]
-          : [w(['branch', '--end-of-options', assertRef(op.name, 'branch name'), assertRev(op.start)])];
+          ? [w(['switch', ...noTrack, '-c', assertRef(op.name, 'branch name'), '--end-of-options', assertRev(op.start)])]
+          : [w(['branch', ...noTrack, '--end-of-options', assertRef(op.name, 'branch name'), assertRev(op.start)])];
+      }
 
       case 'branch/delete': {
         const steps: Step[] = [];
@@ -329,11 +353,13 @@ export class OpsService {
       }
 
       case 'revert': {
-        const sha = assertSha(op.sha);
-        const parents = await this.repo.diff.parentsOf(sha);
+        if (op.shas.length === 0) throw new GitError('invalid', 'No commits selected');
+        const shas = op.shas.map(assertSha);
+        const merges = await Promise.all(shas.map(async (s) => (await this.repo.diff.parentsOf(s)).length > 1));
         const args = ['revert', '--no-edit'];
-        if (parents.length > 1) args.push('-m', '1');
-        args.push('--end-of-options', sha);
+        // A merge commit is reverted against its first parent (-m 1 is accepted for the other commits too, as for cherry-pick)
+        if (merges.some(Boolean)) args.push('-m', '1');
+        args.push('--end-of-options', ...shas);
         return [w(args)];
       }
 
@@ -607,3 +633,9 @@ export class OpsService {
 function isSequenceOp(op: Operation): boolean {
   return ['merge', 'rebase', 'cherry-pick', 'revert', 'pull', 'stash/apply', 'sequence/control', 'rebase/interactive'].includes(op.kind);
 }
+
+/** git's message when the changes set aside by --autostash did not go back cleanly (it still exits with 0; messages are forced to English) */
+export function autostashConflicted(output: string): boolean {
+  return /Applying autostash resulted in conflicts/.test(output);
+}
+

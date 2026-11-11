@@ -180,7 +180,7 @@ export class RepoModel implements Disposable {
     if (typeof rel !== 'string' || rel.includes('\0')) throw new GitError('invalid', 'Invalid path');
     const abs = path.resolve(this.root, rel);
     const relBack = path.relative(this.root, abs);
-    if (relBack === '' || relBack.startsWith('..') || path.isAbsolute(relBack)) {
+    if (relBack === '' || isOutside(relBack)) {
       throw new GitError('invalid', `Path is outside the repository: ${rel}`);
     }
     return abs;
@@ -199,4 +199,9 @@ export class RepoModel implements Disposable {
     this.runner.dispose();
     this.changeEmitter.dispose();
   }
+}
+
+/** Whether a path.relative() result leaves its base: '..' itself or under it, or another drive (a name like '..foo' stays inside) */
+export function isOutside(rel: string): boolean {
+  return rel === '..' || rel.startsWith('../') || rel.startsWith('..\\') || path.isAbsolute(rel);
 }

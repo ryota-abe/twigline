@@ -30,7 +30,7 @@ export function pullStatus(opts: {
   status: WorkingTreeStatus | null;
 }): PullStatus {
   const s = integrateStatus(opts);
-  if (!opts.remoteRef) return { ...s, state: 'notFetched', ahead: 0, behind: 0, rewritesPushed: false, overlap: [], untrackedOverlap: [], conflicts: undefined, ffImpossible: false };
+  if (!opts.remoteRef) return { ...s, state: 'notFetched', ahead: 0, behind: 0, rewritesPushed: false, overlap: [], untrackedOverlap: [], ignoredOverlap: [], conflicts: undefined, ffImpossible: false };
   return { ...s, ffImpossible: s.state === 'diverged' || s.state === 'unrelated' };
 }
 

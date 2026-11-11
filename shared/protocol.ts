@@ -79,6 +79,8 @@ export interface SequenceState {
   incomingName?: string;
   /** Stopped at an edit */
   stoppedForEdit?: boolean;
+  /** Local changes were set aside by --autostash and come back when the operation ends (they are not in the working tree now) */
+  autostash?: boolean;
 }
 
 export interface SubmoduleInfo {
@@ -320,7 +322,8 @@ export type Operation =
   | { kind: 'merge'; ref: string; noFastForward: boolean; squash: boolean; commit: boolean; autostash?: boolean }
   | { kind: 'rebase'; onto: string; autostash: boolean; updateRefs: boolean }
   | { kind: 'cherry-pick'; shas: Sha[]; noCommit: boolean }
-  | { kind: 'revert'; sha: Sha }
+  /** Reverted in the order given (pass the newest first, so that each revert applies on top of the ones it depends on) */
+  | { kind: 'revert'; shas: Sha[] }
   | { kind: 'reset'; sha: Sha; mode: 'soft' | 'mixed' | 'hard' }
   | { kind: 'fetch'; remote: string | '*'; prune: boolean; tags: boolean }
   /** into: when updating a branch that is not checked out (fast-forward only; when omitted, merge into HEAD) */
@@ -341,9 +344,11 @@ export type Operation =
       /** Files an operation said are in the way. When any of them is ignored, only these files are stashed, ignored ones included */
       blockers?: string[];
     }
-  | { kind: 'stash/apply'; index: number; drop: boolean; restoreIndex: boolean }
-  | { kind: 'stash/drop'; index: number }
-  | { kind: 'stash/branch'; index: number; name: string }
+  // sha: the stash the user was shown at that index. When the list has shifted since (an autostash, a stash made elsewhere),
+  // the operation is refused instead of applying or dropping another stash
+  | { kind: 'stash/apply'; index: number; sha?: Sha; drop: boolean; restoreIndex: boolean }
+  | { kind: 'stash/drop'; index: number; sha?: Sha }
+  | { kind: 'stash/branch'; index: number; sha?: Sha; name: string }
   | { kind: 'tag/create'; name: string; sha: Sha; message?: string; pushTo?: string }
   | { kind: 'tag/delete'; name: string; remote?: string }
   | { kind: 'tag/push'; name: string; remote: string }
@@ -370,6 +375,11 @@ export interface OpResult {
   stopped?: boolean;
   /** stash/push saved nothing (git reports success when there is nothing to stash) */
   nothingStashed?: boolean;
+  /**
+   * The local changes set aside by --autostash conflicted when they were put back: git reports success, leaves conflict
+   * markers in the working tree and keeps the changes in a stash
+   */
+  autostashConflict?: boolean;
 }
 
 export type GitErrorCategory =
@@ -588,6 +598,11 @@ export interface RefComparison {
   /** Paths theirs changed since the merge base (when files was asked). Cut off at a limit, then truncated is set */
   incomingFiles?: string[];
   incomingFilesTruncated?: boolean;
+  /**
+   * The incomingFiles that exist in the working tree as ignored files (.gitignore). Unlike over untracked files, git does
+   * not refuse over these: bringing theirs into the checked out branch overwrites them without a word
+   */
+  incomingIgnored?: string[];
   /**
    * Paths a merge of theirs into ours would conflict in (when conflicts was asked and the histories have diverged).
    * Predicted with git merge-tree; null when it cannot be predicted (git older than 2.38, unrelated histories)

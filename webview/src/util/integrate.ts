@@ -23,6 +23,8 @@ export interface IntegrateStatus {
   overlap: string[];
   /** Untracked paths the incoming commits add: git refuses until they are moved, and autostash does not take them */
   untrackedOverlap: string[];
+  /** Ignored files (.gitignore) the incoming commits add or change: git overwrites them without asking */
+  ignoredOverlap: string[];
   /** Paths predicted to conflict (diverged only; null when it cannot be predicted, undefined until known) */
   conflicts?: string[] | null;
 }
@@ -40,7 +42,7 @@ export function integrateStatus(opts: {
   const { local, target, cmp, status } = opts;
   const dirty = status ? dirtyPaths(status) : [];
   const staged = status ? [...new Set(status.staged.map((f) => f.path))] : [];
-  const base = { ahead: 0, behind: 0, rewritesPushed: false, dirty, staged, overlap: [], untrackedOverlap: [] };
+  const base = { ahead: 0, behind: 0, rewritesPushed: false, dirty, staged, overlap: [], untrackedOverlap: [], ignoredOverlap: [] };
   if (cmp === undefined) return { ...base, state: 'loading' };
   if (cmp === null) return { ...base, state: 'unknown' };
 
@@ -52,6 +54,8 @@ export function integrateStatus(opts: {
     behind: cmp.behind,
     overlap: dirty.filter((p) => incoming.has(p)),
     untrackedOverlap: untracked.filter((p) => incoming.has(p)),
+    // Only the checked out branch has a working tree to overwrite
+    ignoredOverlap: status ? (cmp.incomingIgnored ?? []) : [],
     conflicts: cmp.conflicts,
   };
   if (cmp.behind === 0) return { ...s, state: 'upToDate' };

@@ -18,6 +18,7 @@ import {
 } from './store/actions';
 import { get, set } from './store/store';
 import { UNCOMMITTED, shortSha } from './util/format';
+import { absolutePath } from './util/paths';
 
 // Context menus. Turns commands from right-click (webview/context) and keybindings into actions inside the webview.
 // Labels are static, so the name of the target is shown in the confirmation dialog instead.
@@ -31,6 +32,11 @@ function targetShas(sha: string): string[] {
   const sel = s.selected.filter((x) => x !== UNCOMMITTED);
   const list = sel.includes(sha) && sel.length > 1 ? sel : [sha];
   return [...list].sort((a, b) => rowIndexOf(b) - rowIndexOf(a));
+}
+
+/** The stash shown at this index now, so that the host can refuse when the list has shifted by the time it runs */
+function stashShaAt(index: number): string | undefined {
+  return get().snapshot?.stashes.find((s) => s.index === index)?.sha;
 }
 
 /** Right-click on a file: everything selected if the file is among the selected ones */
@@ -133,8 +139,14 @@ export async function handleCommand(command: string, ctx: Ctx): Promise<void> {
     }
     case 'twigline.commit.revert': {
       if (!sha) return;
-      const ok = await confirm({ title: t('cmd.revertTitle'), message: t('cmd.revert', `${shortSha(sha)} ${subjectOf(sha)}`), okLabel: t('cmd.revertOk') });
-      if (ok) await runOp({ kind: 'revert', sha }, { success: t('cmd.revertDone') });
+      // Newest first: reverting in the other order would conflict wherever a later commit builds on an earlier one
+      const shas = targetShas(sha).reverse();
+      const ok = await confirm(
+        shas.length > 1
+          ? { title: t('cmd.revertTitle'), message: t('cmd.revertMany', String(shas.length)), detail: shas.map((s) => `${shortSha(s)} ${subjectOf(s)}`).join('\n'), okLabel: t('cmd.revertOk') }
+          : { title: t('cmd.revertTitle'), message: t('cmd.revert', `${shortSha(sha)} ${subjectOf(sha)}`), okLabel: t('cmd.revertOk') },
+      );
+      if (ok) await runOp({ kind: 'revert', shas }, { success: t(shas.length > 1 ? 'cmd.revertManyDone' : 'cmd.revertDone') });
       return;
     }
     case 'twigline.commit.reset':
@@ -262,7 +274,7 @@ export async function handleCommand(command: string, ctx: Ctx): Promise<void> {
       if (typeof ctx.index === 'number') openDialog('stashApply', { index: ctx.index });
       return;
     case 'twigline.stash.pop':
-      if (typeof ctx.index === 'number') await runOp({ kind: 'stash/apply', index: ctx.index, drop: true, restoreIndex: false });
+      if (typeof ctx.index === 'number') await runOp({ kind: 'stash/apply', index: ctx.index, sha: stashShaAt(ctx.index), drop: true, restoreIndex: false });
       return;
     case 'twigline.stash.showDiff':
       if (sha) {
@@ -282,7 +294,7 @@ export async function handleCommand(command: string, ctx: Ctx): Promise<void> {
         okLabel: t('delete'),
         danger: true,
       });
-      if (ok) await runOp({ kind: 'stash/drop', index: ctx.index });
+      if (ok) await runOp({ kind: 'stash/drop', index: ctx.index, sha: st?.sha });
       return;
     }
 
@@ -317,7 +329,7 @@ export async function handleCommand(command: string, ctx: Ctx): Promise<void> {
       if (path) uiAction({ kind: 'revealInOS', path });
       return;
     case 'twigline.file.copyPath':
-      if (path) copyText(`${get().boot.root.replace(/[\\/]+$/, '')}/${path}`);
+      if (path) copyText(absolutePath(get().boot.root, path));
       return;
     case 'twigline.file.resolveCurrent':
       if (path) await runOp({ kind: 'conflict/resolve', paths: targetPaths(path, 'file.conflicted'), side: 'current' });

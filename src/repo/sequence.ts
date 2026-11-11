@@ -29,6 +29,7 @@ export function readSequenceIn(gitDir: string): SequenceState | null {
       incoming: read('REBASE_HEAD') ?? read('rebase-merge/stopped-sha'),
       // An amend is created only when stopped at an edit (not when stopped by a conflict)
       stoppedForEdit: existsSync(path.join(g, 'rebase-merge/amend')) || undefined,
+      autostash: existsSync(path.join(g, 'rebase-merge/autostash')) || undefined,
     };
   }
   if (existsSync(path.join(g, 'rebase-apply'))) {
@@ -41,13 +42,14 @@ export function readSequenceIn(gitDir: string): SequenceState | null {
       branch: shortHead(read('rebase-apply/head-name')),
       onto: read('rebase-apply/onto'),
       incoming: read('REBASE_HEAD'),
+      autostash: existsSync(path.join(g, 'rebase-apply/autostash')) || undefined,
     };
   }
   const mergeHead = read('MERGE_HEAD');
   if (mergeHead) {
     const msg = read('MERGE_MSG') ?? '';
     const m = /^Merge (?:remote-tracking )?branch '([^']+)'/.exec(msg) ?? /^Merge (?:tag|commit) '([^']+)'/.exec(msg);
-    return { kind: 'merge', incoming: mergeHead.split(/\s+/)[0], incomingName: m?.[1] };
+    return { kind: 'merge', incoming: mergeHead.split(/\s+/)[0], incomingName: m?.[1], autostash: existsSync(path.join(g, 'MERGE_AUTOSTASH')) || undefined };
   }
   const pick = read('CHERRY_PICK_HEAD');
   if (pick) return { kind: 'cherry-pick', incoming: pick };

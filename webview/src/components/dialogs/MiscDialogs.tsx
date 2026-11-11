@@ -136,7 +136,9 @@ export function StashApplyDialog({ index }: { index: number }) {
   const stash = useStore((s) => s.snapshot?.stashes.find((x) => x.index === index));
   const [restoreIndex, setRestoreIndex] = useState(false);
   const [drop, setDrop] = useState(false);
-  const op: Operation = { kind: 'stash/apply', index, drop, restoreIndex };
+  // The stash at this index when the dialog opened: if the list shifts while it is open, the host refuses instead of taking another one
+  const [sha] = useState(() => get().snapshot?.stashes.find((x) => x.index === index)?.sha);
+  const op: Operation = { kind: 'stash/apply', index, sha, drop, restoreIndex };
   return (
     <DialogShell
       title={t('stashApply.title')}
@@ -159,7 +161,8 @@ export function StashBranchDialog({ index }: { index: number }) {
   const existing = useMemo(() => snapshot.refs.filter((r) => r.kind === 'head').map((r) => r.name), [snapshot]);
   const [name, setName] = useState('');
   const validation = useRefNameValidation(name, existing);
-  const op: Operation | null = validation.valid ? { kind: 'stash/branch', index, name: name.trim() } : null;
+  const [sha] = useState(() => snapshot.stashes.find((x) => x.index === index)?.sha);
+  const op: Operation | null = validation.valid ? { kind: 'stash/branch', index, sha, name: name.trim() } : null;
   return (
     <DialogShell
       title={t('stashBranch.title', String(index))}
