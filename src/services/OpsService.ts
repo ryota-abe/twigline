@@ -153,7 +153,8 @@ export class OpsService {
       }
       const nothingStashed = op.kind === 'stash/push' && (await this.stashTop()) === stashBefore ? true : undefined;
       const stopped = this.repo.snapshot.readSequence() !== null && isSequenceOp(op) ? true : undefined;
-      return { commands, message: undefined, stopped, nothingStashed, autostashConflict: (!stopped && autostashConflicted(output)) || undefined };
+      const autostashConflict = !stopped && (autostashConflicted(output) || (mayAutostash(op) && (await this.hasUnmerged())));
+      return { commands, message: undefined, stopped, nothingStashed, autostashConflict: autostashConflict || undefined };
     });
   }
 
@@ -163,6 +164,12 @@ export class OpsService {
     if (res.stdout.toString('utf8').trim() !== assertSha(sha)) {
       throw new GitError('invalid', `stash@{${Math.trunc(index)}} is no longer the stash that was selected (the stash list has changed). Check the list and try again`);
     }
+  }
+
+  /** Whether the index has unmerged entries (conflicts) */
+  private async hasUnmerged(): Promise<boolean> {
+    const res = await this.repo.runner.run(['ls-files', '--unmerged', '-z'], { queue: 'read', noThrow: true });
+    return res.exitCode === 0 && res.stdout.length > 0;
   }
 
   /** The newest stash ('' when there is none). git stash push exits 0 without saving anything when there is nothing to stash */
@@ -632,6 +639,15 @@ export class OpsService {
 
 function isSequenceOp(op: Operation): boolean {
   return ['merge', 'rebase', 'cherry-pick', 'revert', 'pull', 'stash/apply', 'sequence/control', 'rebase/interactive'].includes(op.kind);
+}
+
+/**
+ * Operations that can end by putting an autostash back. When one of them has finished (nothing is in progress any more) and
+ * the index still has conflicts, they are from that: this does not depend on the wording of git's message
+ */
+function mayAutostash(op: Operation): boolean {
+  if (op.kind === 'sequence/control') return op.action !== 'abort';
+  return (op.kind === 'merge' || op.kind === 'rebase' || op.kind === 'pull') && !!op.autostash;
 }
 
 /** git's message when the changes set aside by --autostash did not go back cleanly (it still exits with 0; messages are forced to English) */

@@ -148,6 +148,8 @@ describe('autostash', () => {
     const m = await model(r);
     const res = await m.ops.run({ kind: 'merge', ref: 'other', noFastForward: false, squash: false, commit: true, autostash: true });
     if (!m.features.pullAutostash) return;
+    // Reported whenever git left conflicts behind (whatever it printed), together with the stash that keeps the changes
+    expect(r.git(['ls-files', '--unmerged']).trim()).not.toBe('');
     expect(res.autostashConflict).toBe(true);
     expect(r.git(['stash', 'list']).trim()).toContain('autostash');
 
