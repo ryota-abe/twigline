@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 1.0.0
+
+The first stable release. Since 1.0.0-beta.4 it fixes bugs found in a review of the rebase, commit, history and conflict paths.
 
 - Fixed: rewording or squashing in an interactive rebase dropped the lines of the message that start with `#` (a subject like `#123 Fix login` vanished, or the rebase stopped on an empty message). A rebase started in Twigline now keeps them
 - Fixed: an interactive rebase whose first kept commit was squash or fixup (after dropped ones) started and was left in progress with an error; it is now refused in the dialog
