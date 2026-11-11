@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.0-beta.4
+
+A pre-release of 1.0.0: a clearer interactive rebase dialog.
+
+- The interactive rebase list keeps git's order (oldest first, the reverse of the history graph); a faint line now runs from the base at the top to the new tip of the branch at the bottom, with a dot per commit, and squash and fixup rows are tied to the row above
+- The action of each row shows only its name (`pick`, `squash`, …) while closed; what each action does is shown in the open list and in the tooltip
+- The move buttons of a row are shown only while the pointer is over it or it has focus
+- Fixed: in a narrow panel, the tabs changed height when switching between Uncommitted Changes and History, because the History view's search box wrapped to a second line
+
 ## 1.0.0-beta.3
 
 A pre-release of 1.0.0: GitLab merge requests, and checking out a branch from the graph.
