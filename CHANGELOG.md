@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.0
+
+- The right-click menu of a branch in the sidebar offers "Copy Branch Name"; for a remote branch the name includes the remote (`origin/feature`)
+
 ## 1.0.0
 
 The first stable release. Since 1.0.0-beta.4 it fixes bugs found in a review of the rebase, commit, history and conflict paths.

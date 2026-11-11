@@ -30,6 +30,7 @@ export const MENU_COMMANDS = [
   'twigline.branch.delete',
   'twigline.branch.createPullRequest',
   'twigline.branch.openPullRequest',
+  'twigline.branch.copyName',
   // branch.remote
   'twigline.remoteBranch.checkout',
   'twigline.remoteBranch.createBranch',
@@ -37,6 +38,7 @@ export const MENU_COMMANDS = [
   'twigline.remoteBranch.compare',
   'twigline.remoteBranch.delete',
   'twigline.remoteBranch.openPullRequest',
+  'twigline.remoteBranch.copyName',
   // remote
   'twigline.remote.fetch',
   'twigline.remote.fetchWithOptions',
