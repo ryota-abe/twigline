@@ -1725,6 +1725,8 @@ body.resizing-column * {
   background: var(--twigline-danger-bg);
 }
 .cmd-preview {
+  /* Never squeezed by the body, and never taller than a few lines (below): the body is what the dialog is for */
+  flex: none;
   margin: 0 14px;
   border: 1px solid var(--twigline-border);
   border-radius: 3px;
@@ -1742,6 +1744,12 @@ body.resizing-column * {
   font-size: 12px;
   white-space: pre-wrap;
   word-break: break-all;
+}
+/* A long preview (the todo of an interactive rebase, many paths) scrolls; the half line shows that there is more */
+.cmd-preview pre,
+.cmd-error {
+  max-height: min(calc(6.5lh + 3px), 25vh);
+  overflow-y: auto;
 }
 .cmd-error {
   padding: 3px 8px 6px;
