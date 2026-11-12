@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.2.0
 
 - Fixed: a branch created from a remote branch under another name (`feature` from `origin/main`) tracked that remote branch, so "push after commit" pushed to it and deleting the branch offered to delete it. Such a branch is now created without an upstream; a branch with the same name as the remote branch still tracks it
 - Applying, popping, dropping or branching from a stash is refused when the stash list has changed since the stash was chosen, instead of acting on whichever stash now has that number
