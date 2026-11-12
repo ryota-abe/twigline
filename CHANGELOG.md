@@ -9,6 +9,7 @@
 - While a merge or rebase started with autostash is stopped, the banner says that the uncommitted changes are set aside
 - The pull, merge and rebase dialogs warn about ignored files (`.gitignore`) that the incoming commits would overwrite; git does not ask before overwriting them
 - "Reverse Commit" reverts every selected commit, newest first
+- Fixed: a long "Command to run" preview (the todo of an interactive rebase with many commits, many paths) took over the dialog and left only a sliver for its contents. The preview now stays a few lines tall and scrolls
 - Fixed: a file whose name starts with two dots (`..notes.txt`) was taken to be outside the repository
 - Fixed: "Copy Path" of a file mixed `\` and `/` on Windows
 
