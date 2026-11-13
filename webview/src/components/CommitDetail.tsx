@@ -108,7 +108,7 @@ function CommitMeta({ detail }: { detail: CommitDetail }) {
             <span className="link" onClick={() => copyText(detail.sha)} title={t('detail.copySha')}>
               {detail.sha.slice(0, 16)}…
             </span>
-            <RefBadges refs={refs.refs.get(detail.sha)} stash={refs.stashes.get(detail.sha)} />
+            <RefBadges refs={refs.refs.get(detail.sha)} stash={refs.stashes.get(detail.sha)} menu />
           </dd>
           {detail.parents.length > 0 && !detail.compareTo && (
             <>

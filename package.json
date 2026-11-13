@@ -734,7 +734,7 @@
         },
         {
           "command": "twigline.branch.copyName",
-          "when": "webviewId == 'twigline.repository' && webviewSection == 'branch.local'",
+          "when": "webviewId == 'twigline.repository' && webviewSection =~ /^(branch|badge)\\.local$/",
           "group": "6_copy@1"
         },
         {
@@ -769,7 +769,7 @@
         },
         {
           "command": "twigline.remoteBranch.copyName",
-          "when": "webviewId == 'twigline.repository' && webviewSection == 'branch.remote'",
+          "when": "webviewId == 'twigline.repository' && webviewSection =~ /^(branch|badge)\\.remote$/",
           "group": "5_copy@1"
         },
         {
