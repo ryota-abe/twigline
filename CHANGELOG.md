@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- A branch badge in the commit details on the right also has a right-click menu with "Copy Branch Name" (for a remote branch the name includes the remote)
+
 ## 1.2.0
 
 - Fixed: a branch created from a remote branch under another name (`feature` from `origin/main`) tracked that remote branch, so "push after commit" pushed to it and deleting the branch offered to delete it. Such a branch is now created without an upstream; a branch with the same name as the remote branch still tracks it
