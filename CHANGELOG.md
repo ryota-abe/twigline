@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.3.0
 
 - "Open Branch in Browser" in the right-click menu of a branch, a remote branch and a branch badge in the commit details opens the branch's page on GitHub, GitLab, Bitbucket or Azure DevOps. A local branch opens the branch it is pushed to
 - A remote branch in the sidebar has "Create Pull Request" in its right-click menu; it opens the page for creating a pull request from that branch on its remote. It is not offered when the branch has an open pull request
