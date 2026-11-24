@@ -368,6 +368,10 @@
         "title": "%cmd.remoteBranch.delete%"
       },
       {
+        "command": "twigline.remoteBranch.createPullRequest",
+        "title": "%cmd.remoteBranch.createPullRequest%"
+      },
+      {
         "command": "twigline.remoteBranch.openPullRequest",
         "title": "%cmd.remoteBranch.openPullRequest%"
       },
@@ -768,6 +772,11 @@
           "group": "4_pr@1"
         },
         {
+          "command": "twigline.remoteBranch.createPullRequest",
+          "when": "webviewId == 'twigline.repository' && webviewSection == 'branch.remote' && !twiglinePrOpen",
+          "group": "4_pr@2"
+        },
+        {
           "command": "twigline.remoteBranch.copyName",
           "when": "webviewId == 'twigline.repository' && webviewSection =~ /^(branch|badge)\\.remote$/",
           "group": "5_copy@1"
@@ -1046,6 +1055,10 @@
         },
         {
           "command": "twigline.remoteBranch.delete",
+          "when": "false"
+        },
+        {
+          "command": "twigline.remoteBranch.createPullRequest",
           "when": "false"
         },
         {

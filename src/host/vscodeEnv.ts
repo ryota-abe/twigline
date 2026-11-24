@@ -360,7 +360,7 @@ export class VscodeEnv implements HostEnv {
       case 'createPatch':
         return this.createPatch(model, action.shas);
       case 'createPullRequest':
-        return this.createPullRequest(model, action.branch);
+        return action.remote ? this.createRemotePullRequest(model, action.remote, action.branch) : this.createPullRequest(model, action.branch);
       case 'openPullRequest': {
         // The URL is not taken from the webview; the host looks it up from the result it read
         const pr = model.pullRequests.last?.byRef[action.ref];
@@ -489,6 +489,22 @@ export class VscodeEnv implements HostEnv {
       );
       if (choice === push) this.panels.forward(model.id, { command: 'twigline.branch.push', context: { ref: branch } });
       if (choice !== open) return;
+    }
+    await vscode.env.openExternal(vscode.Uri.parse(url));
+  }
+
+  /** A branch already on the remote needs no push, so the page is opened as is */
+  private async createRemotePullRequest(model: RepoModel, remoteName: string, branch: string): Promise<void> {
+    const snap = await model.snapshot.get();
+    const remote = snap.remotes.find((r) => r.name === remoteName);
+    if (!remote || !snap.refs.some((r) => r.kind === 'remote' && r.name === `${remoteName}/${branch}`)) {
+      void vscode.window.showWarningMessage(t('Remote branch {0} was not found. Fetch and try again.', `${remoteName}/${branch}`));
+      return;
+    }
+    const url = remote.fetchUrl ? pullRequestUrl(remote.fetchUrl, branch) : undefined;
+    if (!url) {
+      void vscode.window.showWarningMessage(t('Could not determine the pull request URL for this remote.'));
+      return;
     }
     await vscode.env.openExternal(vscode.Uri.parse(url));
   }

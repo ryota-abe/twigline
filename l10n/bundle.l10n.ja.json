@@ -75,6 +75,7 @@
   "Repository optimized.": "リポジトリを最適化しました。",
   "Show Output": "出力を表示",
   "This file is not in a Git repository.": "このファイルは Git リポジトリの中にありません。",
+  "Remote branch {0} was not found. Fetch and try again.": "リモートブランチ {0} が見つかりません。フェッチしてからもう一度試してください。",
   "This repository has no remote. Add a remote and push the branch before creating a pull request.": "このリポジトリにはリモートがありません。リモートを追加してブランチをプッシュしてから、プルリクエストを作成してください。",
   "Unstaged: {0}": "未ステージ: {0}",
   "Untracked: {0}": "未追跡: {0}",

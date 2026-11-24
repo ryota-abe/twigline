@@ -228,6 +228,11 @@ export async function handleCommand(command: string, ctx: Ctx): Promise<void> {
     case 'twigline.remoteBranch.checkout':
       openDialog('checkout', { remoteRef: ref, remote: str(ctx.remote) });
       return;
+    case 'twigline.remoteBranch.createPullRequest': {
+      const remote = str(ctx.remote) ?? ref?.split('/')[0];
+      if (ref && remote && ref.startsWith(`${remote}/`)) uiAction({ kind: 'createPullRequest', remote, branch: ref.slice(remote.length + 1) });
+      return;
+    }
     case 'twigline.remoteBranch.delete': {
       const remote = str(ctx.remote) ?? ref?.split('/')[0];
       if (!ref || !remote) return;

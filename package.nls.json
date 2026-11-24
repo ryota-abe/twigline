@@ -63,6 +63,7 @@
   "cmd.remoteBranch.merge": "Merge into Current Branch…",
   "cmd.remoteBranch.compare": "Compare with Current Branch",
   "cmd.remoteBranch.delete": "Delete from Remote…",
+  "cmd.remoteBranch.createPullRequest": "Create Pull Request",
   "cmd.remoteBranch.openPullRequest": "Open Pull Request",
   "cmd.remoteBranch.copyName": "Copy Branch Name",
   "cmd.remote.fetch": "Fetch",

@@ -63,6 +63,7 @@
   "cmd.remoteBranch.merge": "現在のブランチへマージ…",
   "cmd.remoteBranch.compare": "現在のブランチと比較",
   "cmd.remoteBranch.delete": "リモートから削除…",
+  "cmd.remoteBranch.createPullRequest": "プルリクエストを作成",
   "cmd.remoteBranch.openPullRequest": "プルリクエストを開く",
   "cmd.remoteBranch.copyName": "ブランチ名をコピー",
   "cmd.remote.fetch": "フェッチ",

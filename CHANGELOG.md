@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- A remote branch in the sidebar has "Create Pull Request" in its right-click menu; it opens the page for creating a pull request from that branch on its remote. It is not offered when the branch has an open pull request
 - A branch badge in the commit details on the right also has a right-click menu with "Copy Branch Name" (for a remote branch the name includes the remote)
 
 ## 1.2.0
