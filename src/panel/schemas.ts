@@ -111,6 +111,7 @@ export const uiAction = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('openGitignore') }),
   z.object({ kind: z.literal('createPatch'), shas: z.array(sha).min(1).max(1000) }),
   z.object({ kind: z.literal('createPullRequest'), branch: ref, remote: remote.optional() }),
+  z.object({ kind: z.literal('openBranchInBrowser'), ref }),
   z.object({ kind: z.literal('openPullRequest'), ref }),
   z.object({ kind: z.literal('pullRequestSignIn'), provider: z.enum(['github', 'gitlab', 'bitbucket']) }),
   z.object({ kind: z.literal('openLink'), sha, url: z.string().max(8192) }),

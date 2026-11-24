@@ -219,6 +219,13 @@ export async function handleCommand(command: string, ctx: Ctx): Promise<void> {
       if (target) uiAction({ kind: 'openPullRequest', ref: target.fullName });
       return;
     }
+    case 'twigline.branch.openInBrowser':
+    case 'twigline.remoteBranch.openInBrowser': {
+      const kind = command === 'twigline.branch.openInBrowser' ? 'head' : 'remote';
+      const target = snapshot?.refs.find((r) => r.kind === kind && r.name === ref);
+      if (target) uiAction({ kind: 'openBranchInBrowser', ref: target.fullName });
+      return;
+    }
     case 'twigline.branch.copyName':
     case 'twigline.remoteBranch.copyName':
       if (ref) copyText(ref);

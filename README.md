@@ -87,6 +87,7 @@ If the remote is on GitHub (including GitHub Enterprise Server), GitLab (gitlab.
 pull requests for branches are shown with a `#12` badge (`!12` for a GitLab merge request)
 (in the branch and remote branch lists, on branch badges in history and details, on the current branch in the tab row, and in the list of the Delete Branch dialog).
 Click the badge, or "Open Pull Request" in a branch's context menu, to open it in the browser. "Create Pull Request" (in the context menu of a branch or a remote branch) opens the page for creating one; it is not offered for branches with an open pull request.
+"Open Branch in Browser" (in the context menu of a branch, a remote branch or a branch badge in the commit details) opens the branch's page on GitHub, GitLab, Bitbucket or Azure DevOps; a local branch opens the branch it is pushed to.
 
 | Badge | State |
 | --- | --- |

@@ -1,5 +1,5 @@
 // Decides the repository on a hosting service from a remote URL.
-// It gives the URL of the pull request creation page (opening GitHub, GitLab, Bitbucket and Azure DevOps URLs) and
+// It gives the URLs of a branch's page and of the pull request creation page (opening GitHub, GitLab, Bitbucket and Azure DevOps URLs) and
 // the repository to read PRs linked to branches from (GitHub, GitLab, Bitbucket Cloud).
 
 import type { PullRequestProvider } from '../../shared/protocol';
@@ -88,6 +88,20 @@ export function hostedRemotes(remotes: readonly { name: string; fetchUrl?: strin
     if (repo) map.set(r.name, repo);
   }
   return map;
+}
+
+/** The page of a branch on the hosting service (GitHub, GitLab, Bitbucket, Azure DevOps) */
+export function branchUrl(remoteUrl: string, branch: string): string | undefined {
+  const loc = parseRemoteUrl(remoteUrl);
+  if (!loc) return undefined;
+  const { host, path } = loc;
+  // The slashes of a branch name (feature/x) are kept as path separators, which these services accept
+  const p = encodeURIComponent(branch).replace(/%2F/g, '/');
+  if (host === 'github.com' || host.startsWith('github.')) return `https://${host}/${path}/tree/${p}`;
+  if (host === 'gitlab.com' || host.startsWith('gitlab.')) return `https://${host}/${path}/-/tree/${p}`;
+  if (host === 'bitbucket.org') return `https://${host}/${path}/branch/${p}`;
+  if (host === 'dev.azure.com') return `https://${host}/${path}?version=GB${encodeURIComponent(branch)}`;
+  return undefined;
 }
 
 export function pullRequestUrl(remoteUrl: string, branch: string): string | undefined {

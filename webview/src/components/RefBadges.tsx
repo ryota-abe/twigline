@@ -35,13 +35,14 @@ export function useRefsBySha(snapshot: RepoSnapshot | null): RefsBySha {
 /**
  * Ref badges (local branches filled, remotes outlined, tags yellow).
  * For a branch with a PR, the PR mark is attached to the right of the badge. A PR on a local branch at the same commit is not repeated on the remote branch.
- * With `menu`, a branch badge has its own right-click menu (badge.local / badge.remote: Copy Branch Name).
+ * With `menu`, a branch badge has its own right-click menu (badge.local / badge.remote: Open Branch in Browser, Copy Branch Name).
  * The History rows leave it off so that right-clicking anywhere on a row keeps showing the commit menu
  */
 export function RefBadges({ refs, stash, detachedHead, menu }: { refs?: RefInfo[]; stash?: StashInfo; detachedHead?: boolean; menu?: boolean }) {
   const prs = useStore((s) => s.pullRequests);
   const checkout = useStore((s) => s.checkout);
   const repo = useStore((s) => s.boot.repo);
+  const hasRemote = useStore((s) => (s.snapshot?.remotes.length ?? 0) > 0);
   if (!refs?.length && !stash && !detachedHead) return null;
   const onLocal = new Set((refs ?? []).filter((r) => r.kind === 'head').map((r) => prOf(prs, r)?.url));
   return (
@@ -63,7 +64,7 @@ export function RefBadges({ refs, stash, detachedHead, menu }: { refs?: RefInfo[
             className={cx('ref', r.kind === 'head' ? 'local' : r.kind, r.isHead && 'is-head', prDone(pr) && 'pr-done', checkable && 'checkable', mark === 'landed' && 'landed')}
             title={checkable ? `${r.fullName}\n${t('checkout.dblClickHint')}` : r.fullName}
             onDoubleClick={checkable ? () => (r.kind === 'remote' ? checkoutRemoteBranch(r) : void checkoutBranch(r)) : undefined}
-            data-vscode-context={menu && r.kind !== 'tag' ? vsContext(r.kind === 'head' ? 'badge.local' : 'badge.remote', { repo, ref: r.name }) : undefined}
+            data-vscode-context={menu && r.kind !== 'tag' ? vsContext(r.kind === 'head' ? 'badge.local' : 'badge.remote', { repo, ref: r.name, twiglineHasRemote: hasRemote }) : undefined}
           >
             {mark === 'pending' ? (
               <Icon name="loading" spin />
