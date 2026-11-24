@@ -8,8 +8,56 @@
       <stop offset="0" stop-color="#4FCB80"/>
       <stop offset="1" stop-color="#9BEBB4"/>
     </linearGradient>
+    <clipPath id="frame">
+      <rect width="128" height="128" rx="28"/>
+    </clipPath>
   </defs>
   <rect width="128" height="128" rx="28" fill="url(#bg)"/>
+
+  <!-- The editor behind the twig: tab bar, sidebar | history above, details | diff below -->
+  <g clip-path="url(#frame)">
+    <rect width="128" height="13" fill="#000" fill-opacity=".16"/>
+    <rect x="26" width="30" height="13" fill="#E6F0EC" fill-opacity=".05"/>
+    <rect y="13" width="26" height="115" fill="#000" fill-opacity=".1"/>
+    <rect x="64" y="78" width="64" height="50" fill="#000" fill-opacity=".08"/>
+    <path d="M0 13H128M26 13V128M26 78H128M64 78V128" stroke="#E6F0EC" stroke-opacity=".08" fill="none"/>
+
+    <!-- selected commit, removed and added lines -->
+    <rect x="26" y="57" width="102" height="8" fill="#4FCB80" fill-opacity=".1"/>
+    <rect x="64" y="89.5" width="64" height="7" fill="#E5534B" fill-opacity=".13"/>
+    <rect x="64" y="96.5" width="64" height="14" fill="#4FCB80" fill-opacity=".13"/>
+
+    <!-- text -->
+    <g fill="#E6F0EC" fill-opacity=".11">
+      <rect x="7" y="20.8" width="12" height="2.4" rx="1.2"/>
+      <rect x="10" y="28.8" width="11" height="2.4" rx="1.2"/>
+      <rect x="10" y="36.8" width="9" height="2.4" rx="1.2"/>
+      <rect x="7" y="44.8" width="13" height="2.4" rx="1.2"/>
+      <rect x="10" y="52.8" width="10" height="2.4" rx="1.2"/>
+      <rect x="7" y="60.8" width="11" height="2.4" rx="1.2"/>
+      <rect x="10" y="68.8" width="8" height="2.4" rx="1.2"/>
+      <rect x="7" y="76.8" width="12" height="2.4" rx="1.2"/>
+
+      <rect x="106" y="19.8" width="15" height="2.4" rx="1.2"/>
+      <rect x="106" y="27.8" width="12" height="2.4" rx="1.2"/>
+      <rect x="106" y="35.8" width="15" height="2.4" rx="1.2"/>
+      <rect x="106" y="43.8" width="12" height="2.4" rx="1.2"/>
+      <rect x="106" y="51.8" width="15" height="2.4" rx="1.2"/>
+      <rect x="106" y="59.8" width="12" height="2.4" rx="1.2"/>
+      <rect x="106" y="67.8" width="15" height="2.4" rx="1.2"/>
+
+      <rect x="32" y="108.8" width="24" height="2.4" rx="1.2"/>
+      <rect x="32" y="115.8" width="17" height="2.4" rx="1.2"/>
+
+      <rect x="70" y="84.8" width="30" height="2.4" rx="1.2"/>
+      <rect x="74" y="91.8" width="26" height="2.4" rx="1.2"/>
+      <rect x="74" y="98.8" width="34" height="2.4" rx="1.2"/>
+      <rect x="78" y="105.8" width="22" height="2.4" rx="1.2"/>
+      <rect x="74" y="112.8" width="30" height="2.4" rx="1.2"/>
+      <rect x="70" y="119.8" width="16" height="2.4" rx="1.2"/>
+    </g>
+  </g>
+
   <g transform="translate(17 16) scale(4)" fill="none" stroke-width="1.7" stroke-linecap="round">
     <path d="M7 6.5v11" stroke="#E6F0EC"/>
     <path d="M7 15.5c0-4 5.5-3.5 8-6.5" stroke="#4FCB80"/>
