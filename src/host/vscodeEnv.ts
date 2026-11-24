@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs';
 import { unlink, writeFile } from 'node:fs/promises';
 import * as path from 'node:path';
 import * as vscode from 'vscode';
-import type { DiffTarget, TwiglineConfig, HostEvent, IssueLinkSettings, PullRequestProvider, RepoId, SettingsTarget, SyntaxLanguage, SyntaxTheme, UiAction } from '../../shared/protocol';
+import type { DiffTarget, TwiglineConfig, HostEvent, IssueLinkSettings, PullRequestProvider, RemoteInfo, RepoId, SettingsTarget, SyntaxLanguage, SyntaxTheme, UiAction } from '../../shared/protocol';
 import { loadCore } from '../coreLoader';
 import type { EncodingPrefs } from '../git/encoding';
 import type { CommandLogEntry } from '../git/GitRunner';
@@ -11,7 +11,7 @@ import type { RepoPanelManager } from '../panel/RepoPanelManager';
 import type { RepoModel } from '../repo/RepoModel';
 import type { RepositoryManager } from '../repo/RepositoryManager';
 import type { Disposable } from '../util/event';
-import { hostedRemotes, pullRequestUrl } from '../util/hosting';
+import { branchUrl, hostedRemotes, pullRequestUrl } from '../util/hosting';
 import { pullRequestSource, type PullRequestCredential } from '../util/pullRequests';
 import { resolveTerminalProfile, type ShellLaunch } from '../util/terminalProfile';
 import { readConfig, readCustomActions, readIssueLinks, saveIssueLinks, terminalProfileSetting, terminalProfiles } from './config';
@@ -361,6 +361,8 @@ export class VscodeEnv implements HostEnv {
         return this.createPatch(model, action.shas);
       case 'createPullRequest':
         return action.remote ? this.createRemotePullRequest(model, action.remote, action.branch) : this.createPullRequest(model, action.branch);
+      case 'openBranchInBrowser':
+        return this.openBranchInBrowser(model, action.ref);
       case 'openPullRequest': {
         // The URL is not taken from the webview; the host looks it up from the result it read
         const pr = model.pullRequests.last?.byRef[action.ref];
@@ -504,6 +506,47 @@ export class VscodeEnv implements HostEnv {
     const url = remote.fetchUrl ? pullRequestUrl(remote.fetchUrl, branch) : undefined;
     if (!url) {
       void vscode.window.showWarningMessage(t('Could not determine the pull request URL for this remote.'));
+      return;
+    }
+    await vscode.env.openExternal(vscode.Uri.parse(url));
+  }
+
+  /** A local branch opens the branch it is pushed to (its upstream, or the same name on the remote a push would choose) */
+  private async openBranchInBrowser(model: RepoModel, fullName: string): Promise<void> {
+    const snap = await model.snapshot.get();
+    const ref = snap.refs.find((r) => r.fullName === fullName && (r.kind === 'head' || r.kind === 'remote'));
+    if (!ref) {
+      void vscode.window.showWarningMessage(t('Branch {0} was not found. Fetch and try again.', fullName));
+      return;
+    }
+    let remote: RemoteInfo | undefined;
+    let branch: string;
+    if (ref.kind === 'remote') {
+      // A remote name may contain slashes, so decide the remote by longest match
+      remote = [...snap.remotes].sort((a, b) => b.name.length - a.name.length).find((r) => ref.name.startsWith(`${r.name}/`));
+      branch = remote ? ref.name.slice(remote.name.length + 1) : ref.name;
+    } else {
+      const source = pullRequestSource(snap.refs, snap.remotes, ref.name);
+      if (!source) {
+        void vscode.window.showWarningMessage(t('This repository has no remote.'));
+        return;
+      }
+      if (!source.pushed) {
+        const push = t('Push…');
+        const choice = await vscode.window.showWarningMessage(
+          t('Branch {0} has not been pushed to {1}, so it has no page there.', ref.name, source.remote.name),
+          { modal: true },
+          push,
+        );
+        if (choice === push) this.panels.forward(model.id, { command: 'twigline.branch.push', context: { ref: ref.name } });
+        return;
+      }
+      remote = source.remote;
+      branch = source.branch;
+    }
+    const url = remote?.fetchUrl ? branchUrl(remote.fetchUrl, branch) : undefined;
+    if (!url) {
+      void vscode.window.showWarningMessage(t('Could not determine the URL of the branch for this remote.'));
       return;
     }
     await vscode.env.openExternal(vscode.Uri.parse(url));

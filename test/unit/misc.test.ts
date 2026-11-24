@@ -15,7 +15,7 @@ import { classifyGitError, extractOverwrittenFiles } from '../../src/git/errors'
 import { GitRunner, formatCommand, maskCredentials, parseProgress } from '../../src/git/GitRunner';
 import { classifyGitPath } from '../../src/repo/RepoWatcher';
 import { buildTodo, stripComments } from '../../src/services/RebaseService';
-import { parseRemoteUrl, pullRequestUrl } from '../../src/util/hosting';
+import { branchUrl, parseRemoteUrl, pullRequestUrl } from '../../src/util/hosting';
 import { makeRepo } from './helpers';
 
 const root = path.resolve(__dirname, '../..');
@@ -154,6 +154,22 @@ describe('pull request URLs', () => {
   it('parses ssh URLs with ports', () => {
     expect(parseRemoteUrl('ssh://git@example.com:2222/me/repo.git')).toEqual({ host: 'example.com', path: 'me/repo' });
     expect(pullRequestUrl('https://example.com/me/repo.git', 'x')).toBeUndefined();
+  });
+});
+
+describe('branch URLs', () => {
+  it.each([
+    ['git@github.com:me/repo.git', 'feature/x', 'https://github.com/me/repo/tree/feature/x'],
+    ['https://github.example.com/me/repo', 'a#b', 'https://github.example.com/me/repo/tree/a%23b'],
+    ['https://gitlab.com/g/sub/repo.git', 'feature/x', 'https://gitlab.com/g/sub/repo/-/tree/feature/x'],
+    ['git@bitbucket.org:team/repo.git', 'dev', 'https://bitbucket.org/team/repo/branch/dev'],
+    ['git@ssh.dev.azure.com:v3/org/proj/repo', 'feature/x', 'https://dev.azure.com/org/proj/_git/repo?version=GBfeature%2Fx'],
+  ])('%s %s', (url, branch, expected) => {
+    expect(branchUrl(url, branch)).toBe(expected);
+  });
+
+  it('is undefined for an unknown host', () => {
+    expect(branchUrl('https://example.com/me/repo.git', 'x')).toBeUndefined();
   });
 });
 

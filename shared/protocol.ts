@@ -535,6 +535,8 @@ export type UiAction =
   | { kind: 'createPatch'; shas: Sha[] }
   /** Open the page for creating a PR. Without remote, branch is a local branch; with remote, branch is the name of a branch on that remote */
   | { kind: 'createPullRequest'; branch: string; remote?: string }
+  /** Open the page of a branch (full name of a local or remote branch) on its remote's hosting service in the browser */
+  | { kind: 'openBranchInBrowser'; ref: string }
   /** Open the PR linked to a ref (full name) in the browser. The host looks up the URL from the previous fetch result */
   | { kind: 'openPullRequest'; ref: string }
   /** Sign in to read PRs (GitHub: the VS Code account; GitLab: a personal access token; Bitbucket: an API token) */
