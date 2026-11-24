@@ -86,7 +86,7 @@ File history has a "Follow renames" toggle. When on, history continues past rena
 If the remote is on GitHub (including GitHub Enterprise Server), GitLab (gitlab.com, or a self-managed server whose host name starts with `gitlab.`) or Bitbucket Cloud (bitbucket.org),
 pull requests for branches are shown with a `#12` badge (`!12` for a GitLab merge request)
 (in the branch and remote branch lists, on branch badges in history and details, on the current branch in the tab row, and in the list of the Delete Branch dialog).
-Click the badge, or "Open Pull Request" in a branch's context menu, to open it in the browser. "Create Pull Request" is not offered for branches with an open pull request.
+Click the badge, or "Open Pull Request" in a branch's context menu, to open it in the browser. "Create Pull Request" (in the context menu of a branch or a remote branch) opens the page for creating one; it is not offered for branches with an open pull request.
 
 | Badge | State |
 | --- | --- |
