@@ -107,7 +107,10 @@ function Tab({ view, current, icon, label, count }: { view: ViewKind; current: V
   return (
     <button type="button" role="tab" aria-selected={on} className={cx('tab', on && 'on')} onClick={() => setView(view)}>
       <Icon name={icon} />
-      {label}
+      {/* data-label lets the CSS reserve the width of the bold (selected) label, so switching tabs does not move them */}
+      <span className="tab-label" data-label={label}>
+        {label}
+      </span>
       {!!count && <span className="count">{count}</span>}
     </button>
   );
