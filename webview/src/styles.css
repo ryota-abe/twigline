@@ -2056,6 +2056,22 @@ body.resizing-column * {
   align-items: flex-start;
   color: var(--twigline-error);
 }
+/* The names a message is about (RichText): set apart from the fixed text around them */
+.mark {
+  padding: 0 4px;
+  border-radius: 3px;
+  font-family: var(--twigline-mono);
+  font-size: var(--twigline-mono-size);
+  font-weight: 600;
+  color: var(--vscode-textPreformat-foreground, inherit);
+  background: var(--vscode-textCodeBlock-background, rgba(128, 128, 128, 0.15));
+  overflow-wrap: anywhere;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+.mark-sep {
+  color: var(--twigline-muted);
+}
 .detail-pre {
   margin: 0;
   max-height: 220px;

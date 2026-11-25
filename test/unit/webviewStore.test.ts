@@ -8,6 +8,7 @@ import { createLaneState } from '../../webview/src/graph/layout';
 import { UNCOMMITTED } from '../../webview/src/util/format';
 import { effectiveCommitMessage, escapeGitignore } from '../../webview/src/util/commitMessage';
 import { formatSearch, parseSearch } from '../../webview/src/util/search';
+import { getLang, mark, richLines, setLang, tRich } from '../../webview/src/i18n';
 
 // Verify the webview state management with MockHost (paging, the virtual "Uncommitted Changes" row, selection, change notifications)
 
@@ -512,5 +513,28 @@ describe('fixes found in review', () => {
     expect(escapeGitignore('docs/[draft] a*b?.txt')).toBe('docs/\\[draft] a\\*b\\?.txt');
     expect(escapeGitignore('a\\b  ')).toBe('a\\\\b\\ \\ ');
     expect(escapeGitignore('#memo.txt')).toBe('#memo.txt');
+  });
+});
+
+describe('confirmation messages set the names apart from the fixed text', () => {
+  it('tRich keeps marked arguments apart and merges plain ones into the text', () => {
+    const lang = getLang();
+    setLang('en');
+    try {
+      expect(tRich('branch.deleteConfirm', '2', mark('feature/a', 'feature/b'))).toEqual(['Delete 2 branch(es): ', { mark: ['feature/a', 'feature/b'] }]);
+      expect(tRich('cmd.restore', mark('src/a.ts'), mark('abc1234'))).toEqual(['Restore ', { mark: ['src/a.ts'] }, ' to its content in ', { mark: ['abc1234'] }, ' (working tree and index).']);
+      expect(tRich('push.forceConfirmLost', mark('main → origin/main'), '3')).toEqual([
+        'Force push these branches: ',
+        { mark: ['main → origin/main'] },
+        '\n3 commit(s) that exist only on the remote will be lost.',
+      ]);
+    } finally {
+      setLang(lang);
+    }
+  });
+
+  it('richLines joins lines with newlines and skips empty ones', () => {
+    expect(richLines(['a ', { mark: ['x'] }], false, '', undefined, 'b')).toEqual(['a ', { mark: ['x'] }, '\n', 'b']);
+    expect(richLines(false)).toEqual([]);
   });
 });

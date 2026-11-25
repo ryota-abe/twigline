@@ -1,4 +1,4 @@
-import { t } from './i18n';
+import { mark, t, tRich } from './i18n';
 import {
   confirm,
   copyText,
@@ -130,7 +130,7 @@ export async function handleCommand(command: string, ctx: Ctx): Promise<void> {
       const shas = targetShas(sha);
       const ok = await confirm({
         title: t('cmd.cherryPickTitle'),
-        message: t('cmd.cherryPick', String(shas.length), snapshot?.head.branch ?? 'HEAD'),
+        message: tRich('cmd.cherryPick', String(shas.length), mark(snapshot?.head.branch ?? 'HEAD')),
         detail: shas.map((s) => `${shortSha(s)} ${subjectOf(s)}`).join('\n'),
         okLabel: t('cmd.cherryPickOk'),
       });
@@ -244,7 +244,7 @@ export async function handleCommand(command: string, ctx: Ctx): Promise<void> {
       const remote = str(ctx.remote) ?? ref?.split('/')[0];
       if (!ref || !remote) return;
       const branch = ref.slice(remote.length + 1);
-      const ok = await confirm({ title: t('cmd.deleteRemoteBranchTitle'), message: t('cmd.deleteRemoteBranch', ref), okLabel: t('delete'), danger: true });
+      const ok = await confirm({ title: t('cmd.deleteRemoteBranchTitle'), message: tRich('cmd.deleteRemoteBranch', mark(ref)), okLabel: t('delete'), danger: true });
       if (ok) await runOp({ kind: 'remoteBranch/delete', remote, branch }, { success: t('cmd.deleted', ref) });
       return;
     }
@@ -302,7 +302,7 @@ export async function handleCommand(command: string, ctx: Ctx): Promise<void> {
       const st = snapshot?.stashes.find((s) => s.index === ctx.index);
       const ok = await confirm({
         title: t('cmd.dropStashTitle'),
-        message: t('cmd.dropStash', `stash@{${ctx.index}}: ${st?.message ?? ''}`),
+        message: tRich('cmd.dropStash', mark(`stash@{${ctx.index}}: ${st?.message ?? ''}`)),
         okLabel: t('delete'),
         danger: true,
       });
@@ -358,7 +358,7 @@ export async function handleCommand(command: string, ctx: Ctx): Promise<void> {
     case 'twigline.file.markUnresolved': {
       if (!path) return;
       const paths = targetPaths(path, 'file.conflicted');
-      const ok = await confirm({ title: t('cmd.unresolveTitle'), message: t('cmd.unresolve', paths.join(', ')), okLabel: t('ok'), danger: true });
+      const ok = await confirm({ title: t('cmd.unresolveTitle'), message: tRich('cmd.unresolve', mark(...paths)), okLabel: t('ok'), danger: true });
       if (ok) await runOp({ kind: 'conflict/mark', paths, resolved: false });
       return;
     }
@@ -372,7 +372,7 @@ export async function handleCommand(command: string, ctx: Ctx): Promise<void> {
       return;
     case 'twigline.commitFile.restore': {
       if (!path || !sha) return;
-      const ok = await confirm({ title: t('cmd.restoreTitle'), message: t('cmd.restore', path, shortSha(sha)), okLabel: t('cmd.restoreOk'), danger: true });
+      const ok = await confirm({ title: t('cmd.restoreTitle'), message: tRich('cmd.restore', mark(path), mark(shortSha(sha))), okLabel: t('cmd.restoreOk'), danger: true });
       if (ok) await runOp({ kind: 'file/restore', sha, path });
       return;
     }

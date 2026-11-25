@@ -16,7 +16,7 @@ import type {
   ViewKind,
 } from '../../../shared/protocol';
 import { createLaneState, layoutRows, type GraphRow } from '../graph/layout';
-import { opTitle, setLang, t } from '../i18n';
+import { mark, opTitle, setLang, t, tRich, type Rich } from '../i18n';
 import { RpcError, isCancelled, type RpcClient } from '../rpc/RpcClient';
 import { effectiveCommitMessage } from '../util/commitMessage';
 import { UNCOMMITTED, shortSha } from '../util/format';
@@ -572,7 +572,7 @@ export async function applyLines(diff: FileDiff, lineIds: number[], action: 'sta
   if (action === 'discard') {
     const ok = await confirm({
       title: t('confirm.discardLines.title'),
-      message: t('confirm.discardLines.message', String(lineIds.length), diff.path),
+      message: tRich('confirm.discardLines.message', String(lineIds.length), mark(diff.path)),
       okLabel: t('discard'),
       danger: true,
     });
@@ -845,7 +845,8 @@ export function closeDialog(): void {
 }
 
 let confirmResolve: ((ok: boolean) => void) | undefined;
-export function confirm(p: { title: string; message: string; okLabel?: string; danger?: boolean; detail?: string }): Promise<boolean> {
+/** message: what is about to happen. Give the names it is about (branches, paths) with tRich and mark() so they stand out from the fixed text */
+export function confirm(p: { title: string; message: string | Rich; okLabel?: string; danger?: boolean; detail?: string }): Promise<boolean> {
   confirmResolve?.(false);
   return new Promise((resolve) => {
     confirmResolve = resolve;
