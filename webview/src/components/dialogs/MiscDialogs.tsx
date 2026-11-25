@@ -1,11 +1,11 @@
 import { useMemo, useState } from 'react';
 import type { Operation, RpcError as RpcErrorShape } from '../../../../shared/protocol';
-import { t } from '../../i18n';
+import { mark, type Rich, t, tRich } from '../../i18n';
 import { closeDialog, confirm, getRpc, openDialog, resolveConfirm, runOp, runOpResult, uiAction } from '../../store/actions';
 import { get, useStore } from '../../store/store';
 import { escapeGitignore } from '../../util/commitMessage';
 import { basename, dirname, shortSha } from '../../util/format';
-import { Button, Checkbox, Icon, Select } from '../ui';
+import { Button, Checkbox, Icon, RichText, Select } from '../ui';
 import { initialStart, startOptions } from './BranchDialogs';
 import { DialogShell, Field, Warning, useRefNameValidation } from './Dialog';
 
@@ -275,10 +275,10 @@ export function IgnoreDialog({ path }: { path: string }) {
   );
 }
 
-export function ConfirmDialog({ title, message, okLabel, danger, detail }: { title: string; message: string; okLabel?: string; danger?: boolean; detail?: string }) {
+export function ConfirmDialog({ title, message, okLabel, danger, detail }: { title: string; message: string | Rich; okLabel?: string; danger?: boolean; detail?: string }) {
   return (
     <DialogShell title={title} okLabel={okLabel ?? t('ok')} danger={danger} onOk={() => resolveConfirm(true)} onCancel={() => resolveConfirm(false)}>
-      <p className="pre">{message}</p>
+      <p className="pre">{typeof message === 'string' ? message : <RichText text={message} />}</p>
       {detail && <pre className="detail-pre">{detail}</pre>}
     </DialogShell>
   );
@@ -490,7 +490,7 @@ export function SettingsDialog({ editRemote }: { editRemote?: string }) {
                 small
                 danger
                 onClick={async () => {
-                  const ok = await confirm({ title: t('settings.removeRemoteTitle'), message: t('settings.removeRemote', r.name), okLabel: t('delete'), danger: true });
+                  const ok = await confirm({ title: t('settings.removeRemoteTitle'), message: tRich('settings.removeRemote', mark(r.name)), okLabel: t('delete'), danger: true });
                   if (ok) {
                     await runOp({ kind: 'remote/remove', name: r.name });
                     openDialog('settings');

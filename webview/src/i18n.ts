@@ -1335,6 +1335,46 @@ export function t(key: Key | `irebase.action.${string}`, ...args: string[]): str
   return template.replace(/\{(\d+)\}/g, (m, i: string) => args[Number(i)] ?? m);
 }
 
+/** An argument of tRich shown apart from the fixed text: what the user is asked about (a branch, a path; one or a list) */
+export interface Mark {
+  mark: readonly string[];
+}
+export function mark(...values: string[]): Mark {
+  return { mark: values };
+}
+/** Text whose marked arguments are kept apart from the fixed text, in order. '\n' in a string starts a new line */
+export type Rich = ReadonlyArray<string | Mark>;
+
+/** t that keeps the arguments given with mark() apart, so the UI can show them distinctly from the fixed text */
+export function tRich(key: Key, ...args: (string | Mark)[]): Rich {
+  const dict = current === 'ja' ? ja : en;
+  const template = (dict as Record<string, string>)[key] ?? key;
+  const out: (string | Mark)[] = [];
+  const push = (part: string | Mark) => {
+    if (typeof part !== 'string') out.push(part);
+    else if (!part) return;
+    else if (typeof out[out.length - 1] === 'string') out[out.length - 1] += part;
+    else out.push(part);
+  };
+  for (const piece of template.split(/(\{\d+\})/)) {
+    const m = /^\{(\d+)\}$/.exec(piece);
+    push(m ? (args[Number(m[1])] ?? piece) : piece);
+  }
+  return out;
+}
+
+/** Lines of text (plain or Rich) as one Rich, skipping empty ones */
+export function richLines(...lines: (string | Rich | false | undefined)[]): Rich {
+  const out: (string | Mark)[] = [];
+  for (const line of lines) {
+    if (!line || line.length === 0) continue;
+    if (out.length > 0) out.push('\n');
+    if (typeof line === 'string') out.push(line);
+    else out.push(...line);
+  }
+  return out;
+}
+
 export function opTitle(kind: OperationKind): string {
   return t(`op.${kind}` as Key);
 }

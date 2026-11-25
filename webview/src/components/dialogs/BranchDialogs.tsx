@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { Operation, RefInfo } from '../../../../shared/protocol';
-import { t } from '../../i18n';
+import { mark, richLines, t, tRich } from '../../i18n';
 import { closeDialog, confirm, getRpc, runOp } from '../../store/actions';
 import { get, useStore } from '../../store/store';
 import { deleteInfo, safeToDelete, type DeleteInfo } from '../../util/branchDelete';
@@ -114,7 +114,8 @@ export function BranchDialog({ tab: initialTab, start: initial, names }: { tab?:
         })
     : undefined;
   const deleteOp: Operation | null = chosen.length > 0 ? { kind: 'branch/delete', names: chosen.map((r) => r.name), force, remoteBranches } : null;
-  const countsOf = (list: RefInfo[], n: (i: DeleteInfo) => number) => list.map((r) => t('branch.countOf', r.name, String(n(infos.get(r.name)!)))).join(', ');
+  const countList = (list: RefInfo[], n: (i: DeleteInfo) => number) => list.map((r) => t('branch.countOf', r.name, String(n(infos.get(r.name)!))));
+  const countsOf = (list: RefInfo[], n: (i: DeleteInfo) => number) => countList(list, n).join(', ');
   const setPick = (list: string[], on: boolean) => {
     const next = new Set(picked);
     for (const n of list) {
@@ -136,17 +137,14 @@ export function BranchDialog({ tab: initialTab, start: initial, names }: { tab?:
           closeDialog();
           await runOp(createOp, { success: t('branch.created', name.trim()) });
         } else if (tab === 'delete' && deleteOp) {
-          const list = chosen.map((r) => r.name).join(', ');
           const ok = await confirm({
             title: t('branch.deleteConfirmTitle'),
-            message: [
-              t('branch.deleteConfirm', String(chosen.length), list),
-              remoteBranches?.length ? t('branch.deleteRemoteToo', remoteBranches.map((r) => `${r.remote}/${r.branch}`).join(', ')) : '',
-              force && atRisk.length > 0 ? t('branch.deleteAtRisk', countsOf(atRisk, (i) => i.atRisk)) : '',
-              closingPrs.length > 0 ? t('branch.prWillClose', closingPrs.map(prLabel).join(', ')) : '',
-            ]
-              .filter(Boolean)
-              .join('\n'),
+            message: richLines(
+              tRich('branch.deleteConfirm', String(chosen.length), mark(...chosen.map((r) => r.name))),
+              !!remoteBranches?.length && tRich('branch.deleteRemoteToo', mark(...remoteBranches.map((r) => `${r.remote}/${r.branch}`))),
+              force && atRisk.length > 0 && tRich('branch.deleteAtRisk', mark(...countList(atRisk, (i) => i.atRisk))),
+              closingPrs.length > 0 && tRich('branch.prWillClose', mark(...closingPrs.map(prLabel))),
+            ),
             okLabel: t('branch.delete'),
             danger: true,
           });

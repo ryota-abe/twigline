@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { Operation } from '../../../../shared/protocol';
-import { t } from '../../i18n';
+import { mark, t, tRich } from '../../i18n';
 import { closeDialog, confirm, openDialog, runOp } from '../../store/actions';
 import { useStore } from '../../store/store';
 import { pullRequirement, pullStashPaths, pullStatus, type PullMode } from '../../util/pullStatus';
@@ -172,10 +172,10 @@ export function PullDialog({ remote: initialRemote, branch: initialBranch, into 
 /** Push after confirming a force push. lost is the number of remote commits a force push is known to discard */
 async function runPush(op: PushOp, lost = 0) {
   if (op.force) {
-    const branches = op.branches.map((b) => `${b.local} → ${op.remote}/${b.remote}`).join(', ');
+    const branches = mark(...op.branches.map((b) => `${b.local} → ${op.remote}/${b.remote}`));
     const ok = await confirm({
       title: t('push.forceConfirmTitle'),
-      message: lost > 0 ? t('push.forceConfirmLost', branches, String(lost)) : t('push.forceConfirm', branches),
+      message: lost > 0 ? tRich('push.forceConfirmLost', branches, String(lost)) : tRich('push.forceConfirm', branches),
       okLabel: t('push.forceOk'),
       danger: true,
     });

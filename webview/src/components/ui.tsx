@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ButtonHTMLAttributes, type ReactNode } from 'react';
+import type { Rich } from '../i18n';
 import { cx } from '../util/format';
 
 /** Icon from @vscode/codicons */
@@ -250,4 +251,26 @@ export function Empty({ children, icon }: { children: ReactNode; icon?: string }
 /** Value of the data-vscode-context attribute */
 export function vsContext(section: string, data: Record<string, unknown>): string {
   return JSON.stringify({ webviewSection: section, preventDefaultContextMenuItems: true, ...data });
+}
+
+/** Text from tRich: the marked names (branches, paths) are set apart from the fixed text, each one on its own */
+export function RichText({ text }: { text: Rich }) {
+  return (
+    <>
+      {text.map((part, i) =>
+        typeof part === 'string' ? (
+          part
+        ) : (
+          <span key={i} className="marks">
+            {part.mark.map((value, j) => (
+              <span key={j}>
+                {j > 0 && <span className="mark-sep">, </span>}
+                <span className="mark">{value}</span>
+              </span>
+            ))}
+          </span>
+        ),
+      )}
+    </>
+  );
 }
