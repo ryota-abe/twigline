@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- The selected "Uncommitted Changes" or "History" tab is bold. In themes that give both tabs the same text color (Light Modern), the underline was the only sign of the selected tab
+
 ## 1.3.0
 
 - "Open Branch in Browser" in the right-click menu of a branch, a remote branch and a branch badge in the commit details opens the branch's page on GitHub, GitLab, Bitbucket or Azure DevOps. A local branch opens the branch it is pushed to

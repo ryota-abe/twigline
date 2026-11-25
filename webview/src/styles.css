@@ -366,8 +366,28 @@ body.resizing-column * {
   background: transparent;
   color: var(--vscode-panelTitle-inactiveForeground, var(--twigline-muted));
   font: inherit;
-  font-weight: 600;
   cursor: pointer;
+}
+/* The selected tab is also bold. Some themes (Light Modern) give inactive and active panel titles the same color,
+   which would leave the underline as the only sign of the selected tab */
+.header .tab.on .tab-label {
+  font-weight: 600;
+}
+/* An invisible bold copy of the label keeps each tab as wide as its bold label, so the tabs do not shift when the selection changes */
+.header .tab .tab-label {
+  display: inline-flex;
+  flex-direction: column;
+  /* The regular label stays next to the icon; the room it leaves over goes after it */
+  text-align: start;
+}
+.header .tab .tab-label::after {
+  content: attr(data-label);
+  font-weight: 600;
+  height: 0;
+  overflow: hidden;
+  visibility: hidden;
+  user-select: none;
+  pointer-events: none;
 }
 .header .tab .codicon {
   font-size: 16px;
