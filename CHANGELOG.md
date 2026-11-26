@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.3.1
 
 - Confirmation dialogs (deleting branches, force push, removing a remote, restoring a file, ...) set the branch names, paths and other names they ask about apart from the fixed text, so the target can be read at a glance
 - The selected "Uncommitted Changes" or "History" tab is bold. In themes that give both tabs the same text color (Light Modern), the underline was the only sign of the selected tab
