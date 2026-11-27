@@ -72,7 +72,7 @@ History has a single search box; a prefix selects the kind of search.
 | Input | Result |
 | --- | --- |
 | `login` | Search commit messages |
-| `author:alice` | Search by author |
+| `author:alice` | Search by author or co-author (`Co-authored-by`) |
 | `content:validate(` | Search changes for that text as typed (`git log -G`) |
 | `path:src/auth` | History of that path (with the graph) |
 | `a1c93e0` (7 or more hex digits) / `sha:feature/login` | Go to that commit |

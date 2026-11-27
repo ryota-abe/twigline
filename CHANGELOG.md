@@ -3,6 +3,8 @@
 ## Unreleased
 
 - History shows the people in a commit's `Co-authored-by` trailers next to the author: the author and the first co-author by name, and "+n" for the others. The tooltip lists everyone with their email, and the commit details have a "Co-authors" row
+- The `author:` search also finds commits where the name or email is a co-author's
+- The Author column of history is 180px wide by default (was 120px), so that two names fit
 
 ## 1.3.1
 
