@@ -7,7 +7,7 @@ import { branchSpan } from '../graph/span';
 import { t } from '../i18n';
 import { jumpTo, loadMoreLog, rowAt, rowIndexOf, saveUi, selectRow, setQuery, shaAt, takeSearchFocus, uncommittedCount } from '../store/actions';
 import { displayRowCount, useStore } from '../store/store';
-import { UNCOMMITTED, cx, formatDate, laneColor, shortSha } from '../util/format';
+import { UNCOMMITTED, authorNames, cx, formatDate, laneColor, personText, shortSha } from '../util/format';
 import { formatSearch, parseSearch } from '../util/search';
 import { CommitDetailPane } from './CommitDetail';
 import { RefBadges, useRefsBySha } from './RefBadges';
@@ -418,10 +418,23 @@ const CommitRowView = memo(function CommitRowView(p: RowProps) {
         )}
       </div>
       <div className="c mono date">{p.row ? formatDate(p.row.authorTime, p.dateFormat) : ''}</div>
-      <div className="c author" title={p.row ? `${p.row.author} <${p.row.email}>` : ''}>
-        {p.row?.author ?? ''}
-      </div>
+      {p.row ? <AuthorCell row={p.row} /> : <div className="c author" />}
       <div className="c mono sha">{p.isVirtual ? '*' : shortSha(sha)}</div>
     </div>
   );
 });
+
+/** The author and the first co-author, "+n" for the others, and everyone with their email in the tooltip */
+function AuthorCell({ row }: { row: LogRow }) {
+  const { names, more } = authorNames(row);
+  const title = [
+    personText(row.author, row.email),
+    ...(row.coAuthors ?? []).map((c) => t('history.coAuthor', personText(c.name, c.email))),
+  ].join('\n');
+  return (
+    <div className="c author" title={title}>
+      <span className="names">{names}</span>
+      {more > 0 && <span className="more">+{more}</span>}
+    </div>
+  );
+}

@@ -1,7 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { LOG_FORMAT, NulRecordSplitter, parseLog, parseLogRecord } from '../../src/git/parsers/log';
+import { LOG_FORMAT, NulRecordSplitter, parseCoAuthors, parseLog, parseLogRecord } from '../../src/git/parsers/log';
 import { parseStatusV2 } from '../../src/git/parsers/status';
 import { FOR_EACH_REF_FORMAT, STASH_FORMAT, parseConfigZ, parseForEachRef, parseStashList, remotesFromConfig } from '../../src/git/parsers/refs';
 import { parseRawNumstat } from '../../src/git/parsers/diffTree';
@@ -36,8 +36,49 @@ describe('log', () => {
     expect(rows[0].authorTime).toBeGreaterThan(1_600_000_000);
   });
 
+  it('reads Co-authored-by trailers, leaving out the author, duplicates and trailers outside the last paragraph', () => {
+    repo = makeRepo();
+    const plain = repo.commit('No co-author', { 'a.txt': 'a\n' });
+    const shared = repo.commit(
+      [
+        'Add the feature',
+        '',
+        'Co-authored-by: not a trailer, this paragraph is not the last one',
+        '',
+        'Co-authored-by: Claude Opus 5.5 <noreply@anthropic.com>',
+        'co-authored-by: Bob Smith <BOB@example.com>',
+        'Co-Authored-By: Bob <bob@example.com>',
+        'Co-authored-by: Test User <test@example.com>',
+        'Co-authored-by: Carol',
+        'Signed-off-by: Test User <test@example.com>',
+      ].join('\n'),
+      { 'b.txt': 'b\n' },
+    );
+    const rows = parseLog(repo.gitBuf(['log', '-z', '--encoding=UTF-8', `--format=${LOG_FORMAT}`, 'HEAD']));
+    const row = rows.find((r) => r.sha === shared)!;
+    expect(row.subject).toBe('Add the feature');
+    expect(row.coAuthors).toEqual([
+      { name: 'Claude Opus 5.5', email: 'noreply@anthropic.com' },
+      { name: 'Bob Smith', email: 'BOB@example.com' },
+      { name: 'Carol', email: '' },
+    ]);
+    expect(rows.find((r) => r.sha === plain)!).not.toHaveProperty('coAuthors');
+  });
+
+  it('parses Co-authored-by values', () => {
+    const sep = '\x1e';
+    expect(parseCoAuthors('', 'A', 'a@x')).toBeUndefined();
+    expect(parseCoAuthors(`A <A@X>${sep}a`, 'A', 'a@x')).toEqual([{ name: 'a', email: '' }]);
+    expect(parseCoAuthors(`  B  <b@x> ${sep}${sep}<c@x>${sep}b<b@x>`, 'A', 'a@x')).toEqual([
+      { name: 'B', email: 'b@x' },
+      { name: 'c@x', email: 'c@x' },
+    ]);
+    // Without an email, the author is matched by name
+    expect(parseCoAuthors('Me', 'me', '')).toBeUndefined();
+  });
+
   it('splits records across arbitrary chunk boundaries', () => {
-    const records = ['a'.repeat(40) + '\x1f\x1fX\x1fx@y\x1f1\x1fone', 'b'.repeat(40) + '\x1f' + 'a'.repeat(40) + '\x1fY\x1fy@z\x1f2\x1f二つ目'];
+    const records = ['a'.repeat(40) + '\x1f\x1fX\x1fx@y\x1f1\x1f\x1fone', 'b'.repeat(40) + '\x1f' + 'a'.repeat(40) + '\x1fY\x1fy@z\x1f2\x1fZ <z@z>\x1f二つ目'];
     const buf = Buffer.from(records.join('\0') + '\0', 'utf8');
     for (let size = 1; size < 20; size++) {
       const splitter = new NulRecordSplitter();
