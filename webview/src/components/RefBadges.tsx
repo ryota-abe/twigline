@@ -36,7 +36,7 @@ export function useRefsBySha(snapshot: RepoSnapshot | null): RefsBySha {
  * Ref badges (local branches filled, remotes outlined, tags yellow).
  * For a branch with a PR, the PR mark is attached to the right of the badge. A PR on a local branch at the same commit is not repeated on the remote branch.
  * With `menu`, a branch badge has its own right-click menu (badge.local / badge.remote: Open Branch in Browser, Copy Branch Name).
- * The History rows leave it off so that right-clicking anywhere on a row keeps showing the commit menu
+ * In a History row, right-clicking a branch badge shows that menu and the rest of the row keeps showing the commit menu (the badge's context wins over the row's)
  */
 export function RefBadges({ refs, stash, detachedHead, menu }: { refs?: RefInfo[]; stash?: StashInfo; detachedHead?: boolean; menu?: boolean }) {
   const prs = useStore((s) => s.pullRequests);
