@@ -159,7 +159,7 @@ export const DEFAULT_UI: UiLayout = {
   detailMetaWidth: 380,
   fsListWidth: 320,
   commitHeight: 150,
-  cols: { graph: null, date: 148, author: 120, sha: 80 },
+  cols: { graph: null, date: 148, author: 180, sha: 80 },
   collapsed: {},
   fileView: 'list',
   fsLayout: 'split',

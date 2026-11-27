@@ -170,6 +170,12 @@ export interface LogQuery {
   search?: { mode: 'message' | 'author' | 'content' | 'sha'; text: string };
 }
 
+/** A person named in a Co-authored-by trailer. email is '' when the trailer has none */
+export interface CoAuthor {
+  name: string;
+  email: string;
+}
+
 export interface LogRow {
   sha: Sha;
   parents: Sha[];
@@ -178,6 +184,8 @@ export interface LogRow {
   /** UNIX seconds */
   authorTime: number;
   subject: string;
+  /** Co-authored-by trailers, without the author and duplicates. Left out when there are none */
+  coAuthors?: CoAuthor[];
 }
 
 export interface LogPage {
@@ -210,6 +218,8 @@ export interface CommitDetail {
   author: string;
   email: string;
   authorTime: number;
+  /** Co-authored-by trailers, without the author and duplicates. Left out when there are none */
+  coAuthors?: CoAuthor[];
   committer: string;
   committerEmail: string;
   commitTime: number;

@@ -58,8 +58,8 @@ export class LogService {
       args.push('--no-walk');
       revs.push(search.text.trim());
     } else {
+      // The author search is done on the rows (see below)
       if (search?.mode === 'message') args.push(`--grep=${search.text}`, '--regexp-ignore-case', '--fixed-strings');
-      else if (search?.mode === 'author') args.push(`--author=${search.text}`, '--regexp-ignore-case', '--fixed-strings');
       else if (search?.mode === 'content') args.push(`-G${literalRegex(search.text)}`);
 
       if (query.branches === 'all') {
@@ -113,6 +113,16 @@ export class LogService {
     } else {
       args.push('--end-of-options', ...revs, '--');
     }
+    if (search?.mode === 'author') {
+      // Co-authors are in Co-authored-by trailers of the message, and git ANDs --author with --grep,
+      // so git cannot find "the author or a co-author" by itself: the rows are matched here instead
+      const before = filter;
+      const text = search.text;
+      filter = (row: LogRow) => {
+        const shown = before ? before(row) : row;
+        return shown && authorMatches(shown, text) ? shown : undefined;
+      };
+    }
     if (skip > 0 && !filter) args.splice(skipAt, 0, `--skip=${skip}`);
     return { args, filter };
   }
@@ -153,6 +163,13 @@ export class LogService {
  * A regular expression that matches the text itself, for git log -G, which has no fixed-string form.
  * Bracket expressions mean the same in basic and extended POSIX syntax, unlike a backslash before ( or {
  */
+/** The author search: "Name <email>" of the author or of a co-author contains text, ignoring case */
+export function authorMatches(row: Pick<LogRow, 'author' | 'email' | 'coAuthors'>, text: string): boolean {
+  const needle = text.toLowerCase();
+  if (`${row.author} <${row.email}>`.toLowerCase().includes(needle)) return true;
+  return !!row.coAuthors?.some((c) => (c.email ? `${c.name} <${c.email}>` : c.name).toLowerCase().includes(needle));
+}
+
 export function literalRegex(text: string): string {
   return text.replace(/[.[\]{}()*+?$|^\\]/g, (c) => (c === '^' ? '\\^' : `[${c}]`));
 }

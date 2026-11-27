@@ -5,7 +5,7 @@ import { RpcClient } from '../../webview/src/rpc/RpcClient';
 import * as actions from '../../webview/src/store/actions';
 import { DEFAULT_QUERY, DEFAULT_UI, useStore } from '../../webview/src/store/store';
 import { createLaneState } from '../../webview/src/graph/layout';
-import { UNCOMMITTED } from '../../webview/src/util/format';
+import { UNCOMMITTED, authorNames } from '../../webview/src/util/format';
 import { effectiveCommitMessage, escapeGitignore } from '../../webview/src/util/commitMessage';
 import { formatSearch, parseSearch } from '../../webview/src/util/search';
 import { getLang, mark, richLines, setLang, tRich } from '../../webview/src/i18n';
@@ -536,5 +536,15 @@ describe('confirmation messages set the names apart from the fixed text', () => 
   it('richLines joins lines with newlines and skips empty ones', () => {
     expect(richLines(['a ', { mark: ['x'] }], false, '', undefined, 'b')).toEqual(['a ', { mark: ['x'] }, '\n', 'b']);
     expect(richLines(false)).toEqual([]);
+  });
+});
+
+describe('author column', () => {
+  it('names the author and the first co-author, and counts the rest as +n', () => {
+    const co = (...names: string[]) => names.map((name) => ({ name, email: `${name}@x` }));
+    expect(authorNames({ author: 'Alice' })).toEqual({ names: 'Alice', more: 0 });
+    expect(authorNames({ author: 'Alice', coAuthors: co('Claude') })).toEqual({ names: 'Alice, Claude', more: 0 });
+    expect(authorNames({ author: 'Alice', coAuthors: co('Claude', 'Bob') })).toEqual({ names: 'Alice, Claude', more: 1 });
+    expect(authorNames({ author: 'Alice', coAuthors: co('Claude', 'Bob', 'Carol') })).toEqual({ names: 'Alice, Claude', more: 2 });
   });
 });

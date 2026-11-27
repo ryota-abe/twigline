@@ -102,6 +102,27 @@ describe('LogService', () => {
     expect(noFollow.rows.map((x) => x.subject)).toEqual(['rename a']);
   });
 
+  it('finds commits by author or co-author in the author search', async () => {
+    const r = repo();
+    r.commit('mine', { 'a.txt': '1\n' });
+    r.commit('pair\n\nCo-authored-by: Claude Opus 5.5 <noreply@anthropic.com>', { 'a.txt': '2\n' });
+    r.commit('mob\n\nCo-authored-by: Hanako <hanako@example.com>\nCo-authored-by: Claude Opus 5.5 <noreply@anthropic.com>', { 'a.txt': '3\n' });
+    const m = await model(r);
+    const base = { branches: 'all' as const, includeRemotes: true, includeStashes: true, order: 'date' as const };
+    const search = async (text: string) =>
+      (await m.log.page({ ...base, search: { mode: 'author', text } }, undefined, 0, 10)).rows.map((x) => x.subject);
+    expect(await search('claude')).toEqual(['mob', 'pair']);
+    expect(await search('HANAKO@EXAMPLE')).toEqual(['mob']);
+    expect(await search('test user')).toEqual(['mob', 'pair', 'mine']);
+    expect(await search('nobody')).toEqual([]);
+    // Pages continue from the cursor, and a recreated cursor skips the rows already shown
+    const q = { ...base, search: { mode: 'author' as const, text: 'claude' } };
+    const p1 = await m.log.page(q, undefined, 0, 1);
+    expect(p1.rows.map((x) => x.subject)).toEqual(['mob']);
+    expect((await m.log.page(q, p1.cursor!, 1, 1)).rows.map((x) => x.subject)).toEqual(['pair']);
+    expect((await m.log.page(q, 'missing', 1, 5)).rows.map((x) => x.subject)).toEqual(['pair']);
+  });
+
   it('shows stashes with only their first parent', async () => {
     const r = repo();
     r.commit('base', { 'f.txt': '1\n' });

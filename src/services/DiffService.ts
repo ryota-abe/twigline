@@ -6,6 +6,7 @@ import { chooseEncoding, decode, displayName } from '../git/encoding';
 import { GitError } from '../git/errors';
 import { parseRawDiff, type RawFileDiff } from '../git/parsers/diff';
 import { parseRawNumstat } from '../git/parsers/diffTree';
+import { CO_AUTHORS_FORMAT, parseCoAuthors } from '../git/parsers/log';
 import type { RepoModel } from '../repo/RepoModel';
 
 export interface CachedDiff {
@@ -67,10 +68,10 @@ export class DiffService {
   async commitDetail(sha: Sha, compareTo: Sha | undefined, parent: number | undefined, signal?: AbortSignal): Promise<CommitDetail> {
     const r = this.repo.runner;
     const show = await r.run(
-      ['show', '-s', '--encoding=UTF-8', '--format=%H%x00%P%x00%an%x00%ae%x00%at%x00%cn%x00%ce%x00%ct%x00%B', '--end-of-options', sha],
+      ['show', '-s', '--encoding=UTF-8', `--format=%H%x00%P%x00%an%x00%ae%x00%at%x00%cn%x00%ce%x00%ct%x00${CO_AUTHORS_FORMAT}%x00%B`, '--end-of-options', sha],
       { signal },
     );
-    const [full, parentsStr, author, email, at, committer, committerEmail, ct, ...body] = show.stdout.toString('utf8').split('\0');
+    const [full, parentsStr, author, email, at, committer, committerEmail, ct, trailers, ...body] = show.stdout.toString('utf8').split('\0');
     const parents = parentsStr ? parentsStr.split(' ').filter(Boolean) : [];
     this.parentsCache.set(full, parents);
     const parentIndex = Math.min(Math.max(parent ?? 0, 0), Math.max(parents.length - 1, 0));
@@ -94,12 +95,14 @@ export class DiffService {
       }
     }
     const message = body.join('\0').replace(/\n+$/, '');
+    const coAuthors = parseCoAuthors(trailers ?? '', author, email);
     return {
       sha: full,
       parents,
       author,
       email,
       authorTime: Number(at) || 0,
+      ...(coAuthors ? { coAuthors } : {}),
       committer,
       committerEmail,
       commitTime: Number(ct) || 0,

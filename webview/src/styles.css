@@ -785,6 +785,20 @@ body.resizing-column * {
   align-items: center;
   gap: 4px;
 }
+.commit-row .c.author {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.commit-row .author .names {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Co-authors beyond the second: stays visible when the names are cut off */
+.commit-row .author .more {
+  flex: none;
+  font-size: 0.9em;
+}
 .commit-row .subject {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -796,11 +810,13 @@ body.resizing-column * {
   font-style: italic;
 }
 .commit-row .date,
-.commit-row .sha {
+.commit-row .sha,
+.commit-row .author .more {
   color: var(--twigline-muted);
 }
 .commit-row.selected .date,
-.commit-row.selected .sha {
+.commit-row.selected .sha,
+.commit-row.selected .author .more {
   color: inherit;
 }
 .graph-cell {
@@ -1058,6 +1074,11 @@ body.resizing-column * {
   flex-wrap: wrap;
   align-items: center;
   gap: 4px;
+}
+.meta dd.co-authors {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
 }
 .parent {
   margin-right: 6px;

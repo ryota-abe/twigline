@@ -2,7 +2,7 @@ import type { ChangedFile, CommitDetail, MessageLink } from '../../../shared/pro
 import { t } from '../i18n';
 import { copyText, detailFileTarget, loadDetail, openDialog, saveUi, selectDetailFile, selectRow, selectWorkingFile, uiAction } from '../store/actions';
 import { useStore } from '../store/store';
-import { UNCOMMITTED, fullDate, shortSha } from '../util/format';
+import { UNCOMMITTED, fullDate, personText, shortSha } from '../util/format';
 import { DiffView } from './DiffView';
 import { FileList } from './FileList';
 import { RefBadges, useRefsBySha } from './RefBadges';
@@ -138,6 +138,16 @@ function CommitMeta({ detail }: { detail: CommitDetail }) {
           <dd>
             {detail.author} &lt;{detail.email}&gt;
           </dd>
+          {detail.coAuthors && (
+            <>
+              <dt>{t('detail.coAuthors')}</dt>
+              <dd className="co-authors">
+                {detail.coAuthors.map((c, i) => (
+                  <div key={i}>{personText(c.name, c.email)}</div>
+                ))}
+              </dd>
+            </>
+          )}
           <dt>{t('detail.date')}</dt>
           <dd className="mono">{fullDate(detail.authorTime)}</dd>
           {(detail.committer !== detail.author || detail.committerEmail !== detail.email) && (

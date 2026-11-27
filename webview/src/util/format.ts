@@ -1,10 +1,27 @@
-import type { FileStatusCode } from '../../../shared/protocol';
+import type { CoAuthor, FileStatusCode } from '../../../shared/protocol';
 import { getLang, t } from '../i18n';
 
 export const UNCOMMITTED = 'UNCOMMITTED';
 
 export function shortSha(sha: string, n = 7): string {
   return sha.slice(0, n);
+}
+
+/** People shown by name in the Author column of history; the rest are counted as "+n" */
+export const AUTHOR_NAMES_SHOWN = 2;
+
+/**
+ * The Author column of history: the author and the first co-author by name, and the number of the others.
+ * Commits with a co-author (often an AI agent) show both people; three or more show "+n" for the rest.
+ */
+export function authorNames(row: { author: string; coAuthors?: CoAuthor[] }): { names: string; more: number } {
+  const all = [row.author, ...(row.coAuthors ?? []).map((c) => c.name)];
+  return { names: all.slice(0, AUTHOR_NAMES_SHOWN).join(', '), more: Math.max(0, all.length - AUTHOR_NAMES_SHOWN) };
+}
+
+/** "Name <email>", or the name alone when there is no email */
+export function personText(name: string, email: string): string {
+  return email ? `${name} <${email}>` : name;
 }
 
 const pad = (n: number, w = 2) => String(n).padStart(w, '0');

@@ -63,6 +63,18 @@ describe(`history of ${N} commits`, () => {
     expect(first).toBeLessThan(3000);
   });
 
+  it('searches by author through all commits', async () => {
+    // The author search matches the rows in Node (to include co-authors), so every commit is read when nothing matches
+    const q = { branches: 'all' as const, includeRemotes: true, includeStashes: false, order: 'date' as const };
+    const t = performance.now();
+    const none = await model.log.page({ ...q, search: { mode: 'author', text: 'nobody' } }, undefined, 0, 500);
+    const elapsed = performance.now() - t;
+    console.log(`[perf] author search with no match ${elapsed.toFixed(0)} ms`);
+    expect(none.rows).toHaveLength(0);
+    expect(none.done).toBe(true);
+    expect(elapsed).toBeLessThan(3000);
+  });
+
   it('lays out the graph for all rows', async () => {
     const rows = [];
     const q = { branches: 'all' as const, includeRemotes: true, includeStashes: false, order: 'date' as const };
