@@ -412,7 +412,7 @@ const CommitRowView = memo(function CommitRowView(p: RowProps) {
           <span className="subject dim">{t('history.uncommitted', String(p.wcCount))}</span>
         ) : (
           <>
-            <RefBadges refs={p.refs} stash={p.stash} detachedHead={p.isHead && p.detached} />
+            <RefBadges refs={p.refs} stash={p.stash} detachedHead={p.isHead && p.detached} menu />
             <span className="subject">{p.stash ? p.stash.message : p.row!.subject}</span>
           </>
         )}
